@@ -7,17 +7,16 @@ size_t strlen(const char* str)
 	return len;
 }
 
-int memcmp(const void* s1, const void* s2, size_t n) {
-    unsigned char * s1c = (unsigned char *)s1;
-    unsigned char * s2c = (unsigned char *)s2;
-    int ret = 0;
-    for(size_t i = 0; i < n; i++) {
-        if(s1c[i] != s2c[i]) {
-            ret = s1c[i] - s2c[i];
-            break;
-        }
-    }
-    return ret;
+int memcmp(const void* aptr, const void* bptr, size_t size) {
+	const unsigned char* a = (const unsigned char*) aptr;
+	const unsigned char* b = (const unsigned char*) bptr;
+	for (size_t i = 0; i < size; i++) {
+		if (a[i] < b[i])
+			return -1;
+		else if (b[i] < a[i])
+			return 1;
+	}
+	return 0;
 }
 
 void* memcpy(void* __restrict dest, const void* __restrict src, size_t n) {
