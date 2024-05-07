@@ -1,0 +1,7 @@
+#!/bin/sh
+PROJECT_NAME=nexa
+
+mkdir -p isodir/boot/grub
+cp ../$PROJECT_NAME.bin isodir/boot/myos.bin
+cp grub.cfg isodir/boot/grub/grub.cfg
+grub-mkrescue -o $PROJECT_NAME.iso isodir
