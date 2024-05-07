@@ -1,6 +1,9 @@
 cross
 cross-comp/*/
-*/*.o
 **.o
-*.bin
+**.a
+**.bin
 compile_commands.json
+.cache
+img/*.iso
+img/isodir

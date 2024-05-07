@@ -22,10 +22,13 @@ $(OS_ISO): $(OS_BIN)
 	cd img && ./create-img
 
 bootiso: $(OS_ISO)
-	qemu-system-i386 -cdrom .iso
+	qemu-system-i386 -cdrom $(OS_ISO)
 
 clean:
 	cd boot && make clean
 	cd kernel && make clean
 	rm -f $(OS_BIN)
 	rm -rf img/isodir img/$(OS_NAME).iso
+
+cross-compiler:
+	cd cross-comp && ./create-cross-compiler.sh

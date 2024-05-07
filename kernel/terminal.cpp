@@ -27,12 +27,18 @@ void Terminal::putentryat(char c, uint8_t color, size_t x, size_t y) {
 }
 
 void Terminal::putchar(char c) {
-    putentryat(c, terminal_color, terminal_column, terminal_row);
-	if (++terminal_column == VGA_WIDTH) {
-		terminal_column = 0;
-		if (++terminal_row == VGA_HEIGHT)
-			terminal_row = 0;
-	}
+    if(c != '\n'){
+        putentryat(c, terminal_color, terminal_column, terminal_row);
+        if (++terminal_column == VGA_WIDTH) {
+            terminal_column = 0;
+            if (++terminal_row == VGA_HEIGHT)
+                terminal_row = 0;
+        }
+    } else {
+        terminal_column = 0;
+        if(++terminal_row == VGA_HEIGHT)
+            terminal_row = 0;
+    }
 }
 
 void Terminal::write(const char* data, size_t size) 
