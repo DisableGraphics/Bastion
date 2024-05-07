@@ -2,3 +2,4 @@ cross
 cross-comp/*/
 */*.o
 **.o
+*.bin

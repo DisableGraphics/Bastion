@@ -5,8 +5,8 @@ KCLIB=kclib/libkclib.a
 all: $(KCLIB) $(KERNEL_OBJECTS)
 	i686-elf-ld -r -o kernel.o $(KERNEL_OBJECTS)
 
-$(KERNEL_OBJECTS): $(KERNEL_SOURCES)
-	i686-elf-g++ -c $< -o $@ -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -Lkclib -lkclib
+%.o: %.cpp
+	i686-elf-g++ -c $^ -o $@ -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -Lkclib -lkclib
 
 $(KCLIB):
 	cd kclib && make

@@ -1,4 +1,4 @@
-#include <cstdint>
+#include <stdint.h>
 class VGA {
     public:
         enum vga_color {

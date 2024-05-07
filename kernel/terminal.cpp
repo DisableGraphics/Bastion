@@ -1,6 +1,6 @@
 #include "terminal.hpp"
 #include "vga.hpp"
-#include "klibc/string.h"
+#include "kclib/string.h"
 
 Terminal::Terminal() {
     terminal_row = 0;
@@ -43,5 +43,5 @@ void Terminal::write(const char* data, size_t size)
 
 void Terminal::writestring(const char* data) 
 {
-	terminal_write(data, strlen(data));
+	write(data, strlen(data));
 }
