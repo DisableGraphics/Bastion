@@ -1,6 +1,6 @@
 #include "terminal.hpp"
 #include "vga.hpp"
-#include "kclib/string.h"
+#include <string.h>
 
 Terminal::Terminal() {
     terminal_row = 0;
