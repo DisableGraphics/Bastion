@@ -3,3 +3,4 @@ cross-comp/*/
 */*.o
 **.o
 *.bin
+compile_commands.json
