@@ -2,11 +2,14 @@
 export BINUTILS_VERSION=2.42
 export GCC_VERSION=13.2.0
 # Prepare
-export PREFIX="$PWD/../cross"
+export PREFIX="$PWD/cross"
 export TARGET=i686-elf
 export PATH="$PREFIX/bin:$PATH"
 
 mkdir -p $PREFIX
+
+tar xf binutils-${BINUTILS_VERSION}.tar.xz
+tar xf gcc-${GCC_VERSION}.tar.xz
 
 # Compile binutils
 mkdir build-binutils
