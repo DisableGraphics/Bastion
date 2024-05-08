@@ -25,6 +25,11 @@ char * itoa(long value, char* str, int base) {
 	// Set '-' for negative decimals.
 	if (value < 0 && base == 10)
 		*ptr++ = '-';
+	if(base == 16)
+	{
+		*ptr++ = '0';
+		*ptr++ = 'x';
+	}
 	// Remember where the numbers start.
 	low = ptr;
 	// The actual conversion.
@@ -123,7 +128,7 @@ int printf(const char* restrict format, ...) {
 			format++;
 			long i = va_arg(parameters, void *);
 			char buf[32];
-			itoa(i, buf, 10);
+			itoa(i, buf, 16);
 			size_t len = strlen(buf);
 			if (maxrem < len) {
 				return -1;
