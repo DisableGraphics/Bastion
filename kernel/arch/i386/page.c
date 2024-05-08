@@ -77,3 +77,19 @@ void map_page(void *physaddr, void *virtualaddr, unsigned int flags) {
 
 
 }
+
+pageframe_t kalloc_frame_int()
+{
+        uint32_t i = 0;
+        while(frame_map[i] != FREE)
+        {
+                i++;
+                if(i == npages)
+                {
+                        return(ERROR);
+                }
+        }
+        frame_map[i] = USED;
+        return(startframe + (i*0x1000));//return the address of the page frame based on the location declared free
+        //in the array
+}
