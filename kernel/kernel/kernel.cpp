@@ -19,4 +19,10 @@ extern "C" void kernel_main(void) {
 	terminal_initialize();
 	printf("Hello, kernel World!\n");
 	init_paging();
+	printf("Paging initialized\n");
+	void * physaddr = (void *)0x1000;
+	void * virtualaddr = (void *)0x2000;
+	map_page(physaddr, virtualaddr, 0x3);
+	printf("Mapped page %p to %p\n", physaddr, virtualaddr);
+	//printf("Physical address of 0x10 is %d\n", get_physaddr((void*)0x10));
 }

@@ -12,6 +12,38 @@ static bool print(const char* data, size_t length) {
 	return true;
 }
 
+char * itoa(int value, char* str, int base) {
+	char *rc;
+	char *ptr;
+	char *low;
+	// Check for supported base.
+	if (base < 2 || base > 36) {
+		*str = '\0';
+		return 0;
+	}
+	rc = ptr = str;
+	// Set '-' for negative decimals.
+	if (value < 0 && base == 10)
+		*ptr++ = '-';
+	// Remember where the numbers start.
+	low = ptr;
+	// The actual conversion.
+	do {
+		// Modulo is negative for negative value. This trick makes abs() unnecessary.
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + value % base];
+		value /= base;
+	} while (value);
+	// Terminating the string.
+	*ptr-- = '\0';
+	// Invert the numbers.
+	while (low < ptr) {
+		char tmp = *low;
+		*low++ = *ptr;
+		*ptr-- = tmp;
+	}
+	return rc;
+}
+
 int printf(const char* restrict format, ...) {
 	va_list parameters;
 	va_start(parameters, format);
@@ -61,6 +93,19 @@ int printf(const char* restrict format, ...) {
 			if (!print(str, len))
 				return -1;
 			written += len;
+		} else if(*format == 'd') {
+			format++;
+			int i = va_arg(parameters, int);
+			char buf[32];
+			itoa(i, buf, 10);
+			size_t len = strlen(buf);
+			if (maxrem < len) {
+				return -1;
+			}
+			if (!print(buf, len))
+				return -1;
+			written += len;
+			format += len;
 		} else {
 			format = format_begun_at;
 			size_t len = strlen(format);
