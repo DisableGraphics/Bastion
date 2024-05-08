@@ -12,7 +12,7 @@ static bool print(const char* data, size_t length) {
 	return true;
 }
 
-char * itoa(int value, char* str, int base) {
+char * itoa(long value, char* str, int base) {
 	char *rc;
 	char *ptr;
 	char *low;
@@ -96,6 +96,32 @@ int printf(const char* restrict format, ...) {
 		} else if(*format == 'd') {
 			format++;
 			int i = va_arg(parameters, int);
+			char buf[32];
+			itoa(i, buf, 10);
+			size_t len = strlen(buf);
+			if (maxrem < len) {
+				return -1;
+			}
+			if (!print(buf, len))
+				return -1;
+			written += len;
+		}
+		else if(*format == 'l' && *(format + 1) == 'd'){
+			format += 2;
+			long i = va_arg(parameters, long);
+			char buf[32];
+			itoa(i, buf, 10);
+			size_t len = strlen(buf);
+			if (maxrem < len) {
+				return -1;
+			}
+			if (!print(buf, len))
+				return -1;
+			written += len;
+
+		} else if(*format == 'p') {
+			format++;
+			long i = va_arg(parameters, void *);
 			char buf[32];
 			itoa(i, buf, 10);
 			size_t len = strlen(buf);
