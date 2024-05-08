@@ -11,6 +11,7 @@ uint32_t first_page_table[1024] __attribute__((aligned(4096)));
 
 void init_paging() {
 	loadPageDirectory(page_directory);
+	page_initialize();
 	enablePaging();
 }
 
