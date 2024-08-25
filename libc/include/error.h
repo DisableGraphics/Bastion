@@ -1,0 +1,1 @@
+void kerror(const char *msg);

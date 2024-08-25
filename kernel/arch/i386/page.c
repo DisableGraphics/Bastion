@@ -1,13 +1,16 @@
 #include <kernel/page.h>
+#include "pagedef.h"
 
 void page_initialize(void) {
     for(int i = 0; i < 1024; i++)
     {
         // This sets the following flags to the pages:
-        //   Supervisor: Only kernel-mode can access them
+        //   Supervisor: Only kernel-mode can access them (1 if User-mode can access, 0 if not)
         //   Write Enabled: It can be both read from and written to
         //   Not Present: The page table is not present
-        page_directory[i] = 0x00000002;
+		//Note: no need to write the PRESENT flag as it is set to 0 by default
+		// supervisor level (0), read/write (1), not present (0)
+        page_directory[i] = READ_WRITE;
     }
     // holds the physical address where we want to start mapping these pages to.
     // in this case, we want to map these pages to the very beginning of memory.
@@ -17,79 +20,73 @@ void page_initialize(void) {
     {
         // As the address is page aligned, it will always leave 12 bits zeroed.
         // Those bits are used by the attributes ;)
-        first_page_table[i] = (i * 0x1000) | 3; // attributes: supervisor level, read/write, present.
+        first_page_table[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
     }
-    page_directory[0] = ((unsigned int)first_page_table) | 3;
+    page_directory[0] = ((unsigned int)first_page_table) | (READ_WRITE | PRESENT);
 }
+#include <stdio.h>
 
 void *get_physaddr(void *virtualaddr) {
     unsigned long pdindex = (unsigned long)virtualaddr >> 22;
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
- 
-    unsigned long *pd = (unsigned long *)0xFFFFF000;
+
+	if(!(page_directory[pdindex] & PRESENT)) return 0;
     // Here you need to check whether the PD entry is present.
-    if(!(pd[pdindex] & 1)) {
-        // The PD entry is not present, so the PT is not present either.
-        return 0;
-    }
- 
-    unsigned long *pt = ((unsigned long *)0xFFC00000) + (0x400 * pdindex);
+	uint32_t * page_table = (uint32_t*)(page_directory[pdindex] & ~0xFFF);
+
+    unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
     // Here you need to check whether the PT entry is present.
- 
+	if(!(pt[ptindex] & PRESENT)) return 0;
+
     return (void *)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
 }
-#include <stdio.h>
+
+#include <error.h>
+
 void map_page(void *physaddr, void *virtualaddr, unsigned int flags) {
     // Make sure that both addresses are page-aligned.
-    if(((unsigned int)physaddr % 4096) != 0 || ((unsigned int)virtualaddr % 4096) != 0) {
-        return;
-    }
-
+	if((unsigned long)physaddr % PAGE_SIZE != 0 || (unsigned long)virtualaddr % PAGE_SIZE != 0) {kerror("Addresses not page-aligned"); return;}
     unsigned long pdindex = (unsigned long)virtualaddr >> 22;
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
- 
-    unsigned long *pd = (unsigned long *)page_directory;
+
     // Here you need to check whether the PD entry is present.
     // When it is not present, you need to create a new empty PT and
     // adjust the PDE accordingly.
-    if(!(pd[pdindex] & 1)) {
-        // The PT is not present, create it.
-        unsigned long *pt = (unsigned long *)first_page_table;
-        for(int i = 0; i < 1024; i++) {
-            pt[i] = 0;
-        }
-        pd[pdindex] = ((unsigned long)pt) | 3; // Present, R/W
-    }
+	if(!(page_directory[pdindex] & PRESENT)) return;
 
-    printf("pdindex: %d, ptindex: %d\n", pdindex, ptindex);
- 
-    unsigned long *pt = ((unsigned long *)first_page_table) + (0x400 * pdindex);
+	unsigned long * page_table = (unsigned long*)(page_directory[pdindex] & ~0xFFF);
+
+    unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
     // Here you need to check whether the PT entry is present.
     // When it is, then there is already a mapping present. What do you do now?
-    if(pt[ptindex] & 1) {
-        return;
-    }
- 
-    pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | 0x01; // Present
- 
+
+    pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | PRESENT; // Present
+
     // Now you need to flush the entry in the TLB
     // or you might not notice the change.
 
+	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
 
+	printf("pdindex: %d, ptindex: %d\n", pdindex, ptindex);
 }
+
+static const uint32_t startframe = 0x100000;
+static const uint32_t npages = 0x1000;
+static const uint32_t FREE = 0;
+static const uint32_t USED = 1;
+static const pageframe_t ERROR = {0xFFFFFFFF, 0};
 
 pageframe_t kalloc_frame_int()
 {
-        uint32_t i = 0;
-        while(frame_map[i] != FREE)
-        {
-                i++;
-                if(i == npages)
-                {
-                        return(ERROR);
-                }
-        }
-        frame_map[i] = USED;
-        return(startframe + (i*0x1000));//return the address of the page frame based on the location declared free
-        //in the array
+	uint32_t i;
+    for(i = 0; page_directory[i] != FREE; i++) {
+		if(i == npages-1)
+		{
+			return(ERROR);
+		}
+    }
+    page_directory[i] = USED;
+	pageframe_t ret = {startframe + (i*0x1000), 0};
+    return ret;//return the address of the page frame based on the location declared free
+    //in the array
 }

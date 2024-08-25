@@ -1,7 +1,4 @@
-#ifndef PAGE_H
-#define PAGE_H
-
-#define PAGE_SIZE 4096
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,12 +20,12 @@ struct pageframe_t {
     struct pageframe_t *next;
 };
 
+typedef struct pageframe_t pageframe_t;
+
 pageframe_t kalloc_frame_int();
 pageframe_t kalloc_frame();
 void kfree_frame(pageframe_t a);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
