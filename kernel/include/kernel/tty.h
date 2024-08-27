@@ -1,6 +1,4 @@
-#ifndef _KERNEL_TTY_H
-#define _KERNEL_TTY_H
-
+#pragma once
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -14,6 +12,4 @@ void terminal_writestring(const char* data);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

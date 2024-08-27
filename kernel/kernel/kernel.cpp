@@ -2,47 +2,41 @@
 
 #include <kernel/tty.h>
 #include <kernel/page.h>
+#include <kernel/tty.hpp>
+#include <assert.h>
+#include <kernel/gdt.h>
 
-extern "C" void loadPageDirectory(uint32_t*);
-extern "C" void enablePaging();
-
-uint32_t page_directory[1024] __attribute__((aligned(4096)));
-uint32_t first_page_table[1024] __attribute__((aligned(4096)));
-
-void init_gdt() {
-	// First disable interrupts
-	__asm__ __volatile("cli");
-}
-
-void init_paging() {
-	loadPageDirectory(page_directory);
-	page_initialize();
-	enablePaging();
-}
+uint8_t gdt[48];
 
 void test_paging() {
-	printf("Testing paging\n");
-	void * physaddr = (void *)0x1000;
-	void * virtualaddr = (void *)0x2000;
+	printf("Testing paging... ");
+	uint32_t shitty_page_table[1024] __attribute__((aligned(4096)));
+	int * physaddr = (int *)0x1000;
+	int * virtualaddr = (int *)0x2000;
 	map_page(physaddr, virtualaddr, 0x3);
-	printf("Mapped %p to %p\n", physaddr, virtualaddr);
-	printf("Test: %p (Sould be %p)\n", get_physaddr(virtualaddr), physaddr);
-	printf("PD_PART: %d, PT_PART: %d, DISP: %d\n", (unsigned long)virtualaddr >> 22, (unsigned long)virtualaddr >> 12 & 0x03FF, (unsigned long)virtualaddr & 0xFFF);
-	*(int*)virtualaddr = 12345678;
-	printf("Value at %p: %d\n", virtualaddr, *(int*)get_physaddr(virtualaddr));
+	*virtualaddr = 12345678;
+	assert(*(int*)get_physaddr(virtualaddr) == 12345678);
+	assert((size_t)get_physaddr(virtualaddr) == (size_t)physaddr);
+	printf("Ok\n");
 }
 
 extern "C" void kernel_main(void) {
+	init_gdt();
+	
 	terminal_initialize();
-	printf("Initializing paging...\t");
+	printf("Initializing booting sequence\n");
 	init_paging();
-	printf("OK\n");
-	map_page((void*)0xB8000, (void*)0xB8000, 0x7);
-	test_paging();
-	for(int i = 0; i < 2; i++) {
-		printf("page_directory[%d] = %p\n", i, page_directory[i] & ~0xFFF);
+	//test_paging();
+
+	/*for(int i=0; i<1024;i++) {
+		uint32_t addr = boot_page_directory[i] & ~0xFFF;
+		if(addr)
+			printf("%d %p \n", i, addr);
+	}*/
+	for(int i=0; i<1024;i++) {
+		uint32_t addr = boot_page_table1[i] & ~0xFFF;
+		if(addr)
+			printf("%d %p \n", i, addr);
 	}
-	for(int i = 0; i < 2; i++) {
-		printf("first_page_table[%d] = %p\n", i, first_page_table[i] & ~0xFFF);
-	}
+	printf("Finished booting. Giving control to the init process.");
 }

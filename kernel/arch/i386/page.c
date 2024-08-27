@@ -1,5 +1,7 @@
 #include <kernel/page.h>
 #include "pagedef.h"
+#include <error.h>
+#include <stdio.h>
 
 void page_initialize(void) {
     for(int i = 0; i < 1024; i++)
@@ -10,29 +12,31 @@ void page_initialize(void) {
         //   Not Present: The page table is not present
 		//Note: no need to write the PRESENT flag as it is set to 0 by default
 		// supervisor level (0), read/write (1), not present (0)
-        page_directory[i] = READ_WRITE;
+		if(i != 768) // The entry number 768 is the VGA page and it has been already been mapped by boot.S
+		{
+        	boot_page_directory[i] = READ_WRITE;
+		}
     }
     // holds the physical address where we want to start mapping these pages to.
     // in this case, we want to map these pages to the very beginning of memory.
     
     //we will fill all 1024 entries in the table, mapping 4 megabytes
-    for(unsigned int i = 0; i < 1024; i++)
+    /*for(unsigned int i = 0; i < 1024; i++)
     {
         // As the address is page aligned, it will always leave 12 bits zeroed.
         // Those bits are used by the attributes ;)
-        first_page_table[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
-    }
-    page_directory[0] = ((unsigned int)first_page_table) | (READ_WRITE | PRESENT);
+        boot_page_table1[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
+    }*/
+    boot_page_directory[0] = ((unsigned int)boot_page_table1) | (READ_WRITE | PRESENT);
 }
-#include <stdio.h>
 
 void *get_physaddr(void *virtualaddr) {
     unsigned long pdindex = (unsigned long)virtualaddr >> 22;
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
 
-	if(!(page_directory[pdindex] & PRESENT)) return 0;
+	if(!(boot_page_directory[pdindex] & PRESENT)) return 0;
     // Here you need to check whether the PD entry is present.
-	uint32_t * page_table = (uint32_t*)(page_directory[pdindex] & ~0xFFF);
+	uint32_t * page_table = (uint32_t*)(boot_page_directory[pdindex] & ~0xFFF);
 
     unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
     // Here you need to check whether the PT entry is present.
@@ -41,20 +45,17 @@ void *get_physaddr(void *virtualaddr) {
     return (void *)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
 }
 
-#include <error.h>
-
 void map_page(void *physaddr, void *virtualaddr, unsigned int flags) {
     // Make sure that both addresses are page-aligned.
-	if((unsigned long)physaddr % PAGE_SIZE != 0 || (unsigned long)virtualaddr % PAGE_SIZE != 0) {kerror("Addresses not page-aligned"); return;}
+	if((unsigned long)physaddr % PAGE_SIZE != 0 || (unsigned long)virtualaddr % PAGE_SIZE != 0) {
+		kerror("Addresses not page-aligned: %p, %p", physaddr, virtualaddr); return;
+	}
     unsigned long pdindex = (unsigned long)virtualaddr >> 22;
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
 
-    // Here you need to check whether the PD entry is present.
-    // When it is not present, you need to create a new empty PT and
-    // adjust the PDE accordingly.
-	if(!(page_directory[pdindex] & PRESENT)) return;
+	if(!(boot_page_directory[pdindex] & PRESENT)) return; //TODO: Create new page
 
-	unsigned long * page_table = (unsigned long*)(page_directory[pdindex] & ~0xFFF);
+	unsigned long * page_table = (unsigned long*)(boot_page_directory[pdindex] & ~0xFFF);
 
     unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
     // Here you need to check whether the PT entry is present.
@@ -66,8 +67,6 @@ void map_page(void *physaddr, void *virtualaddr, unsigned int flags) {
     // or you might not notice the change.
 
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
-
-	printf("pdindex: %d, ptindex: %d\n", pdindex, ptindex);
 }
 
 static const uint32_t startframe = 0x100000;
@@ -79,14 +78,17 @@ static const pageframe_t ERROR = {0xFFFFFFFF, 0};
 pageframe_t kalloc_frame_int()
 {
 	uint32_t i;
-    for(i = 0; page_directory[i] != FREE; i++) {
+    for(i = 0; boot_page_directory[i] != FREE; i++) {
 		if(i == npages-1)
 		{
 			return(ERROR);
 		}
     }
-    page_directory[i] = USED;
+    boot_page_directory[i] = USED;
 	pageframe_t ret = {startframe + (i*0x1000), 0};
-    return ret;//return the address of the page frame based on the location declared free
-    //in the array
+    return ret;
+}
+
+void init_paging() {
+	page_initialize();
 }

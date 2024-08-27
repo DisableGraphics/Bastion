@@ -1,9 +1,30 @@
 #pragma once
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern uint8_t gdt[48];
+
+struct GDT {
+	uint32_t limit;
+	uint32_t base;
+	uint8_t access_byte;
+	uint8_t flags;
+};
+void init_gdt();
+void encodeGdtEntry(uint8_t *target, struct GDT source);
+
 #pragma pack(1)
-struct GDT{
-	
+struct GDTR
+{
+    uint16_t limit;
+    uint32_t base;
 };
 #pragma pack()
+void load_gtdr(struct GDTR gdt_register);
 
-void encodeGdtEntry(uint8_t *target, struct GDT source);
+#ifdef __cplusplus
+}
+#endif

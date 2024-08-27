@@ -6,8 +6,8 @@ extern "C" {
 
 #include <stdint.h>
 
-extern uint32_t page_directory[1024] __attribute__((aligned(4096)));
-extern uint32_t first_page_table[1024] __attribute__((aligned(4096)));
+extern uint32_t boot_page_directory[1024];
+extern uint32_t boot_page_table1[1024];
 
 extern uint32_t endkernel;
 
@@ -25,6 +25,11 @@ typedef struct pageframe_t pageframe_t;
 pageframe_t kalloc_frame_int();
 pageframe_t kalloc_frame();
 void kfree_frame(pageframe_t a);
+
+void loadPageDirectory(uint32_t*);
+void enablePaging();
+
+void init_paging();
 
 #ifdef __cplusplus
 }
