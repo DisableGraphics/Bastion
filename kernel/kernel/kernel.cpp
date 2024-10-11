@@ -18,7 +18,7 @@ void breakpoint() {
 
 extern "C" void kernel_main(void) {
 	init_gdt();
-	idt_init();
+	init_idt();
 	init_serial();
 
 	#ifdef DEBUG
@@ -27,8 +27,7 @@ extern "C" void kernel_main(void) {
 	
 	terminal_initialize();
 	printf("Initializing booting sequence\n");
-	init_paging();
-
+	
 	//map_page((int *)0x3000, (int *)0x4000, 0x3);
 	printf("Finished booting. Giving control to the init process.");
 }

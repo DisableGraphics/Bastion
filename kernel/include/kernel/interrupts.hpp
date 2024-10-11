@@ -28,4 +28,4 @@ static bool vectors[32];
 
 extern void* isr_stub_table[];
 
-void idt_init(void);
+void init_idt(void);
