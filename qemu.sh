@@ -2,4 +2,6 @@
 set -e
 . ./iso.sh
 
-qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom nexa.iso
+OPTIONS="-s -S"
+
+qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom nexa.iso -serial file:nexa.out

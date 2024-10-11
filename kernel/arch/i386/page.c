@@ -21,12 +21,13 @@ void page_initialize(void) {
     // in this case, we want to map these pages to the very beginning of memory.
     
     //we will fill all 1024 entries in the table, mapping 4 megabytes
-    /*for(unsigned int i = 0; i < 1024; i++)
+    for(unsigned int i = 0; i < 1024; i++)
     {
         // As the address is page aligned, it will always leave 12 bits zeroed.
         // Those bits are used by the attributes ;)
-        boot_page_table1[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
-    }*/
+		if(boot_page_directory[i] == 0)
+        	boot_page_table1[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
+    }
     boot_page_directory[0] = ((unsigned int)boot_page_table1) | (READ_WRITE | PRESENT);
 }
 
@@ -67,6 +68,7 @@ void map_page(void *physaddr, void *virtualaddr, unsigned int flags) {
     // or you might not notice the change.
 
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
+	printf("Mapped\n");
 }
 
 static const uint32_t startframe = 0x100000;

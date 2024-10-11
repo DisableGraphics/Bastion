@@ -21,6 +21,8 @@ void init_gdt() {
 	const struct GDTR gdt_register = {48, (uint32_t)gdt};
 
 	load_gtdr(gdt_register);
+
+	__asm__ __volatile__("sti");
 }
 
 void encodeGdtEntry(uint8_t *target, struct GDT source) {
