@@ -4,8 +4,11 @@
 
 idtr_t idtr;
 
+int *memptr = (int*)0x1234;
+
 void exception_handler(void) {
-	serial_print("exception_handler() called. They want their money back.");
+	*memptr = 0xF00C7155;
+	printf("exception_handler() called. They want their money back.");
     __asm__ volatile ("cli; hlt"); // Completely hangs the computer
 }
 

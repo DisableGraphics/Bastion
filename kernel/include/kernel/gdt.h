@@ -25,6 +25,9 @@ struct GDTR
 #pragma pack()
 void load_gtdr(struct GDTR gdt_register);
 
+extern uint8_t gdt[48];
+extern uint8_t tss[0x6C];
+
 #ifdef __cplusplus
 }
 #endif

@@ -3,6 +3,9 @@
 #include <error.h>
 #include <stdio.h>
 
+uint32_t boot_page_directory[1024];
+uint32_t boot_page_table1[1024];
+
 void page_initialize(void) {
     for(int i = 0; i < 1024; i++)
     {

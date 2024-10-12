@@ -1,6 +1,11 @@
 #include <kernel/gdt.h>
 #include <error.h>
 
+uint8_t gdt[48];
+uint8_t tss[0x6C];
+
+void reloadSegments();
+
 void init_gdt() {
 	// First disable interrupts
 	__asm__ __volatile__("cli");
@@ -9,7 +14,7 @@ void init_gdt() {
 	const struct GDT ker_dat_seg = {0xFFFFF, 0, 0x92, 0xC};
 	const struct GDT usr_cod_seg = {0xFFFFF, 0, 0xFA, 0xC};
 	const struct GDT usr_dat_seg = {0xFFFFF, 0, 0xF2, 0xC};;
-	const struct GDT tss_seg = {0,0,0,0};
+	const struct GDT tss_seg = {sizeof(tss)-1,(int)&tss,0x89,0};
 
 	encodeGdtEntry(gdt, null_entry);
 	encodeGdtEntry(gdt + 8, ker_cod_seg);
@@ -50,4 +55,5 @@ void encodeGdtEntry(uint8_t *target, struct GDT source) {
 void load_gtdr(struct GDTR gdt_register)
 {
     __asm__ __volatile__( "lgdtl %0" :: "m"(gdt_register) );
+	reloadSegments();
 }
