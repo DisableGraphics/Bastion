@@ -6,3 +6,6 @@ clean:
 
 qemu: all
 	./qemu.sh
+
+qemu-debug: all
+	./qemu.sh debug

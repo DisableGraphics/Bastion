@@ -16,7 +16,6 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(void) {
-	
 	init_gdt();
 	init_idt();
 	init_serial();
@@ -29,10 +28,12 @@ extern "C" void kernel_main(void) {
 	terminal_initialize();
 	printf("Initializing booting sequence\n");
 	printf("Checking: %d %d\n", sizeof(idt_entry_t), sizeof(idtr_t));
+	printf("GDT Addr: %p", gdt);
 	
-	//breakpoint();
+	breakpoint();
 	//map_page((int *)0x3000, (int *)0x4000, 0x3);
 	printf("Finished booting. Giving control to the init process.");
+
 	for(;;) {
 		asm("hlt");
 	}
