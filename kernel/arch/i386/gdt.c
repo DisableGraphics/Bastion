@@ -1,5 +1,5 @@
 #include <kernel/gdt.h>
-#include <kernel/serial.hpp>
+#include <kernel/serial.h>
 #include <error.h>
 
 uint8_t gdt[48];

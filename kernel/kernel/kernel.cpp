@@ -6,7 +6,7 @@
 #include <kernel/gdt.h>
 #include <kernel/interrupts.hpp>
 #include <kernel/inlineasm.h>
-#include <kernel/serial.hpp>
+#include <kernel/serial.h>
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif

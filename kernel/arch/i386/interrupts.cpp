@@ -1,6 +1,6 @@
 #include <kernel/interrupts.hpp>
 #include <stdio.h>
-#include <kernel/serial.hpp>
+#include <kernel/serial.h>
 
 idtr_t idtr;
 idt_entry_t idt[256];
