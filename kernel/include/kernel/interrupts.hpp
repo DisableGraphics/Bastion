@@ -13,7 +13,7 @@ struct idt_entry_t {
 } __attribute__((packed));
 
 __attribute__((aligned(0x10))) 
-static idt_entry_t idt[256];
+extern idt_entry_t idt[256];
 
 typedef struct {
 	uint16_t	limit;
@@ -28,4 +28,5 @@ static bool vectors[32];
 
 extern void* isr_stub_table[];
 
-void init_idt(void);
+void init_idt();
+uint64_t get_idtr();

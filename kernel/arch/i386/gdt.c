@@ -1,8 +1,10 @@
 #include <kernel/gdt.h>
+#include <kernel/serial.hpp>
 #include <error.h>
 
 uint8_t gdt[48];
 uint8_t tss[0x6C];
+struct GDTR gdtr = {sizeof(gdt)-1, (uint32_t)gdt};
 
 void reloadSegments();
 
@@ -16,16 +18,15 @@ void init_gdt() {
 	const struct GDT usr_dat_seg = {0xFFFFF, 0, 0xF2, 0xC};;
 	const struct GDT tss_seg = {sizeof(tss)-1,(int)&tss,0x89,0};
 
+	serial_print("ola");
+
 	encodeGdtEntry(gdt, null_entry);
 	encodeGdtEntry(gdt + 8, ker_cod_seg);
 	encodeGdtEntry(gdt + 16, ker_dat_seg);
 	encodeGdtEntry(gdt + 24, usr_cod_seg);
 	encodeGdtEntry(gdt + 32, usr_dat_seg);
 	encodeGdtEntry(gdt + 40, tss_seg);
-
-	const struct GDTR gdt_register = {48, (uint32_t)gdt};
-
-	load_gtdr(gdt_register);
+	load_gtdr(gdtr);
 	reloadSegments();
 
 	__asm__ __volatile__("sti");

@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #define fence() __asm__ volatile ("":::"memory")
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // FAR PEEKx
 uint32_t farpeekl(uint16_t sel, void *off);
 // FAR POKEx
@@ -32,3 +36,8 @@ void invlpg(void* m);
 
 void wrmsr(uint32_t msr_id, uint64_t msr_value);
 uint64_t rdmsr(uint32_t msr_id);
+
+
+#ifdef __cplusplus
+}
+#endif

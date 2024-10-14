@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-extern uint8_t gdt[48];
+extern uint8_t gdt[];
 
 struct GDT {
 	uint32_t limit;
@@ -23,9 +23,9 @@ struct GDTR
     uint32_t base;
 };
 #pragma pack()
+extern struct GDTR gdtr;
 void load_gtdr(struct GDTR gdt_register);
 
-extern uint8_t gdt[48];
 extern uint8_t tss[0x6C];
 
 #ifdef __cplusplus

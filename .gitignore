@@ -11,3 +11,4 @@ img/isodir
 **.kernel
 sysroot
 isodir
+*.serial

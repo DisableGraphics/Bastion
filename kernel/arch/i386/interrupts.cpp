@@ -3,12 +3,10 @@
 #include <kernel/serial.hpp>
 
 idtr_t idtr;
-
-int *memptr = (int*)0x1234;
+idt_entry_t idt[256];
 
 void exception_handler(void) {
-	*memptr = 0xF00C7155;
-	printf("exception_handler() called. They want their money back.");
+	serial_print("exception_handler() called. They want their money back.");
     __asm__ volatile ("cli; hlt"); // Completely hangs the computer
 }
 
@@ -27,10 +25,21 @@ void init_idt() {
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
     for (uint8_t vector = 0; vector < 32; vector++) {
+		printf("%d ", vector);
         idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
+		printf("%p ", idt[vector]);
         vectors[vector] = true;
     }
 
     __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
     __asm__ volatile ("sti"); // set the interrupt flag
+}
+
+uint64_t get_idtr() {
+	idtr_t ret;
+	__asm__ volatile("sidt %0" : "=m"(ret));
+	uint64_t ret2 = ret.limit;
+	ret2 <<= 32;
+	ret2 |= ret.base;
+	return ret2;
 }
