@@ -15,10 +15,7 @@ void page_initialize(void) {
         //   Not Present: The page table is not present
 		//Note: no need to write the PRESENT flag as it is set to 0 by default
 		// supervisor level (0), read/write (1), not present (0)
-		if(i != 768) // The entry number 768 is the VGA page and it has been already been mapped by boot.S
-		{
-        	boot_page_directory[i] = READ_WRITE;
-		}
+		boot_page_directory[i] = READ_WRITE;
     }
     // holds the physical address where we want to start mapping these pages to.
     // in this case, we want to map these pages to the very beginning of memory.
