@@ -11,7 +11,6 @@ struct idt_entry_t {
 	uint8_t     attributes;   // Type and attributes; see the IDT page
 	uint16_t    isr_high;     // The higher 16 bits of the ISR's address
 } __attribute__((packed));
-
 __attribute__((aligned(0x10))) 
 extern idt_entry_t idt[256];
 
