@@ -29,17 +29,7 @@ extern "C" void kernel_main(void) {
 	
 	
 	printf("Initializing booting sequence\n");
-
-	//printf("sizeof(idt_entry_t): %d\nsizeof(idtr_t) %d\n", sizeof(idt_entry_t), sizeof(idtr_t));
-	//printf("GDT Addr: %p\n", gdt);
-
-	/*for(int i = 0; i < 40; i+=8) {
-		printf("%p %p %p %p %p %p %p %p\n", idt[i], idt[i+1], idt[i+2], idt[i+3], idt[i+4], idt[i+5], idt[i+6], idt[i+7]);
-	}*/
-
-	//printf("Checking this thing: %d", 0/0);
-	//map_page((int *)0x3000, (int *)0x4000, 0x3);
-	//printf("Finished booting. Giving control to the init process.");
+	printf("Finished booting. Giving control to the init process.");
 
 	for(;;) {
 		asm("hlt");
