@@ -1,5 +1,5 @@
 #pragma once
-
+// UART serial transmitter/receiver
 class Serial {
 	public:
 		void init();

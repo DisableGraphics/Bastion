@@ -1,5 +1,6 @@
 #include <stddef.h>
 
+// TTY
 class TTY {
     public:
         TTY();

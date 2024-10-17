@@ -6,6 +6,7 @@
 #include "../arch/i386/defs/gdt_size.h"
 #endif
 
+// Global Descriptor Table
 class GDT {
 	public:
 		GDT();
