@@ -3,10 +3,12 @@
 #include <kernel/serial.h>
 
 idtr_t idtr;
+__attribute__((aligned(0x10))) 
 idt_entry_t idt[256];
 
+__attribute__((noreturn))
 void exception_handler(void) {
-	serial_print("exception_handler() called. They want their money back.");
+	serial_print("exception_handler() called. They want their money back.\n");
     __asm__ volatile ("cli; hlt"); // Completely hangs the computer
 }
 

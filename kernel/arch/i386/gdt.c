@@ -30,9 +30,7 @@ void init_gdt() {
 	load_gtdr(gdtr);
 	serial_print("Loaded gdtr\n");
 	reloadSegments();
-	serial_print("Reloaded segggments");
-
-	__asm__ __volatile__("sti");
+	serial_print("Reloaded segggments\n");
 }
 
 void encodeGdtEntry(uint8_t *target, struct GDT source) {

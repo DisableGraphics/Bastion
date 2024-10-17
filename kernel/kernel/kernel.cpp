@@ -12,22 +12,24 @@
 #endif
 
 void breakpoint() {
-	__asm__("int3");
+	__asm__ volatile("int3");
 }
 
 extern "C" void kernel_main(void) {
 	init_serial();
+	init_paging();
 	//init_paging();
 	init_gdt();
 	init_idt();
 	
-
+	init_idt();
+	
 	#ifdef DEBUG
 	test_paging();
 	#endif
 	
 	terminal_initialize();
-	//printf("Initializing booting sequence\n");
+	printf("Initializing booting sequence\n");
 	//printf("sizeof(idt_entry_t): %d\nsizeof(idtr_t) %d\n", sizeof(idt_entry_t), sizeof(idtr_t));
 	//printf("GDT Addr: %p\n", gdt);
 
