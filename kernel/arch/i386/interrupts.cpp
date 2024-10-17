@@ -9,7 +9,7 @@ idt_entry_t idt[256];
 __attribute__((noreturn))
 extern "C" void exception_handler(void) {
 	printf("S-egg-mentation fault (core egged)\n");
-    __asm__ volatile ("cli; hlt"); // Completely hangs the computer
+    __asm__ __volatile__ ("cli; hlt"); // Completely hangs the computer
 }
 
 void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
@@ -37,7 +37,7 @@ void init_idt() {
 
 uint64_t get_idtr() {
 	idtr_t ret;
-	__asm__ volatile("sidt %0" : "=m"(ret));
+	__asm__ __volatile__("sidt %0" : "=m"(ret));
 	uint64_t ret2 = ret.limit;
 	ret2 <<= 32;
 	ret2 |= ret.base;
