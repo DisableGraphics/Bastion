@@ -31,8 +31,8 @@ void init_idt() {
         vectors[vector] = true;
     }
 
-    __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
-    __asm__ volatile ("sti"); // set the interrupt flag
+    __asm__ __volatile__ ("lidt %0" : : "m"(idtr)); // load the new IDT
+    __asm__ __volatile__ ("sti"); // set the interrupt flag
 }
 
 uint64_t get_idtr() {
