@@ -16,12 +16,12 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(void) {
+	init_paging();
 	terminal_initialize();
 	init_serial();
 	
 	init_gdt();
 	init_idt();
-	init_paging();
 		
 	#ifdef DEBUG
 	test_paging();
@@ -29,7 +29,7 @@ extern "C" void kernel_main(void) {
 	
 	
 	printf("Initializing booting sequence\n");
-	
+
 	//printf("sizeof(idt_entry_t): %d\nsizeof(idtr_t) %d\n", sizeof(idt_entry_t), sizeof(idtr_t));
 	//printf("GDT Addr: %p\n", gdt);
 
