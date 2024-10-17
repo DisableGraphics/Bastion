@@ -8,7 +8,7 @@ idt_entry_t idt[256];
 
 __attribute__((noreturn))
 extern "C" void exception_handler(void) {
-	printf("exception_handler() called. They want their money back.\n");
+	printf("Seggmentation fault (core egged)\n");
     __asm__ volatile ("cli; hlt"); // Completely hangs the computer
 }
 
