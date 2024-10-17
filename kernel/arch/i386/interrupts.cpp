@@ -1,10 +1,6 @@
 #include <kernel/interrupts.hpp>
 #include <stdio.h>
-#include <kernel/serial.h>
-
-idtr_t idtr;
-__attribute__((aligned(0x10))) 
-idt_entry_t idt[256];
+IDT idt;
 
 __attribute__((noreturn))
 extern "C" void exception_handler(void) {
@@ -12,7 +8,7 @@ extern "C" void exception_handler(void) {
     __asm__ __volatile__ ("cli; hlt"); // Completely hangs the computer
 }
 
-void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
+void IDT::set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
     idt_entry_t* descriptor = &idt[vector];
 
     descriptor->isr_low        = (uint32_t)isr & 0xFFFF;
@@ -22,12 +18,12 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
     descriptor->reserved       = 0;
 }
 
-void init_idt() {
+void IDT::init() {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
     for (uint32_t vector = 0; vector < 32; vector++) {
-        idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
+        set_descriptor(vector, isr_stub_table[vector], 0x8E);
         vectors[vector] = true;
     }
 
@@ -35,11 +31,8 @@ void init_idt() {
     __asm__ __volatile__ ("sti"); // set the interrupt flag
 }
 
-uint64_t get_idtr() {
+idtr_t IDT::get_idtr() {
 	idtr_t ret;
 	__asm__ __volatile__("sidt %0" : "=m"(ret));
-	uint64_t ret2 = ret.limit;
-	ret2 <<= 32;
-	ret2 |= ret.base;
-	return ret2;
+	return ret;
 }

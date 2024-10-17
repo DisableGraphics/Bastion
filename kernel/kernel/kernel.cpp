@@ -3,10 +3,10 @@
 #include <kernel/tty.h>
 #include <kernel/page.h>
 #include <kernel/tty.hpp>
-#include <kernel/gdt.h>
+#include <kernel/gdt.hpp>
 #include <kernel/interrupts.hpp>
 #include <kernel/inlineasm.h>
-#include <kernel/serial.h>
+#include <kernel/serial.hpp>
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif
@@ -18,18 +18,21 @@ void breakpoint() {
 extern "C" void kernel_main(void) {
 	init_paging();
 	terminal_initialize();
-	init_serial();
 	
-	init_gdt();
-	init_idt();
+	serial.init();
+	gdt.init();
+	idt.init();
 		
 	#ifdef DEBUG
 	test_paging();
 	#endif
 	
-	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
+
+	for(char i = 'A'; i <= 'Z'; i++) {
+		serial.write(i);
+	}
 
 	for(;;) {
 		__asm__ __volatile__("hlt");

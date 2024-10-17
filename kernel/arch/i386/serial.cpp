@@ -1,8 +1,11 @@
 #include <kernel/inlineasm.h>
+#include <kernel/serial.hpp>
 
 #define PORT 0x3f8 // COM1
 
-int init_serial(void) {
+Serial serial;
+
+void Serial::init() {
 	outb(PORT + 1, 0x00);    // Disable all interrupts
 	outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
 	outb(PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
@@ -15,37 +18,38 @@ int init_serial(void) {
 
 	// Check if serial is faulty (i.e: not same byte as sent)
 	if(inb(PORT + 0) != 0xAE) {
-		return 0;
+		faulty = true;
 	}
 
 	// If serial is not faulty set it in normal operation mode
 	// (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
 	outb(PORT + 4, 0x0F);
-	return 1;
 }
 
-int serial_received(void) {
-   return inb(PORT + 5) & 1;
+bool Serial::is_faulty() {
+	return faulty;
 }
 
-char read_serial(void) {
-   while (serial_received() == 0);
-
-   return inb(PORT);
+bool Serial::received() {
+	return inb(PORT + 5) & 1; 
 }
 
-int is_transmit_empty(void) {
-   return inb(PORT + 5) & 0x20;
+char Serial::read() {
+	while(!received());
+   	return inb(PORT);
 }
 
-void write_serial(char a) {
-   while (is_transmit_empty() == 0);
+bool Serial::is_transmit_empty() {
+	return inb(PORT + 5) & 0x20;
+}
 
+void Serial::write(char a) {
+   while(!is_transmit_empty());
    outb(PORT,a);
 }
 
-void serial_print(const char * str) {
+void Serial::print(const char * str) {
 	for(; *str != 0; str++) {
-		write_serial(*str);
+		write(*str);
 	}
 }
