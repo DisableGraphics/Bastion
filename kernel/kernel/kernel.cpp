@@ -19,7 +19,7 @@ extern "C" void kernel_main(void) {
 	init_serial();
 	//init_paging();
 	init_gdt();
-	//init_idt();
+	init_idt();
 	
 
 	#ifdef DEBUG
