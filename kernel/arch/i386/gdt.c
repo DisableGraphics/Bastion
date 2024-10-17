@@ -6,7 +6,7 @@ uint8_t gdt[48];
 uint8_t tss[0x6C];
 struct GDTR gdtr = {sizeof(gdt)-1, (uint32_t)gdt};
 
-void reloadSegments();
+extern void reloadSegments();
 
 void init_gdt() {
 	// First disable interrupts
@@ -18,19 +18,14 @@ void init_gdt() {
 	const struct GDT usr_dat_seg = {0xFFFFF, 0, 0xF2, 0xC};;
 	const struct GDT tss_seg = {sizeof(tss)-1,(int)&tss,0x89,0};
 
-	serial_print("ola\n");
-
 	encodeGdtEntry(gdt, null_entry);
-	encodeGdtEntry(gdt + 8, ker_cod_seg);
-	encodeGdtEntry(gdt + 16, ker_dat_seg);
-	encodeGdtEntry(gdt + 24, usr_cod_seg);
-	encodeGdtEntry(gdt + 32, usr_dat_seg);
-	encodeGdtEntry(gdt + 40, tss_seg);
-	serial_print("Encoded gdt\n");
-	load_gtdr(gdtr);
-	serial_print("Loaded gdtr\n");
+	encodeGdtEntry(gdt + 0x8, ker_cod_seg);
+	encodeGdtEntry(gdt + 0x10, ker_dat_seg);
+	encodeGdtEntry(gdt + 0x18, usr_cod_seg);
+	encodeGdtEntry(gdt + 0x20, usr_dat_seg);
+	encodeGdtEntry(gdt + 0x28, tss_seg);
+	__asm__ __volatile__( "lgdt %0" :: "m"(gdtr) );
 	reloadSegments();
-	serial_print("Reloaded segggments\n");
 }
 
 void encodeGdtEntry(uint8_t *target, struct GDT source) {
@@ -53,9 +48,4 @@ void encodeGdtEntry(uint8_t *target, struct GDT source) {
     // Encode the flags
     target[6] |= (source.flags << 4);
 
-}
-
-void load_gtdr(struct GDTR gdt_register)
-{
-    __asm__ __volatile__( "lgdtl %0" :: "m"(gdt_register) );
 }

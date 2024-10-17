@@ -1,14 +1,16 @@
 .macro isr_err_stub r
 isr_stub_\r:
-	push 'C'
-	call write_serial
+	cli
     call exception_handler
+	sti
     iret
 .endm
 
 .macro isr_no_err_stub r
 isr_stub_\r:
+	cli
 	call exception_handler
+	sti
 	iret
 .endm
 
@@ -47,8 +49,35 @@ isr_no_err_stub 31
 
 .global isr_stub_table
 isr_stub_table:
-.macro isr_stub_table n=0 end=32
-dd isr_stub_\n
-.if \end-\n
-isr_stub_table "(\n + 1)",\end
-.endm
+.long isr_stub_0
+.long isr_stub_1
+.long isr_stub_2
+.long isr_stub_3
+.long isr_stub_4
+.long isr_stub_5
+.long isr_stub_6
+.long isr_stub_7
+.long isr_stub_8
+.long isr_stub_9
+.long isr_stub_10
+.long isr_stub_11
+.long isr_stub_12
+.long isr_stub_13
+.long isr_stub_14
+.long isr_stub_15
+.long isr_stub_16
+.long isr_stub_17
+.long isr_stub_18
+.long isr_stub_19
+.long isr_stub_20
+.long isr_stub_21
+.long isr_stub_22
+.long isr_stub_23
+.long isr_stub_24
+.long isr_stub_25
+.long isr_stub_26
+.long isr_stub_27
+.long isr_stub_28
+.long isr_stub_29
+.long isr_stub_30
+.long isr_stub_31

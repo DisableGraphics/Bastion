@@ -7,8 +7,8 @@ __attribute__((aligned(0x10)))
 idt_entry_t idt[256];
 
 __attribute__((noreturn))
-void exception_handler(void) {
-	serial_print("exception_handler() called. They want their money back.\n");
+extern "C" void exception_handler(void) {
+	printf("exception_handler() called. They want their money back.\n");
     __asm__ volatile ("cli; hlt"); // Completely hangs the computer
 }
 
@@ -26,10 +26,8 @@ void init_idt() {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
-    for (uint8_t vector = 0; vector < 32; vector++) {
-		printf("%d ", vector);
+    for (uint32_t vector = 0; vector < 32; vector++) {
         idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
-		printf("%p ", idt[vector]);
         vectors[vector] = true;
     }
 

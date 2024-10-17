@@ -23,8 +23,6 @@ struct GDTR
     uint32_t base;
 };
 #pragma pack()
-extern struct GDTR gdtr;
-void load_gtdr(struct GDTR gdt_register);
 
 extern uint8_t tss[0x6C];
 
