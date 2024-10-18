@@ -1,7 +1,9 @@
 #include <kernel/tty.hpp>
 #include <kernel/tty.h>
 
-TTY::TTY() {
+TTY tty;
+
+void TTY::init() {
     terminal_initialize();
 }
 

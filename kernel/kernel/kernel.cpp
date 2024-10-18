@@ -17,7 +17,7 @@ void breakpoint() {
 
 extern "C" void kernel_main(void) {
 	init_paging();
-	terminal_initialize();
+	tty.init();
 	
 	serial.init();
 	gdt.init();
