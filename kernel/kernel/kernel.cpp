@@ -16,12 +16,12 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(void) {
-	init_paging();
 	tty.init();
 	
 	serial.init();
 	gdt.init();
 	idt.init();
+	page.init();
 		
 	#ifdef DEBUG
 	test_paging();
