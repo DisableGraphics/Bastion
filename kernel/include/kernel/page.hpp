@@ -13,22 +13,4 @@ class PagingManager {
 
 extern PagingManager page;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 extern uint32_t endkernel;
-
-struct pageframe_t {
-    uint32_t frame;
-    struct pageframe_t *next;
-};
-
-typedef struct pageframe_t pageframe_t;
-
-pageframe_t kalloc_frame_int();
-pageframe_t kalloc_frame();
-void kfree_frame(pageframe_t a);
-
-#ifdef __cplusplus
-}
-#endif

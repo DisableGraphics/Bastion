@@ -69,24 +69,3 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
 	printf("Mapped\n");
 }
-
-/*
-static const uint32_t startframe = 0x100000;
-static const uint32_t npages = 0x1000;
-static const uint32_t FREE = 0;
-static const uint32_t USED = 1;
-static const pageframe_t ERROR = {0xFFFFFFFF, 0};
-
-pageframe_t kalloc_frame_int()
-{
-	uint32_t i;
-    for(i = 0; boot_page_directory[i] != FREE; i++) {
-		if(i == npages-1)
-		{
-			return(ERROR);
-		}
-    }
-    boot_page_directory[i] = USED;
-	pageframe_t ret = {startframe + (i*0x1000), 0};
-    return ret;
-}*/
