@@ -1,7 +1,6 @@
 #include <stdio.h>
 
-#include <kernel/tty.h>
-#include <kernel/page.h>
+#include <kernel/page.hpp>
 #include <kernel/tty.hpp>
 #include <kernel/gdt.hpp>
 #include <kernel/interrupts.hpp>
@@ -29,10 +28,6 @@ extern "C" void kernel_main(void) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
-
-	for(char i = 'A'; i <= 'Z'; i++) {
-		serial.write(i);
-	}
 
 	for(;;) {
 		__asm__ __volatile__("hlt");

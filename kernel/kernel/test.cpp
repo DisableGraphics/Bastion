@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <kernel/page.h>
+#include <kernel/page.hpp>
 #include <assert.h>
 #include <stddef.h>
 

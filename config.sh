@@ -15,8 +15,8 @@ export BOOTDIR=/boot
 export LIBDIR=$EXEC_PREFIX/lib
 export INCLUDEDIR=$PREFIX/include
 
-export CFLAGS='-g'
-export CPPFLAGS='-g'
+export CFLAGS='-g -O2'
+export CPPFLAGS='-g -O2'
 
 # Configure the cross-compiler to use the desired system root.
 export SYSROOT="$(pwd)/sysroot"

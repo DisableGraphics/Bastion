@@ -1,4 +1,4 @@
-#include <kernel/page.h>
+#include <kernel/page.hpp>
 #include "pagedef.h"
 #include <error.h>
 #include <stdio.h>
@@ -40,11 +40,9 @@ void * PagingManager::get_physaddr(void *virtualaddr) {
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
 
 	if(!(page_directory[pdindex] & PRESENT)) return 0;
-    // Here you need to check whether the PD entry is present.
 	uint32_t * page_table = (uint32_t*)(page_directory[pdindex] & ~0xFFF);
 
     unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
-    // Here you need to check whether the PT entry is present.
 	if(!(pt[ptindex] & PRESENT)) return 0;
 
     return (void *)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
