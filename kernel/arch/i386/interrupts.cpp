@@ -3,9 +3,9 @@
 #include <stdio.h>
 IDT idt;
 
-__attribute__((noreturn))
+//__attribute__((noreturn))
 extern "C" void exception_handler(void) {
-	serial.print("S-egg-mentation fault (core egged)\n");
+	printf("S-egg-mentation fault (core egged)\n");
 	
     //__asm__ __volatile__ ("cli; hlt"); // Completely hangs the computer
 }
