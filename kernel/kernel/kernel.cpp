@@ -30,7 +30,6 @@ extern "C" void kernel_main(void) {
 	printf("Finished booting. Giving control to the init process.\n");
 	
 	for(;;) {
-		breakpoint();
 		__asm__ __volatile__("hlt");
 	}
 }
