@@ -1,19 +1,25 @@
 .macro isr_err_stub r
 isr_stub_\r:
 	cli
+	pushal
+	cld
     call exception_handler
+	popal
 	sti
-    iret
+	iret
 .endm
 
 .macro isr_no_err_stub r
 isr_stub_\r:
 	cli
+	pushal
+	cld
 	call exception_handler
+	popal
 	sti
 	iret
 .endm
-
+.align   4
 isr_no_err_stub 0
 isr_no_err_stub 1
 isr_no_err_stub 2
