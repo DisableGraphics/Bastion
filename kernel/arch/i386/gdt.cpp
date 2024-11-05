@@ -1,6 +1,7 @@
 #include <kernel/gdt.hpp>
 #include <stdio.h>
 #include <error.h>
+#include <kernel/interrupts.hpp>
 
 GDT gdt;
 
@@ -12,7 +13,7 @@ GDT::GDT() {
 
 void GDT::init() {
 	// First disable interrupts
-	__asm__ __volatile__("cli");
+	IDT::disable_interrupts();
 	const struct GDT_entry null_entry = {0,0,0,0};
 	const struct GDT_entry ker_cod_seg = {0xFFFFF, 0, 0x9A, 0xC};
 	const struct GDT_entry ker_dat_seg = {0xFFFFF, 0, 0x92, 0xC};
@@ -26,7 +27,7 @@ void GDT::init() {
 	encodeEntry(gdt + 0x18, usr_cod_seg);
 	encodeEntry(gdt + 0x20, usr_dat_seg);
 	encodeEntry(gdt + 0x28, tss_seg);
-	__asm__ __volatile__( "lgdt %0" :: "m"(gdtr) );
+	load_gdtr(gdtr);
 	reloadSegments();
 }
 
@@ -50,4 +51,8 @@ void GDT::encodeEntry(uint8_t *target, struct GDT_entry source) {
     // Encode the flags
     target[6] |= (source.flags << 4);
 
+}
+
+void GDT::load_gdtr(gdtr_t gdtr) {
+	__asm__ __volatile__( "lgdt %0" :: "m"(gdtr) );
 }

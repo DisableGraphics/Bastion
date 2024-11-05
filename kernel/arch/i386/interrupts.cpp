@@ -1,38 +1,13 @@
+#include "kernel/inlineasm.h"
 #include <kernel/interrupts.hpp>
 #include <kernel/serial.hpp>
 #include <stdio.h>
+
 IDT idt;
 struct interrupt_frame;
 
-struct interrupt_frame
-{
-    uint16_t ip;
-    uint16_t cs;
-    uint16_t flags;
-    uint16_t sp;
-    uint16_t ss;
-};
-
-__attribute__ ((interrupt))
-extern "C" void interrupt_handler(struct interrupt_frame *frame)
-{
-    printf("Interrupt %d", frame->flags);
-}
-
 extern "C" void exception_handler(void) {
 	printf("Unknown error.\n");
-}
-
-extern "C" void division_by_zero_handler(void) {
-	printf("Division by (1-1).\n");
-}
-
-extern "C" void nmi_handler(void) {
-	printf("Got a Non Maskable Interrupt.\n");
-}
-
-extern "C" void double_fault_handler(void) {
-	printf("Double fault: error code 0.\n");
 }
 
 void IDT::set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
@@ -49,17 +24,40 @@ void IDT::init() {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
+	fill_isr_table();
+
     for (uint32_t vector = 0; vector < 32; vector++) {
-        set_descriptor(vector, isr_stub_table[vector], 0x8E);
+        set_descriptor(vector, isr_table[vector], 0x8E);
+		//printf("%p ", isr_stub_table[vector]);
         vectors[vector] = true;
     }
 
-    __asm__ __volatile__ ("lidt %0" : : "m"(idtr)); // load the new IDT
-    __asm__ __volatile__ ("sti"); // set the interrupt flag
+	set_idtr(idtr);
+    enable_interrupts();
+}
+
+void IDT::enable_interrupts() {
+	__asm__ __volatile__("sti");
+}
+
+void IDT::disable_interrupts() {
+	__asm__ __volatile__("cli");
+}
+
+void IDT::set_idtr(idtr_t idtr) {
+	__asm__ __volatile__ ("lidt %0" : : "m"(idtr)); // load the new IDT
 }
 
 idtr_t IDT::get_idtr() {
 	idtr_t ret;
 	__asm__ __volatile__("sidt %0" : "=m"(ret));
 	return ret;
+}
+
+void IDT::fill_isr_table() {
+	isr_table[0] = (void*)&division_by_zero_handler;
+	
+	for(int i = 1; i < 32; i++) {
+		isr_table[i] = (void*)&generic_interrupt_handler;
+	}
 }

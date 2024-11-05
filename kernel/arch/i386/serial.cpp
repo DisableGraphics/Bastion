@@ -19,6 +19,7 @@ void Serial::init() {
 	// Check if serial is faulty (i.e: not same byte as sent)
 	if(inb(PORT + 0) != 0xAE) {
 		faulty = true;
+		return;
 	}
 
 	// If serial is not faulty set it in normal operation mode

@@ -13,6 +13,7 @@ class GDT {
 		void init();
 		void encodeEntry(uint8_t *target, GDT_entry source);
 	private:
+		void load_gdtr(gdtr_t gdtr);
 		gdtr_t gdtr;
 		uint8_t tss[TSS_SIZE];
 		uint8_t gdt[GDT_SIZE];

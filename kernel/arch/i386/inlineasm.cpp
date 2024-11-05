@@ -49,16 +49,6 @@ void irqrestore(unsigned long flags) {
     __asm__ ("push %0\n\tpopf" : : "rm"(flags) : "memory","cc");
 }
 
-void lidt(void* base, uint16_t size) {
-    // This function works in 32 and 64bit mode
-    struct {
-        uint16_t length;
-        void*    base;
-    } __attribute__((packed)) IDTR = { size, base };
-
-    asm ( "lidt %0" : : "m"(IDTR) );  // let the compiler choose an addressing mode
-}
-
 uint64_t rdtsc() {
     uint64_t ret;
     __asm__ volatile ( "rdtsc" : "=A"(ret) );
@@ -103,4 +93,8 @@ uint64_t rdmsr(uint32_t msr_id) {
     uint64_t msr_value;
     asm volatile ( "rdmsr" : "=A" (msr_value) : "c" (msr_id) );
     return msr_value;
+}
+
+void io_wait(void) {
+	outb(0x80, 0);
 }

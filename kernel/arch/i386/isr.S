@@ -3,7 +3,7 @@ isr_stub_\r:
 	cli
 	pushal
 	cld
-    call interrupt_handler
+    call exception_handler
 	popal
 	sti
 	iret
@@ -14,42 +14,21 @@ isr_stub_\r:
 	cli
 	pushal
 	cld
-	call interrupt_handler
+	call exception_handler
 	popal
 	sti
 	iret
 .endm
 .align   4
-division_by_zero:
-	cli
-	pushal
-	cld
-	call division_by_zero_handler
-	popal
-	sti
-	iret
+isr_no_err_stub 0
 isr_no_err_stub 1
-nmi:
-	cli
-	pushal
-	cld
-	call nmi_handler
-	popal
-	sti
-	iret
+isr_no_err_stub 2
 isr_no_err_stub 3
 isr_no_err_stub 4
 isr_no_err_stub 5
 isr_no_err_stub 6
 isr_no_err_stub 7
-double_fault:
-	cli
-	pushal
-	cld
-	call interrupt_handler
-	popal
-	sti
-	iret
+isr_no_err_stub 8
 isr_no_err_stub 9
 isr_err_stub    10
 isr_err_stub    11
@@ -76,15 +55,15 @@ isr_no_err_stub 31
 
 .global isr_stub_table
 isr_stub_table:
-.long division_by_zero
+.long isr_stub_0
 .long isr_stub_1
-.long nmi_handler
+.long isr_stub_2
 .long isr_stub_3
 .long isr_stub_4
 .long isr_stub_5
 .long isr_stub_6
 .long isr_stub_7
-.long interrupt_handler
+.long isr_stub_8
 .long isr_stub_9
 .long isr_stub_10
 .long isr_stub_11

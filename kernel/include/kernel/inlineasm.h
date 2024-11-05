@@ -23,7 +23,6 @@ bool are_interrupts_enabled();
 unsigned long save_irqdisable();
 void irqrestore(unsigned long flags);
 
-void lidt(void* base, uint16_t size);
 uint64_t rdtsc();
 
 unsigned long read_cr0();
@@ -37,6 +36,7 @@ void invlpg(void* m);
 void wrmsr(uint32_t msr_id, uint64_t msr_value);
 uint64_t rdmsr(uint32_t msr_id);
 
+void io_wait(void);
 
 #ifdef __cplusplus
 }
