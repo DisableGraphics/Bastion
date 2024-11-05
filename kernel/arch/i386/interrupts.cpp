@@ -2,12 +2,37 @@
 #include <kernel/serial.hpp>
 #include <stdio.h>
 IDT idt;
+struct interrupt_frame;
 
-//__attribute__((noreturn))
+struct interrupt_frame
+{
+    uint16_t ip;
+    uint16_t cs;
+    uint16_t flags;
+    uint16_t sp;
+    uint16_t ss;
+};
+
+__attribute__ ((interrupt))
+extern "C" void interrupt_handler(struct interrupt_frame *frame)
+{
+    printf("Interrupt %d", frame->flags);
+}
+
 extern "C" void exception_handler(void) {
-	printf("S-egg-mentation fault (core egged)\n");
-	
-    //__asm__ __volatile__ ("cli; hlt"); // Completely hangs the computer
+	printf("Unknown error.\n");
+}
+
+extern "C" void division_by_zero_handler(void) {
+	printf("Division by (1-1).\n");
+}
+
+extern "C" void nmi_handler(void) {
+	printf("Got a Non Maskable Interrupt.\n");
+}
+
+extern "C" void double_fault_handler(void) {
+	printf("Double fault: error code 0.\n");
 }
 
 void IDT::set_descriptor(uint8_t vector, void* isr, uint8_t flags) {

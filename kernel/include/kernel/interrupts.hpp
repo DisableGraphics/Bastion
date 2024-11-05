@@ -8,7 +8,10 @@
 
 #define IDT_MAX_DESCRIPTORS 256
 
-extern "C" /*__attribute__((noreturn))*/ void exception_handler(void);
+extern "C" void exception_handler(void);
+extern "C" void division_by_zero_handler(void);
+extern "C" void nmi_handler(void);
+extern "C" void double_fault_handler(void);
 extern void* isr_stub_table[];
 
 // Interrupt Descriptor Table
