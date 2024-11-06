@@ -6,6 +6,7 @@ PIC pic;
 
 void PIC::init() {
 	remap(PIC1, PIC2);
+	
 }
 
 void PIC::remap(int offset1, int offset2) {
