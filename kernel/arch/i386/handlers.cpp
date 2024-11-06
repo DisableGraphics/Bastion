@@ -41,7 +41,7 @@ void IDT::double_fault_handler(interrupt_frame*) {
 	printf("Double fault\n");
 }
 
-void IDT::invalid_tss_handler(interrupt_frame*, unsigned int) {
+void IDT::invalid_tss_handler(interrupt_frame*, unsigned int selector_index) {
 	printf("Invalid TSS\n");
 }
 
