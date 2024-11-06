@@ -38,7 +38,7 @@ void IDT::device_not_available_handler(interrupt_frame*) {
 }
 
 void IDT::double_fault_handler(interrupt_frame*) {
-	printf("Double fault stopped because I'm the fucking best\n");
+	printf("Double fault\n");
 }
 
 void IDT::invalid_tss_handler(interrupt_frame*, unsigned int) {
