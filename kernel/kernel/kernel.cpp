@@ -6,6 +6,8 @@
 #include <kernel/interrupts.hpp>
 #include <kernel/inlineasm.h>
 #include <kernel/serial.hpp>
+#include <kernel/pic.hpp>
+
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif
@@ -15,6 +17,7 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(void) {
+	pic.init();
 	tty.init();
 	
 	serial.init();
