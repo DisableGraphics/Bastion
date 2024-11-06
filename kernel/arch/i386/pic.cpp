@@ -1,5 +1,6 @@
 #include <kernel/pic.hpp>
 #include <kernel/inlineasm.h>
+#include <stdio.h>
 
 PIC pic;
 
@@ -12,6 +13,8 @@ void PIC::remap(int offset1, int offset2) {
 	
 	a1 = inb(PIC1_DATA);                        // save masks
 	a2 = inb(PIC2_DATA);
+
+	printf("Mask 1: %d, mask 2: %d\n", a1, a2);
 	
 	outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
 	io_wait();

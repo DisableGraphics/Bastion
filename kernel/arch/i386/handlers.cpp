@@ -53,8 +53,27 @@ void IDT::stack_segment_fault_handler(interrupt_frame*, unsigned int ecode) {
 	printf("Stack segment fault\n");
 }
 
+[[gnu::no_caller_saved_registers]]
+const char * table(int code) {
+	switch(code) {
+		case 0:
+			return "GDT";
+		case 1:
+			return "IDT";
+		case 2:
+			return "LDT";
+		case 3:
+			return "IDT";
+		default:
+			return "Unknown";
+	}
+}
+
 void IDT::general_protection_fault_handler(interrupt_frame*, unsigned int ecode) {
-	printf("General Protection Fault\n");
+	printf("General Protection Fault:\n - External: %d\n - Tbl: %s\n - Index: %d", 
+		ecode & 0x1, 
+		table((ecode & 0x6) >> 1),
+		(ecode & 0xFFF8) >> 3);
 }
 
 void IDT::page_fault_handler(interrupt_frame*, unsigned int ecode) {
