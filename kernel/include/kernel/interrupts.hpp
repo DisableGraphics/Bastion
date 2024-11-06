@@ -24,61 +24,61 @@ class IDT {
 	private:
 		void set_idtr(idtr_t idtr);
 		void fill_isr_table();
-		__attribute__((aligned(0x10)))
+		[[gnu::aligned(0x10)]]
 		idt_entry_t idt[IDT_MAX_DESCRIPTORS];
-		__attribute__((aligned(0x4)))
+		[[gnu::aligned(0x4)]]
 		void * isr_table[32];
 		bool vectors[32];
 		idtr_t idtr;
 
 		// Interrupt handlers
-		__attribute__((interrupt))
+		[[gnu::interrupt]]
 		static void generic_exception_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 0
+		[[gnu::interrupt]] // 0
 		static void division_by_zero_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 1
+		[[gnu::interrupt]] // 1
 		static void debug_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 2
+		[[gnu::interrupt]] // 2
 		static void nmi_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 3
+		[[gnu::interrupt]] // 3
 		static void breakpoint_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 4
+		[[gnu::interrupt]] // 4
 		static void overflow_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 5
+		[[gnu::interrupt]] // 5
 		static void bound_range_exceeded_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 6
+		[[gnu::interrupt]] // 6
 		static void invalid_opcode_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 7
+		[[gnu::interrupt]] // 7
 		static void device_not_available_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 8
+		[[gnu::interrupt]] // 8
 		static void double_fault_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 10
+		[[gnu::interrupt]] // 10
 		static void invalid_tss_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 11
+		[[gnu::interrupt]] // 11
 		static void segment_not_present_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 12
+		[[gnu::interrupt]] // 12
 		static void stack_segment_fault_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 13
+		[[gnu::interrupt]] // 13
 		static void general_protection_fault_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 14
+		[[gnu::interrupt]] // 14
 		static void page_fault_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 16
+		[[gnu::interrupt]] // 16
 		static void floating_point_exception_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 17
+		[[gnu::interrupt]] // 17
 		static void alignment_check_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 18
+		[[gnu::interrupt]] // 18
 		static void machine_check_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 19
+		[[gnu::interrupt]] // 19
 		static void simd_floating_point_exception_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 20
+		[[gnu::interrupt]] // 20
 		static void virtualization_exception_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 21
+		[[gnu::interrupt]] // 21
 		static void control_protection_exception_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 28
+		[[gnu::interrupt]] // 28
 		static void hypervisor_injection_exception_handler(interrupt_frame*);
-		__attribute__((interrupt)) // 29
+		[[gnu::interrupt]] // 29
 		static void vmm_communication_exception_handler(interrupt_frame*, unsigned int);
-		__attribute__((interrupt)) // 30
+		[[gnu::interrupt]] // 30
 		static void security_exception_handler(interrupt_frame*, unsigned int);
 };
 
