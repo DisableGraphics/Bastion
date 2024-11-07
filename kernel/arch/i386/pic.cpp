@@ -5,8 +5,10 @@
 PIC pic;
 
 void PIC::init() {
-	remap(PIC1, PIC2);
-	
+	remap(PIC1, 0x28);
+	for(int i = 0; i < 8; i++) {
+		IRQ_clear_mask(i);
+	}
 }
 
 void PIC::remap(int offset1, int offset2) {
@@ -37,4 +39,37 @@ void PIC::remap(int offset1, int offset2) {
 	
 	outb(PIC1_DATA, a1);   // restore saved masks.
 	outb(PIC2_DATA, a2);
+}
+
+void PIC::disable() {
+	outb(PIC1_DATA, 0xff);
+    outb(PIC2_DATA, 0xff);
+}
+
+void PIC::IRQ_set_mask(uint8_t IRQline) {
+    uint16_t port;
+    uint8_t value;
+
+    if(IRQline < 8) {
+        port = PIC1_DATA;
+    } else {
+        port = PIC2_DATA;
+        IRQline -= 8;
+    }
+    value = inb(port) | (1 << IRQline);
+    outb(port, value);        
+}
+
+void PIC::IRQ_clear_mask(uint8_t IRQline) {
+    uint16_t port;
+    uint8_t value;
+
+    if(IRQline < 8) {
+        port = PIC1_DATA;
+    } else {
+        port = PIC2_DATA;
+        IRQline -= 8;
+    }
+    value = inb(port) & ~(1 << IRQline);
+    outb(port, value);        
 }

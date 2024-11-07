@@ -27,7 +27,7 @@ class IDT {
 		[[gnu::aligned(0x10)]]
 		idt_entry_t idt[IDT_MAX_DESCRIPTORS];
 		[[gnu::aligned(0x4)]]
-		void * isr_table[32];
+		void * isr_table[0x30];
 		bool vectors[32];
 		idtr_t idtr;
 

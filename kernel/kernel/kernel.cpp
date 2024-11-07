@@ -17,13 +17,13 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(void) {
-	
 	tty.init();
-	
+	pic.init();
+
 	serial.init();
 	gdt.init();
+	
 	idt.init();
-	pic.init();
 	page.init();
 		
 	#ifdef DEBUG

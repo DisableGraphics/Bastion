@@ -87,4 +87,8 @@ void IDT::fill_isr_table() {
 	isr_table[29] = (void*)&vmm_communication_exception_handler;
 	isr_table[30] = (void*)&security_exception_handler;
 	isr_table[31] = (void*)&generic_exception_handler; // Reserved
+
+	for(int i = 0x20; i < 0x30; i++) {
+		isr_table[i] = (void*)generic_exception_handler;
+	}
 }
