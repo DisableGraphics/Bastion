@@ -5,7 +5,7 @@
 PIC pic;
 
 void PIC::init() {
-	remap(PIC1, 0x28);
+	remap(0x20, 0x28);
 	for(int i = 0; i < 8; i++) {
 		IRQ_clear_mask(i);
 	}
