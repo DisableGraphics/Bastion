@@ -40,7 +40,7 @@ void PIT::set_count(uint16_t count) {
 
 void PIT::pit_handler(interrupt_frame *) {
 	pit.system_timer_fractions += pit.IRQ0_fractions;
-	pit.system_timer_ms += pit.system_timer_ms;
-	outb(0x20, PIC_EOI);
-	printf(".");
+	pit.system_timer_ms += pit.IRQ0_ms;
+	outb(PIC1, PIC_EOI);
+	printf("%d\n", pit.system_timer_fractions);
 }
