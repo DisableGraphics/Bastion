@@ -19,6 +19,10 @@ class IDT {
 		void init();
 		void set_descriptor(uint8_t vector, void* isr, uint8_t flags);
 		idtr_t get_idtr();
+
+		void set_handler(uint8_t vector, void (*fn)(interrupt_frame*));
+		void set_handler(uint8_t vector, void (*fn)(interrupt_frame*, uint32_t ecode));
+
 		static void enable_interrupts();
 		static void disable_interrupts();
 	private:

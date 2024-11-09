@@ -1,14 +1,11 @@
 #include <kernel/pic.hpp>
 #include <kernel/inlineasm.h>
-#include <stdio.h>
 
 PIC pic;
 
 void PIC::init() {
 	remap(0x20, 0x28);
-	for(int i = 0; i < 8; i++) {
-		IRQ_clear_mask(i);
-	}
+	disable();
 }
 
 void PIC::remap(int offset1, int offset2) {
@@ -70,4 +67,20 @@ void PIC::IRQ_clear_mask(uint8_t IRQline) {
     }
     value = inb(port) & ~(1 << IRQline);
     outb(port, value);        
+}
+
+uint16_t PIC::get_irq_reg(int ocw3) {
+    /* OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
+     * represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain */
+    outb(PIC1_COMMAND, ocw3);
+    outb(PIC2_COMMAND, ocw3);
+    return (inb(PIC2_COMMAND) << 8) | inb(PIC1_COMMAND);
+}
+
+uint16_t PIC::get_irr() {
+	return get_irq_reg(PIC_READ_IRR);
+}
+
+uint16_t PIC::get_isr() {
+	return get_irq_reg(PIC_READ_ISR);
 }

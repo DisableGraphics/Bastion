@@ -54,6 +54,14 @@ idtr_t IDT::get_idtr() {
 	return ret;
 }
 
+void IDT::set_handler(uint8_t vector, void (*fn)(interrupt_frame*)) {
+	set_descriptor(vector, (void*)fn, 0x8E);
+}
+
+void IDT::set_handler(uint8_t vector, void (*fn)(interrupt_frame*, uint32_t ecode)) {
+	set_descriptor(vector, (void*)fn, 0x8E);
+}
+
 void IDT::fill_isr_table() {
 	isr_table[0] = (void*)&division_by_zero_handler;
 	isr_table[1] = (void*)&debug_handler;
@@ -89,6 +97,6 @@ void IDT::fill_isr_table() {
 	isr_table[31] = (void*)&generic_exception_handler; // Reserved
 
 	for(int i = 0x20; i < IDT_MAX_DESCRIPTORS; i++) {
-		isr_table[i] = (void*)generic_exception_handler;
+		set_handler(i, generic_exception_handler);
 	}
 }

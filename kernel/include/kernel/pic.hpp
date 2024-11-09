@@ -14,7 +14,12 @@ class PIC {
 		void IRQ_clear_mask(uint8_t IRQ_line);
 
 		void send_EOI(uint8_t irq);
+
+		uint16_t get_irr();
+		uint16_t get_isr();
 	private:
+		uint16_t get_irq_reg(int ocw3);
+
 };
 
 extern PIC pic;

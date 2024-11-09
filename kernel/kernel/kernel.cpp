@@ -7,6 +7,7 @@
 #include <kernel/inlineasm.h>
 #include <kernel/serial.hpp>
 #include <kernel/pic.hpp>
+#include <kernel/pit.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -24,6 +25,7 @@ extern "C" void kernel_main(void) {
 	gdt.init();
 	
 	idt.init();
+	pit.init();
 	page.init();
 		
 	#ifdef DEBUG
