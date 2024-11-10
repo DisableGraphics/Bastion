@@ -7,7 +7,7 @@
 
 class PIT {
 	public:
-		void init();
+		void init(int freq);
 		uint16_t read_count();
 		void set_count(uint16_t count);
 		[[gnu::interrupt]]

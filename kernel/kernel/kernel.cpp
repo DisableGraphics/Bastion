@@ -25,7 +25,7 @@ extern "C" void kernel_main(void) {
 	gdt.init();
 	
 	idt.init();
-	pit.init();
+	pit.init(1000);
 	page.init();
 		
 	#ifdef DEBUG

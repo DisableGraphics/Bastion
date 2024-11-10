@@ -3,13 +3,22 @@
 #include <kernel/interrupts.hpp>
 #include "defs/pic/pic.hpp"
 #include <kernel/pic.hpp>
+#include <stdio.h>
 
 PIT pit;
 
-void PIT::init() {
-	int frequency = 1 << 16;
+void PIT::init(int freq) {
 	idt.set_handler(0x20, pit_handler);
 	pic.IRQ_clear_mask(0);
+	
+	int final_freq;
+	if(freq < 18) {
+		final_freq = 65536;
+	} else if(freq > 1193181) {
+		final_freq = 1;
+	} else {
+		final_freq = 3579545;
+	}
 }
 
 uint16_t PIT::read_count() {
@@ -36,11 +45,9 @@ void PIT::set_count(uint16_t count) {
 	idt.enable_interrupts();
 }
 
-#include <stdio.h>
-
 void PIT::pit_handler(interrupt_frame *) {
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
 	outb(PIC1, PIC_EOI);
-	printf("%d\n", pit.system_timer_fractions);
+	printf(".");
 }
