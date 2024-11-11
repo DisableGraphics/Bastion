@@ -10,6 +10,7 @@ class PIT {
 		void init(int freq);
 		uint16_t read_count();
 		void set_count(uint16_t count);
+		void sleep(int millis);
 		[[gnu::interrupt]]
 		static void pit_handler(interrupt_frame*);
 	private:
@@ -17,6 +18,8 @@ class PIT {
 		uint32_t IRQ0_fractions = 0, IRQ0_ms = 0;
 		uint32_t IRQ0_frequency = 0;
 		uint16_t PIT_reload_value = 0;
+
+		volatile uint32_t CountDown;
 };
 
 extern PIT pit;
