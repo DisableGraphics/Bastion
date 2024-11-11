@@ -38,6 +38,8 @@ uint64_t rdmsr(uint32_t msr_id);
 
 void io_wait(void);
 
+void halt(void);
+
 #ifdef __cplusplus
 }
 #endif

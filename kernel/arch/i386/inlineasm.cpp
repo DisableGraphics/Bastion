@@ -98,3 +98,7 @@ uint64_t rdmsr(uint32_t msr_id) {
 void io_wait(void) {
 	outb(0x80, 0);
 }
+
+void halt(void) {
+	__asm__ __volatile__("hlt");
+}
