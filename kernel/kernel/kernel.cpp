@@ -33,7 +33,6 @@ extern "C" void kernel_main(void) {
 	#endif
 	
 	printf("Initializing booting sequence\n");
-	pit.sleep(1000);
 	printf("Finished booting. Giving control to the init process.\n");
 	for(;;) {
 		__asm__ __volatile__("hlt");

@@ -31,6 +31,7 @@ KERNEL_OBJS=\
 $(KERNEL_ARCH_OBJS) \
 kernel/kernel.o \
 kernel/test.o \
+kernel/cpp.o
 
 KERNEL_BIN=nexa.kernel
 
