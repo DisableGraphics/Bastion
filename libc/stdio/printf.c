@@ -126,7 +126,7 @@ int printf(const char* restrict format, ...) {
 
 		} else if(*format == 'p') {
 			format++;
-			long i = va_arg(parameters, void *);
+			long i = (long)va_arg(parameters, void *);
 			char buf[32];
 			itoa(i, buf, 16);
 			size_t len = strlen(buf);

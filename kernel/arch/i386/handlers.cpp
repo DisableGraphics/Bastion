@@ -41,15 +41,15 @@ void IDT::double_fault_handler(interrupt_frame*) {
 	printf("Double fault\n");
 }
 
-void IDT::invalid_tss_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::invalid_tss_handler(interrupt_frame*, unsigned int) {
 	printf("Invalid TSS\n");
 }
 
-void IDT::segment_not_present_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::segment_not_present_handler(interrupt_frame*, unsigned int) {
 	printf("Segment not present\n");
 }
 
-void IDT::stack_segment_fault_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::stack_segment_fault_handler(interrupt_frame*, unsigned int) {
 	printf("Stack segment fault\n");
 }
 
@@ -76,7 +76,7 @@ void IDT::general_protection_fault_handler(interrupt_frame*, unsigned int ecode)
 		(ecode & 0xFFF8) >> 3);
 }
 
-void IDT::page_fault_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::page_fault_handler(interrupt_frame*, unsigned int) {
 	printf("Page fault\n");
 }
 
@@ -84,7 +84,7 @@ void IDT::floating_point_exception_handler(interrupt_frame*) {
 	printf("Floating point exception\n");
 }
 
-void IDT::alignment_check_handler(interrupt_frame *, unsigned int ecode) {
+void IDT::alignment_check_handler(interrupt_frame *, unsigned int) {
 	printf("Alignment check\n");
 }
 
@@ -100,7 +100,7 @@ void IDT::virtualization_exception_handler(interrupt_frame*) {
 	printf("VIRT exception\n");
 }
 
-void IDT::control_protection_exception_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::control_protection_exception_handler(interrupt_frame*, unsigned int) {
 	printf("Control Protection Exception\n");
 }
 
@@ -108,10 +108,10 @@ void IDT::hypervisor_injection_exception_handler(interrupt_frame*) {
 	printf("Hypervisor Injection Exception\n");
 }
 
-void IDT::vmm_communication_exception_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::vmm_communication_exception_handler(interrupt_frame*, unsigned int) {
 	printf("VMM Communication Exception\n");
 }
 
-void IDT::security_exception_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::security_exception_handler(interrupt_frame*, unsigned int) {
 	printf("Security Exception\n");
 }
