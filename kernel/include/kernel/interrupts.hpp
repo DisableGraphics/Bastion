@@ -23,7 +23,9 @@ class IDT {
 		void set_handler(uint8_t vector, void (*fn)(interrupt_frame*));
 		void set_handler(uint8_t vector, void (*fn)(interrupt_frame*, uint32_t ecode));
 
+		[[gnu::no_caller_saved_registers]]
 		static void enable_interrupts();
+		[[gnu::no_caller_saved_registers]]
 		static void disable_interrupts();
 	private:
 		void set_idtr(idtr_t idtr);

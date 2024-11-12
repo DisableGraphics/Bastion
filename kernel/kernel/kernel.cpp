@@ -8,6 +8,7 @@
 #include <kernel/serial.hpp>
 #include <kernel/pic.hpp>
 #include <kernel/pit.hpp>
+#include <kernel/rtc.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -26,6 +27,7 @@ extern "C" void kernel_main(void) {
 	
 	idt.init();
 	pit.init(100);
+	RTC::get().init();
 	page.init();
 		
 	#ifdef DEBUG
