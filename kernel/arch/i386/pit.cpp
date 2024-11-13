@@ -5,8 +5,6 @@
 #include <kernel/pic.hpp>
 #include <stdio.h>
 
-PIT pit;
-
 void PIT::init(int freq) {
 	idt.set_handler(0x20, pit_handler);
 	pic.IRQ_clear_mask(0);
@@ -62,6 +60,11 @@ void PIT::init(int freq) {
     idt.enable_interrupts();
 }
 
+PIT &PIT::get() {
+	static PIT instance;
+	return instance;
+}
+
 uint16_t PIT::read_count() {
 	uint16_t count;
 	// Disable interrupts
@@ -87,6 +90,7 @@ void PIT::set_count(uint16_t count) {
 }
 
 void PIT::pit_handler(interrupt_frame *) {
+	PIT &pit = PIT::get();
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
 	pit.countdown -= pit.IRQ0_ms;

@@ -26,7 +26,7 @@ extern "C" void kernel_main(void) {
 	gdt.init();
 	
 	idt.init();
-	pit.init(100);
+	PIT::get().init(100);
 	RTC::get().init();
 	page.init();
 		

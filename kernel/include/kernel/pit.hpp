@@ -7,6 +7,8 @@
 
 class PIT {
 	public:
+		static PIT &get();
+
 		void init(int freq);
 		uint16_t read_count();
 		void set_count(uint16_t count);
@@ -20,6 +22,6 @@ class PIT {
 		uint16_t PIT_reload_value = 0;
 
 		volatile int64_t countdown;
-};
 
-extern PIT pit;
+		PIT(){}
+};

@@ -16,16 +16,17 @@ void RTC::init() {
 	init_interrupts();
 	
 	idt.enable_interrupts();
-	nmi.enable();	
+	nmi.enable();
 }
 
 void RTC::init_interrupts() {
+	idt.set_handler(0x28, rtc_handler);
 	outb(0x70, 0x8B);		// select register B, and disable NMI
 	char prev = inb(0x71);	// read the current value of register B
 	outb(0x70, 0x8B);		// set the index again (a read will reset the index to register D)
 	outb(0x71, prev | 0x40);	// write the previous value ORed with 0x40. This turns on bit 6 of register B
 
-	idt.set_handler(0x28, rtc_handler);
+	
 }
 
 void RTC::poll_register_c() {
@@ -49,6 +50,7 @@ void RTC::rtc_handler(interrupt_frame*) {
 	idt.disable_interrupts();
 	RTC::get().poll_register_c();
 	idt.enable_interrupts();
+	outb(PIC2, PIC_EOI);
 }
 
 RTC& RTC::get() {
