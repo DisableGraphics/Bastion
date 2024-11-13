@@ -16,6 +16,7 @@ struct interrupt_frame;
 // Interrupt Descriptor Table
 class IDT {
 	public:
+		static IDT &get();
 		void init();
 		void set_descriptor(uint8_t vector, void* isr, uint8_t flags);
 		idtr_t get_idtr();
@@ -86,6 +87,6 @@ class IDT {
 		static void vmm_communication_exception_handler(interrupt_frame*, unsigned int);
 		[[gnu::interrupt]] // 30
 		static void security_exception_handler(interrupt_frame*, unsigned int);
-};
 
-extern IDT idt;
+		IDT(){}
+};

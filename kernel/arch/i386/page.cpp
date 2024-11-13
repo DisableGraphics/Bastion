@@ -6,7 +6,10 @@
 extern "C" void loadPageDirectory(uint32_t*);
 extern "C" void enablePaging();
 
-PagingManager page;
+PagingManager &PagingManager::get() {
+	static PagingManager instance;
+	return instance;
+}
 
 void PagingManager::init(void) {
     for(int i = 0; i < 1024; i++)

@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 void test_paging() {
+	PagingManager &page = PagingManager::get();
 	printf("Testing paging... ");
 	int * physaddr = (int *)0x1000;
 	int * virtualaddr = (int *)0x2000;

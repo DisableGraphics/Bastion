@@ -1,13 +1,16 @@
-#include "kernel/inlineasm.h"
 #include <kernel/interrupts.hpp>
 #include <kernel/serial.hpp>
 #include <stdio.h>
 
-IDT idt;
 struct interrupt_frame;
 
 extern "C" void exception_handler(void) {
 	printf("Unknown error.\n");
+}
+
+IDT& IDT::get() {
+	static IDT instance;
+	return instance;
 }
 
 void IDT::set_descriptor(uint8_t vector, void* isr, uint8_t flags) {

@@ -25,10 +25,10 @@ extern "C" void kernel_main(void) {
 	serial.init();
 	gdt.init();
 	
-	idt.init();
+	IDT::get().init();
 	PIT::get().init(100);
 	RTC::get().init();
-	page.init();
+	PagingManager::get().init();
 		
 	#ifdef DEBUG
 	test_paging();

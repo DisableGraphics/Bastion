@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 void PIT::init(int freq) {
-	idt.set_handler(0x20, pit_handler);
+	IDT::get().set_handler(0x20, pit_handler);
 	pic.IRQ_clear_mask(0);
 	
 	uint32_t final_freq, ebx, edx;
@@ -51,13 +51,13 @@ void PIT::init(int freq) {
     IRQ0_fractions = final_freq; // Fractions of 1 ms between IRQs
 
     // Program the PIT channel (abstracted in this C version)
-    idt.disable_interrupts(); // Function to disable interrupts
+    IDT::get().disable_interrupts(); // Function to disable interrupts
 
     outb(0x43, 0x34);        // Set command to PIT control register
     outb(0x40, PIT_reload_value & 0xFF);      // Send low byte
     outb(0x40, (PIT_reload_value >> 8) & 0xFF); // Send high byte
 
-    idt.enable_interrupts();
+    IDT::get().enable_interrupts();
 }
 
 PIT &PIT::get() {
@@ -68,25 +68,25 @@ PIT &PIT::get() {
 uint16_t PIT::read_count() {
 	uint16_t count;
 	// Disable interrupts
-	idt.disable_interrupts();
+	IDT::get().disable_interrupts();
 	
 	// al = channel in bits 6 and 7, remaining bits clear
 	outb(PIT_MODE_COMMAND,0b0000000);
 	
 	count = inb(0x40);		// Low byte
 	count |= inb(0x40) << 8;	// High byte
-	idt.enable_interrupts();
+	IDT::get().enable_interrupts();
 	return count;
 }
 
 void PIT::set_count(uint16_t count) {
 	// Disable interrupts
-	idt.disable_interrupts();
+	IDT::get().disable_interrupts();
 	
 	// Set low byte
 	outb(PIT_CHAN0, count & 0xFF);		// Low byte
 	outb(PIT_CHAN0, (count & 0xFF00) >> 8);	// High byte
-	idt.enable_interrupts();
+	IDT::get().enable_interrupts();
 }
 
 void PIT::pit_handler(interrupt_frame *) {
