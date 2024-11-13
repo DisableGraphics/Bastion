@@ -47,11 +47,11 @@ void RTC::interrupt_rate(int rate) {
 }
 
 void RTC::rtc_handler(interrupt_frame*) {
-	printf(".");
 	IDT::get().disable_interrupts();
+	printf(".");
 	RTC::get().poll_register_c();
-	IDT::get().enable_interrupts();
 	outb(PIC2, PIC_EOI);
+	IDT::get().enable_interrupts();
 }
 
 RTC& RTC::get() {
