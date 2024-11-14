@@ -6,6 +6,7 @@
 
 class PIC {
 	public:
+		static PIC &get();
 		void init();
 		void remap(int offset1, int offset2);
 		void disable();
@@ -19,7 +20,6 @@ class PIC {
 		uint16_t get_isr();
 	private:
 		uint16_t get_irq_reg(int ocw3);
+		PIC(){};
 
 };
-
-extern PIC pic;

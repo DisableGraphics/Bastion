@@ -3,11 +3,10 @@
 #include <kernel/interrupts.hpp>
 #include "defs/pic/pic.hpp"
 #include <kernel/pic.hpp>
-#include <stdio.h>
 
 void PIT::init(int freq) {
 	IDT::get().set_handler(0x20, pit_handler);
-	pic.IRQ_clear_mask(0);
+	PIC::get().IRQ_clear_mask(0);
 	
 	uint32_t final_freq, ebx, edx;
 
@@ -94,7 +93,7 @@ void PIT::pit_handler(interrupt_frame *) {
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
 	pit.countdown -= pit.IRQ0_ms;
-	pic.send_EOI(0);
+	PIC::get().send_EOI(0);
 }
 
 void PIT::sleep(uint32_t millis) {

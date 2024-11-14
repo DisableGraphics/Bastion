@@ -2,6 +2,7 @@
 // UART serial transmitter/receiver
 class Serial {
 	public:
+		static Serial& get();
 		void init();
 		bool is_faulty();
 		bool received();
@@ -12,5 +13,3 @@ class Serial {
 	private:
 		bool faulty = false;
 };
-
-extern Serial serial;

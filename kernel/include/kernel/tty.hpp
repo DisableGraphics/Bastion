@@ -3,10 +3,11 @@
 // TTY
 class TTY {
     public:
+		static TTY& get();
         void init();
         void putchar(char c);
         void write(const char* data, size_t size);
         void writestring(const char* data);
+	private:
+		TTY(){};
 };
-
-extern TTY tty;

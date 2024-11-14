@@ -3,12 +3,15 @@
 #include <error.h>
 #include <kernel/interrupts.hpp>
 
-GDT gdt;
-
 extern "C" void reloadSegments();
 
 GDT::GDT() {
 	gdtr = {sizeof(gdt)-1, (uint32_t)gdt};
+}
+
+GDT &GDT::get() {
+	static GDT instance;
+	return instance;
 }
 
 void GDT::init() {

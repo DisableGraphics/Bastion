@@ -9,7 +9,7 @@
 // Global Descriptor Table
 class GDT {
 	public:
-		GDT();
+		static GDT &get();
 		void init();
 		void encodeEntry(uint8_t *target, GDT_entry source);
 	private:
@@ -17,5 +17,5 @@ class GDT {
 		gdtr_t gdtr;
 		uint8_t tss[TSS_SIZE];
 		uint8_t gdt[GDT_SIZE];
+		GDT();
 };
-extern GDT gdt;

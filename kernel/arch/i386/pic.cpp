@@ -2,7 +2,10 @@
 #include <kernel/pic.hpp>
 #include <kernel/inlineasm.h>
 
-PIC pic;
+PIC &PIC::get() {
+	static PIC instance;
+	return instance;
+}
 
 void PIC::init() {
 	remap(0x20, 0x28);

@@ -3,7 +3,10 @@
 
 #define PORT 0x3f8 // COM1
 
-Serial serial;
+Serial &Serial::get() {
+	static Serial instance;
+	return instance;
+}
 
 void Serial::init() {
 	outb(PORT + 1, 0x00);    // Disable all interrupts

@@ -18,11 +18,11 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(void) {
-	tty.init();
-	pic.init();
+	TTY::get().init();
+	PIC::get().init();
 
-	serial.init();
-	gdt.init();
+	Serial::get().init();
+	GDT::get().init();
 	
 	IDT::get().init();
 	PIT::get().init(100);
