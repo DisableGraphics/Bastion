@@ -94,7 +94,7 @@ void PIT::pit_handler(interrupt_frame *) {
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
 	pit.countdown -= pit.IRQ0_ms;
-	outb(PIC1, PIC_EOI);
+	pic.send_EOI(0);
 }
 
 void PIT::sleep(uint32_t millis) {

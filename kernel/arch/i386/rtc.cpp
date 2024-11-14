@@ -11,23 +11,22 @@ void RTC::init() {
 	outb(0x70, 0x8A);	// select Status Register A, and disable NMI (by setting the 0x80 bit)
 	outb(0x71, 0x20);	// write to CMOS/RTC RAM
 
-	poll_register_c();
 	init_interrupts();
 	pic.IRQ_clear_mask(2);
 	pic.IRQ_clear_mask(8);
 	
 	IDT::get().enable_interrupts();
 	nmi.enable();
+
+	poll_register_c();
 }
 
 void RTC::init_interrupts() {
-	IDT::get().set_handler(40, rtc_handler);
+	IDT::get().set_handler(0x28, RTC::get().rtc_handler);
 	outb(0x70, 0x8B);		// select register B, and disable NMI
 	char prev = inb(0x71);	// read the current value of register B
 	outb(0x70, 0x8B);		// set the index again (a read will reset the index to register D)
 	outb(0x71, prev | 0x40);	// write the previous value ORed with 0x40. This turns on bit 6 of register B
-
-	
 }
 
 void RTC::poll_register_c() {
@@ -50,7 +49,7 @@ void RTC::rtc_handler(interrupt_frame*) {
 	IDT::get().disable_interrupts();
 	printf(".");
 	RTC::get().poll_register_c();
-	outb(PIC2, PIC_EOI);
+	pic.send_EOI(8);
 	IDT::get().enable_interrupts();
 }
 

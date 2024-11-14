@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <kernel/pic.hpp>
 #include <kernel/inlineasm.h>
 
@@ -83,4 +84,11 @@ uint16_t PIC::get_irr() {
 
 uint16_t PIC::get_isr() {
 	return get_irq_reg(PIC_READ_ISR);
+}
+
+void PIC::send_EOI(uint8_t irq) {
+	if (irq >= 8) {
+        outb (PIC_EOI, PIC_EOI);
+    }
+    outb (PIC_EOI, PIC_EOI);
 }

@@ -1,3 +1,4 @@
+#include "defs/idt_entry.h"
 #include <kernel/interrupts.hpp>
 #include <kernel/serial.hpp>
 #include <stdio.h>
@@ -58,11 +59,13 @@ idtr_t IDT::get_idtr() {
 }
 
 void IDT::set_handler(uint8_t vector, void (*fn)(interrupt_frame*)) {
-	set_descriptor(vector, (void*)fn, 0x8E);
+	isr_table[vector] = reinterpret_cast<void*>(fn);
+	set_descriptor(vector, isr_table[vector], 0x8E);
 }
 
 void IDT::set_handler(uint8_t vector, void (*fn)(interrupt_frame*, uint32_t ecode)) {
-	set_descriptor(vector, (void*)fn, 0x8E);
+	isr_table[vector] = reinterpret_cast<void*>(fn);
+	set_descriptor(vector, isr_table[vector], 0x8E);
 }
 
 void IDT::fill_isr_table() {
@@ -102,4 +105,12 @@ void IDT::fill_isr_table() {
 	for(int i = 0x20; i < IDT_MAX_DESCRIPTORS; i++) {
 		set_handler(i, generic_exception_handler);
 	}
+}
+
+idt_entry_t *IDT::get_idt() {
+	return idt;
+}
+
+void **IDT::get_isr_table() {
+	return isr_table;
 }

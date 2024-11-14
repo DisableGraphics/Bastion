@@ -20,6 +20,8 @@ class IDT {
 		void init();
 		void set_descriptor(uint8_t vector, void* isr, uint8_t flags);
 		idtr_t get_idtr();
+		idt_entry_t *get_idt();
+		void **get_isr_table();
 
 		void set_handler(uint8_t vector, void (*fn)(interrupt_frame*));
 		void set_handler(uint8_t vector, void (*fn)(interrupt_frame*, uint32_t ecode));
