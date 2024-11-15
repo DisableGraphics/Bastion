@@ -8,6 +8,7 @@
 #include <kernel/serial.hpp>
 #include <kernel/pic.hpp>
 #include <kernel/pit.hpp>
+#include <kernel/ps2.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -27,6 +28,7 @@ extern "C" void kernel_main(void) {
 	IDT::get().init();
 	PIT::get().init(100);
 	PagingManager::get().init();
+	PS2Controller::get().init();
 		
 	#ifdef DEBUG
 	test_paging();
