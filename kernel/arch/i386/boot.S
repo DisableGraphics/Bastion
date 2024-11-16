@@ -25,12 +25,16 @@ stack_top:
 .type _start, @function
 _start:
 	movl $stack_top, %esp
-
+	push %eax
+	push %ebx
 	# Call the global constructors.
 	call _init
 
 	# Transfer control to the main kernel.
 	call kernel_main
+
+	pop %ebx
+	pop %eax
 
 	# Hang if kernel_main unexpectedly returns.
 	cli
