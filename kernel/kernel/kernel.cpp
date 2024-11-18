@@ -9,6 +9,7 @@
 #include <kernel/pic.hpp>
 #include <kernel/pit.hpp>
 #include <kernel/ps2.hpp>
+#include <kernel/mmanager.hpp>
 #include <multiboot/multiboot.h>
 
 #ifdef DEBUG
@@ -19,44 +20,9 @@ void breakpoint() {
 	__asm__ volatile("int3");
 }
 
-void panic(const char *str) {
-	printf("Kernel panic: %s\n", str);
-	halt();
-}
-
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
-	if(magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        panic("invalid magic number!");
-    }
-
-	if(!(mbd->flags >> 6 & 0x1)) {
-		panic("Invalid memory map");
-	}
-
-	for(unsigned i = 0; i < mbd->mmap_length; 
-        i += sizeof(multiboot_memory_map_t)) 
-    {
-        multiboot_memory_map_t* mmmt = 
-            (multiboot_memory_map_t*) (mbd->mmap_addr + i);
-
-        printf("Start Addr: %p | Length: %p | Size: %p | Type: %d | ",
-            mmmt->addr, mmmt->len, mmmt->size, mmmt->type);
-
-        if(mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
-			printf("Available\n");
-            /* 
-             * Do something with this memory block!
-             * BE WARNED that some of memory shown as availiable is actually 
-             * actively being used by the kernel! You'll need to take that
-             * into account before writing to memory!
-             */
-        } else {
-			printf("Not available\n");
-		}
-    }
-
-	printf("Nothing wrong with memory. Initializing devices... ");
+	MemoryManager::get().init(mbd, magic);
 	PIC::get().init();
 
 	Serial::get().init();
@@ -70,7 +36,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	#ifdef DEBUG
 	test_paging();
 	#endif
-	printf("Done!\n");
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
