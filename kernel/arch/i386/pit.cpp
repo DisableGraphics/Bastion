@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <kernel/pit.hpp>
 #include <kernel/inlineasm.h>
 #include <kernel/interrupts.hpp>
@@ -88,17 +89,46 @@ void PIT::set_count(uint16_t count) {
 	IDT::get().enable_interrupts();
 }
 
+#include <stdio.h>
+
 void PIT::pit_handler(interrupt_frame *) {
 	PIT &pit = PIT::get();
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
-	pit.countdown -= pit.IRQ0_ms;
+	for(int i = 0; i < 32; i++) {
+		if(pit.allocated & (1 << i)) {
+			printf("%d\n", pit.allocated);
+			pit.kernel_countdowns[i] -= pit.IRQ0_ms;
+		}
+	}
 	PIC::get().send_EOI(0);
 }
 
 void PIT::sleep(uint32_t millis) {
-    countdown = millis;
-    while (countdown > 0) {
+    uint32_t handle = alloc_timer();
+	kernel_countdowns[handle] = millis;
+    while (kernel_countdowns[handle] > 0) {
         halt();
     }
+	dealloc_timer(handle);
+}
+
+uint32_t PIT::alloc_timer() {
+	if(allocated == UINT32_MAX)
+		return UINT32_MAX;
+	uint32_t i;
+	printf("alloc: %p\n", allocated);
+	for(i = 0; i < 32; i++) {
+		if(!(allocated & (1 << i))) {
+			kernel_countdowns[i] = 0;
+			allocated |= (1 << i);
+		}
+	}
+	printf("alloc: %p\n", allocated);
+	return i;
+}
+
+void PIT::dealloc_timer(uint32_t handle) {
+	if(handle == UINT32_MAX) return;
+	allocated &= (UINT32_MAX & ~(1 << handle));
 }

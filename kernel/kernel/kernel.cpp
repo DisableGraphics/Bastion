@@ -40,6 +40,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
 	int guard;
+	PIT::get().sleep(1209);
 	printf("Guard: %p\n", &guard);
 	for(;;) {
 		__asm__ __volatile__("hlt");
