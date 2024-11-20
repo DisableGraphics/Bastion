@@ -6,6 +6,9 @@
 #include "../arch/i386/defs/pit/pit.hpp"
 #endif
 
+// Number of max kernel countdowns available
+constexpr uint32_t K_N_COUNTDOWNS = 32;
+
 class PIT {
 	public:
 		static PIT &get();
@@ -19,12 +22,13 @@ class PIT {
 	private:
 		uint32_t alloc_timer();
 		void dealloc_timer(uint32_t handle);
+
 		uint32_t system_timer_fractions = 0, system_timer_ms = 0;
 		uint32_t IRQ0_fractions = 0, IRQ0_ms = 0;
 		uint32_t IRQ0_frequency = 0;
 		uint16_t PIT_reload_value = 0;
 
-		volatile uint32_t kernel_countdowns[32];
+		volatile int kernel_countdowns[K_N_COUNTDOWNS];
 		uint32_t allocated = 0;
 
 		PIT(){}

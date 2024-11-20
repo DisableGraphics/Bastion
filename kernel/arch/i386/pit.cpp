@@ -89,17 +89,12 @@ void PIT::set_count(uint16_t count) {
 	IDT::get().enable_interrupts();
 }
 
-#include <stdio.h>
-
 void PIT::pit_handler(interrupt_frame *) {
-	PIT &pit = PIT::get();
-	pit.system_timer_fractions += pit.IRQ0_fractions;
-	pit.system_timer_ms += pit.IRQ0_ms;
-	for(int i = 0; i < 32; i++) {
-		if(pit.allocated & (1 << i)) {
-			printf("%d\n", pit.allocated);
-			pit.kernel_countdowns[i] -= pit.IRQ0_ms;
-		}
+	PIT::get().system_timer_fractions += PIT::get().IRQ0_fractions;
+	PIT::get().system_timer_ms += PIT::get().IRQ0_ms;
+	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
+		if(PIT::get().allocated & (1 << i))
+			PIT::get().kernel_countdowns[i] -= PIT::get().IRQ0_ms;
 	}
 	PIC::get().send_EOI(0);
 }
@@ -114,17 +109,16 @@ void PIT::sleep(uint32_t millis) {
 }
 
 uint32_t PIT::alloc_timer() {
-	if(allocated == UINT32_MAX)
+	if(this->allocated == UINT32_MAX)
 		return UINT32_MAX;
 	uint32_t i;
-	printf("alloc: %p\n", allocated);
-	for(i = 0; i < 32; i++) {
+	for(i = 0; i < K_N_COUNTDOWNS; i++) {
 		if(!(allocated & (1 << i))) {
 			kernel_countdowns[i] = 0;
-			allocated |= (1 << i);
+			this->allocated |= (1 << i);
+			break;
 		}
 	}
-	printf("alloc: %p\n", allocated);
 	return i;
 }
 
