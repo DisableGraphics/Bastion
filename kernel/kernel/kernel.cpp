@@ -12,7 +12,6 @@
 #include <kernel/ps2.hpp>
 #include <kernel/mmanager.hpp>
 #include <multiboot/multiboot.h>
-
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif
