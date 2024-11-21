@@ -33,7 +33,6 @@ void IDT::init() {
     for (uint32_t vector = 0; vector < 32; vector++) {
         set_descriptor(vector, isr_table[vector], 0x8E);
 		//printf("%p ", isr_stub_table[vector]);
-        vectors[vector] = true;
     }
 
 	set_idtr(idtr);
