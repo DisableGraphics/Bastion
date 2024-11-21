@@ -11,6 +11,11 @@ void PIT::init(int freq) {
 	
 	uint32_t final_freq, ebx, edx;
 
+	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
+		callbacks[i] = nullptr;
+		callback_args[i] = nullptr;
+	}
+
     // Do some checking and determine the reload value
     final_freq = 0x10000; // Slowest possible frequency (65536)
 
@@ -93,19 +98,44 @@ void PIT::pit_handler(interrupt_frame *) {
 	PIT::get().system_timer_fractions += PIT::get().IRQ0_fractions;
 	PIT::get().system_timer_ms += PIT::get().IRQ0_ms;
 	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
-		if(PIT::get().allocated & (1 << i))
+		if(PIT::get().allocated & (1 << i)) {
 			PIT::get().kernel_countdowns[i] -= PIT::get().IRQ0_ms;
+			if(PIT::get().kernel_countdowns[i] < 0 && PIT::get().callbacks[i] != nullptr) {
+				PIT::get().callbacks[i](PIT::get().callback_args[i]);
+			}
+		}
 	}
 	PIC::get().send_EOI(0);
 }
 
 void PIT::sleep(uint32_t millis) {
     uint32_t handle = alloc_timer();
+	if(handle == UINT32_MAX) return;
 	kernel_countdowns[handle] = millis;
     while (kernel_countdowns[handle] > 0) {
         halt();
     }
 	dealloc_timer(handle);
+}
+
+uint32_t PIT::timer_callback(uint32_t handle, uint32_t millis, void (*fn)(void*), void *arg) {
+	if(handle == UINT32_MAX) {
+		handle = alloc_timer();
+		if(handle == UINT32_MAX)
+			return handle;
+	}
+	
+	kernel_countdowns[handle] = millis;
+	callbacks[handle] = fn;
+	callback_args[handle] = arg;
+
+	return handle;
+}
+
+void PIT::clear_callback(uint32_t handle) {
+	dealloc_timer(handle);
+	callbacks[handle] = nullptr;
+	callback_args[handle] = nullptr;
 }
 
 uint32_t PIT::alloc_timer() {

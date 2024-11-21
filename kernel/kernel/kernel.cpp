@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 
 #include <kernel/page.hpp>
@@ -32,7 +33,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PIT::get().init(100);
 	PagingManager::get().init();
 	PS2Controller::get().init();
-		
 	#ifdef DEBUG
 	test_paging();
 	#endif
