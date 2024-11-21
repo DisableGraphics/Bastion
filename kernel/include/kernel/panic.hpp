@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include "inlineasm.h"
-
 namespace kn {
 	/**
 		\brief kernel panic with a message.

@@ -1,5 +1,9 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
+#include <kernel/const.hpp>
+
+constexpr size_t INITIAL_MAPPING = ONE_MEG * 4;
 
 /**
 	\brief Pages manager

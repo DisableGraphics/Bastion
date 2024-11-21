@@ -11,7 +11,7 @@ PagingManager &PagingManager::get() {
 	return instance;
 }
 
-void PagingManager::init(void) {
+void PagingManager::init() {
     for(int i = 0; i < 1024; i++)
     {
         // This sets the following flags to the pages:

@@ -1,5 +1,8 @@
+#include <stddef.h>
 #include <kernel/mmanager.hpp>
 #include <kernel/panic.hpp>
+#include <kernel/const.hpp>
+#include <stdio.h>
 
 MemoryManager &MemoryManager::get() {
 	static MemoryManager instance;
@@ -21,19 +24,21 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
         multiboot_memory_map_t* mmmt = 
             (multiboot_memory_map_t*) (mbd->mmap_addr + i);
 
-        printf("Start Addr: %p | Length: %p | Size: %p | Type: %d | ",
-            mmmt->addr, mmmt->len, mmmt->size, mmmt->type);
+		memsize += mmmt->len;
 
+		// Tell the kernel that there is a bunch of available memory
+		// in here
         if(mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
-			printf("Available\n");
-            /* 
-             * Do something with this memory block!
-             * BE WARNED that some of memory shown as availiable is actually 
-             * actively being used by the kernel! You'll need to take that
-             * into account before writing to memory!
-             */
-        } else {
-			printf("Not available\n");
-		}
+			// Below one megabyte lies the real memory region,
+			// which seems to be a pita to reclaim, so skip it
+			if((size_t)mmmt->addr < ONE_MEG) {
+				continue;
+			}
+			add_to_pages_bitmap(mmmt);
+        }
     }
+}
+
+void MemoryManager::add_to_pages_bitmap(multiboot_memory_map_t* mmmt) {
+	
 }
