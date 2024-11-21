@@ -20,6 +20,13 @@ void breakpoint() {
 	__asm__ volatile("int3");
 }
 
+void callback(void * arg) {
+	printf("hola ");
+
+	uint32_t handle = *(uint32_t*)arg;
+	PIT::get().timer_callback(handle, 100, callback, &handle);
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
 	MemoryManager::get().init(mbd, magic);
@@ -35,6 +42,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	#ifdef DEBUG
 	test_paging();
 	#endif
+
+	uint32_t handle = PIT::get().timer_callback(UINT32_MAX, 100, callback, &handle);
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");

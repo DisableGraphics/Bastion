@@ -4,6 +4,7 @@
 #include <kernel/interrupts.hpp>
 #include "defs/pic/pic.hpp"
 #include <kernel/pic.hpp>
+#include <stdio.h>
 
 void PIT::init(int freq) {
 	IDT::get().set_handler(0x20, pit_handler);
