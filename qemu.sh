@@ -2,12 +2,14 @@
 set -e
 . ./iso.sh
 
-OPTIONS="-s -S"
+
+OPTIONS="-cdrom nexa.iso -serial file:nexa.serial -monitor stdio -m 344M"
+DEBUG_OPTIONS="-s -S"
 
 if [ "$1" == "debug" ]; then
-	qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom nexa.iso -serial file:nexa.serial -monitor stdio -s -S
+	qemu-system-$(./target-triplet-to-arch.sh $HOST) $OPTIONS $DEBUG_OPTIONS
 else
-	qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom nexa.iso -serial file:nexa.serial -monitor stdio
+	qemu-system-$(./target-triplet-to-arch.sh $HOST) $OPTIONS
 fi
 
 

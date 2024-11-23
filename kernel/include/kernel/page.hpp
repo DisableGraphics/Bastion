@@ -3,6 +3,10 @@
 #include <stddef.h>
 #include <kernel/const.hpp>
 
+#ifdef __i386
+#include "../arch/i386/pagedef.h"
+#endif
+
 constexpr size_t INITIAL_MAPPING = ONE_MEG * 4;
 
 /**
@@ -33,8 +37,8 @@ class PagingManager {
 		 */
 		void map_page(void *physaddr, void *virtualaddr, unsigned int flags);
 	private:
-		[[gnu::aligned(4096)]] uint32_t page_directory[1024];
-		[[gnu::aligned(4096)]] uint32_t page_table_1[1024];
+		[[gnu::aligned(PAGE_SIZE)]] uint32_t page_directory[1024];
+		[[gnu::aligned(PAGE_SIZE)]] uint32_t page_table_1[1024];
 		PagingManager(){}
 };
 extern uint32_t endkernel;

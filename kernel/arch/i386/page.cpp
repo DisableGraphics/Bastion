@@ -70,5 +70,4 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
     pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | PRESENT; // Present
 
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
-	printf("Mapped\n");
 }

@@ -24,10 +24,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
 	Serial::get().init();
 	GDT::get().init();
+	IDT::get().init();
+	
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
 	PIC::get().init();
-	IDT::get().init();
+	
 	PIT::get().init(100);
 	PS2Controller::get().init();
 	#ifdef DEBUG
@@ -36,8 +38,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
-	int guard;
-	printf("Guard: %p\n", &guard);
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

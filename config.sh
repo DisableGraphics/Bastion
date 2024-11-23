@@ -16,7 +16,7 @@ export LIBDIR=$EXEC_PREFIX/lib
 export INCLUDEDIR=$PREFIX/include
 
 export CFLAGS='-g -O2'
-export CPPFLAGS='-g -O2'
+export CPPFLAGS='-g -O2 -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib'
 
 # Configure the cross-compiler to use the desired system root.
 export SYSROOT="$(pwd)/sysroot"
