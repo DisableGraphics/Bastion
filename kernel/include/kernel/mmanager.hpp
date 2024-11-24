@@ -33,7 +33,7 @@ class MemoryManager {
 	private:
 		uint8_t * alloc_bitmap();
 
-		size_t memsize = 0;
+		size_t memsize = 0, real_memsize = 0;
 		typedef uint8_t bitmap_t;
 		bitmap_t *pages_bitmap = nullptr;
 		size_t bitmap_size = 0;

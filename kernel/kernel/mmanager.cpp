@@ -53,12 +53,16 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 			};
 		}
     }
-	printf("Available memory: %d B (%d KiB) (%d MiB)\n", memsize, memsize / ONE_KILO, memsize / ONE_MEG);
+
 	pages_bitmap = alloc_bitmap();
-	printf("Allocated for the pages bitmap beginning with: %p\n", pages_bitmap);
+	real_memsize = memsize;
 	for(size_t i = 0; i < indaddress_size; i++) {
-		printf("%p to %p unavailable\n", invalid_addresses[i].begin, invalid_addresses[i].end);
+		real_memsize -= (
+			reinterpret_cast<size_t>(invalid_addresses[i].end) - 
+			reinterpret_cast<size_t>(invalid_addresses[i].begin));
 	}
+	printf("Total memory: %d B (%d KiB) (%d MiB)\n", memsize, memsize / ONE_KILO, memsize / ONE_MEG);
+	printf("Available memory: %d B (%d KiB) (%d MiB)\n", real_memsize, real_memsize / ONE_KILO, real_memsize / ONE_MEG);
 }
 
 uint8_t * MemoryManager::alloc_bitmap() {
@@ -82,8 +86,6 @@ uint8_t * MemoryManager::alloc_bitmap() {
 		NULL,
 		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP)
 	};
-
-	printf("Bitmap size %d bytes (%d pages)\n", bitmap_size, bitmap_size_pages);
 
 	return nextpage;
 }
