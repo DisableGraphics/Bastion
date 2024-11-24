@@ -17,9 +17,22 @@ class MemoryManager {
 	public:
 		static MemoryManager &get();
 		void init(multiboot_info_t* mbd, unsigned int magic);
+		/**
+			\brief Allocate pages continuous pages.
+			\param pages The number of pages to allocate.
+			\return The address of the first page or NULL
+			if there isn't any memory left
+		 */
+		void * alloc_pages(size_t pages);
+		/**
+			\brief Free pages continuous pages.
+			\param start Address of the first page.
+			\param pages Number of pages to free.
+		 */
+		void free_pages(void *start, size_t pages);
 	private:
-		void add_to_pages_bitmap(multiboot_memory_map_t* mmmt);
 		uint8_t * alloc_bitmap();
+
 		size_t memsize = 0;
 		typedef uint8_t bitmap_t;
 		bitmap_t *pages_bitmap = nullptr;

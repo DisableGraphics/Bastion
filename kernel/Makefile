@@ -34,6 +34,8 @@ kernel/test.o \
 kernel/cpp.o \
 kernel/mmanager.o \
 kernel/panic.o \
+kernel/liballoc/liballoc.o \
+kernel/alloc.o \
 
 KERNEL_BIN=nexa.kernel
 

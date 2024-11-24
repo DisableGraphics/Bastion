@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include <stdio.h>
 
 #include <kernel/page.hpp>
@@ -12,6 +11,8 @@
 #include <kernel/ps2.hpp>
 #include <kernel/mmanager.hpp>
 #include <multiboot/multiboot.h>
+#include <liballoc/liballoc.h>
+
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif
