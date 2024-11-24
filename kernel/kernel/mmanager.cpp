@@ -64,19 +64,19 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 }
 
 uint8_t * MemoryManager::alloc_bitmap() {
-	uint8_t* end = reinterpret_cast<uint8_t*>(&endkernel);
-	uint8_t* nextpage = reinterpret_cast<uint8_t*>((((size_t)end + PAGE_SIZE - 1)/PAGE_SIZE) * PAGE_SIZE);
+	// Get the address of the shitty heap I made
+	uint8_t* nextpage = reinterpret_cast<uint8_t*>(INITIAL_MAPPING_NOHEAP);
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
 	constexpr size_t pages_divisor = divisor * PAGE_SIZE;
 	bitmap_size = memsize / divisor;
 	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
 
-	for(size_t i = 0; i < bitmap_size_pages; i++) {
+	/*for(size_t i = 0; i < bitmap_size_pages; i++) {
 		void * addr = nextpage + i*PAGE_SIZE;
-		PagingManager::get().map_page(addr, addr, READ_WRITE | PRESENT);
-	}
+		PagingManager::get().map_page(addr, addr, READ_WRITE);
+	}*/
 
-	for(size_t i = 0; i < INITIAL_MAPPING; i++) {
+	for(size_t i = 0; i < INITIAL_MAPPING_WITHHEAP; i++) {
 		size_t bit_disp = i % (BITS_PER_BYTE*sizeof(bitmap_t));
 		bitmap_t* disp = nextpage + (i / (BITS_PER_BYTE*sizeof(bitmap_t)));
 

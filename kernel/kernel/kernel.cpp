@@ -24,11 +24,11 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
 	Serial::get().init();
 	GDT::get().init();
+	PIC::get().init();
 	IDT::get().init();
-	
+
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
-	PIC::get().init();
 	
 	PIT::get().init(100);
 	PS2Controller::get().init();
