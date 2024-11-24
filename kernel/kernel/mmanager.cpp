@@ -67,7 +67,7 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 
 uint8_t * MemoryManager::alloc_bitmap() {
 	// Get the address of the shitty heap I made
-	//TODO: this explodes with more than 128 TiB of RAM
+	// TODO: this explodes with more than 128 TiB of RAM,
 	// allocate new regions if needed.
 	uint8_t* nextpage = reinterpret_cast<uint8_t*>(INITIAL_MAPPING_NOHEAP);
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
@@ -75,6 +75,7 @@ uint8_t * MemoryManager::alloc_bitmap() {
 	bitmap_size = memsize / divisor;
 	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
 
+	// Mark the initial mapping as used.
 	for(size_t i = 0; i < INITIAL_MAPPING_WITHHEAP; i++) {
 		size_t bit_disp = i % (BITS_PER_BYTE*sizeof(bitmap_t));
 		bitmap_t* disp = nextpage + (i / (BITS_PER_BYTE*sizeof(bitmap_t)));
@@ -84,7 +85,7 @@ uint8_t * MemoryManager::alloc_bitmap() {
 	// Mark these addresses as used
 	used_regions[ureg_size++] = {
 		NULL,
-		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP)
+		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP - 1)
 	};
 
 	return nextpage;
@@ -144,8 +145,12 @@ void * MemoryManager::alloc_pages(size_t pages) {
 
 void MemoryManager::free_pages(void *start, size_t pages) {
 	uintptr_t address = reinterpret_cast<uintptr_t>(start);
+	if(address > memsize) return; // Out of my address space, ignore it
     size_t page_number = address / PAGE_SIZE;
-
+	// Check wether this overlaps with a used region
+	// You should NEVER free a page here since the next
+	// time you call alloc_pages(1) this will have
+	// an aneuyrism
 	for(size_t i = 0; i < ureg_size; i++) {
 		auto & invaddress = used_regions[i];
 		if(invaddress.contains(start)) return;
@@ -153,7 +158,7 @@ void MemoryManager::free_pages(void *start, size_t pages) {
 
 	size_t byte_index = page_number / 8;
 	size_t bit_index = page_number % 8;
-
+	// Go around marking pages as deallocated
 	for(size_t i = 0; i < pages; i++) {
 		uint8_t val = ~(1 << bit_index);
 		pages_bitmap[byte_index] &= val;

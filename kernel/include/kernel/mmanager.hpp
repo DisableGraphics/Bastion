@@ -8,8 +8,15 @@
 	Either by the hardware or the kernel.
  */
 struct used_region {
+	// Beginning of the region
 	void * begin;
+	// End of the region
 	void * end;
+	/**
+		\brief Wether the address addr is contained in this used region
+		\param addr The address to check
+		\return true if addr is in this region, false otherwise
+	 */
 	bool contains(void *addr) {
 		uintptr_t addr_ptr = reinterpret_cast<uintptr_t>(addr);
 		return reinterpret_cast<uintptr_t>(begin) >= addr_ptr && reinterpret_cast<uintptr_t>(end) <= addr_ptr;
@@ -39,15 +46,31 @@ class MemoryManager {
 		 */
 		void free_pages(void *start, size_t pages);
 	private:
+		/**
+			\brief Initialise the page bitmap.
+			This explodes if your computer has more than
+			128 TiB of RAM.
+		 */
 		uint8_t * alloc_bitmap();
-
+		/**
+			\brief memsize: size of all memory.
+			real_memsize: size of available memory.
+		 */
 		size_t memsize = 0, real_memsize = 0;
+		/**
+			\brief Pages bitmap. Contains wether a page
+			has been allocated (1) or not (0).
+		 */
 		typedef uint8_t bitmap_t;
 		bitmap_t *pages_bitmap = nullptr;
+		/**
+			\brief bitmap_size: size of the bitmap in bytes.
+			bitmap_size_pages: size of the bitmap in pages
+		 */
 		size_t bitmap_size = 0;
 		size_t bitmap_size_pages = 0;
 
-		// 32 used regions blocks. Should be enough.
+		// 32 used region blocks. Should be enough.
 		used_region used_regions[32];
 		size_t ureg_size = 0;
 		
