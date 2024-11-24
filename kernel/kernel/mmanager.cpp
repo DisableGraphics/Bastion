@@ -47,7 +47,7 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 			void * begin = reinterpret_cast<void*>(mmmt->addr);
 			uint8_t* end = reinterpret_cast<uint8_t*>(
     			static_cast<uintptr_t>(mmmt->addr) + static_cast<size_t>(mmmt->len));
-			invalid_addresses[indaddress_size++] = { 
+			used_regions[ureg_size++] = { 
 				begin, 
 				end-1
 			};
@@ -56,10 +56,10 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 
 	pages_bitmap = alloc_bitmap();
 	real_memsize = memsize;
-	for(size_t i = 0; i < indaddress_size; i++) {
+	for(size_t i = 0; i < ureg_size; i++) {
 		real_memsize -= (
-			reinterpret_cast<size_t>(invalid_addresses[i].end) - 
-			reinterpret_cast<size_t>(invalid_addresses[i].begin));
+			reinterpret_cast<size_t>(used_regions[i].end) - 
+			reinterpret_cast<size_t>(used_regions[i].begin));
 	}
 	printf("Total memory: %d B (%d KiB) (%d MiB)\n", memsize, memsize / ONE_KILO, memsize / ONE_MEG);
 	printf("Available memory: %d B (%d KiB) (%d MiB)\n", real_memsize, real_memsize / ONE_KILO, real_memsize / ONE_MEG);
@@ -82,7 +82,7 @@ uint8_t * MemoryManager::alloc_bitmap() {
 		*disp |= (1 << bit_disp);
 	}
 	// Mark these addresses as used
-	invalid_addresses[indaddress_size++] = {
+	used_regions[ureg_size++] = {
 		NULL,
 		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP)
 	};
@@ -108,9 +108,9 @@ void * MemoryManager::alloc_pages(size_t pages) {
                 uintptr_t end_addr = start_addr + pages * PAGE_SIZE;
 
                 bool overlaps = false;
-                for (size_t j = 0; j < indaddress_size; ++j) {
-                    uintptr_t invalid_begin = reinterpret_cast<uintptr_t>(invalid_addresses[j].begin);
-                    uintptr_t invalid_end = reinterpret_cast<uintptr_t>(invalid_addresses[j].end);
+                for (size_t j = 0; j < ureg_size; ++j) {
+                    uintptr_t invalid_begin = reinterpret_cast<uintptr_t>(used_regions[j].begin);
+                    uintptr_t invalid_end = reinterpret_cast<uintptr_t>(used_regions[j].end);
 
                     if (!(end_addr <= invalid_begin || start_addr >= invalid_end)) {
                         overlaps = true;
@@ -146,9 +146,9 @@ void MemoryManager::free_pages(void *start, size_t pages) {
 	uintptr_t address = reinterpret_cast<uintptr_t>(start);
     size_t page_number = address / PAGE_SIZE;
 
-	for(size_t i = 0; i < indaddress_size; i++) {
-		auto & invaddress = invalid_addresses[i];
-		if(invaddress.begin >= start && invaddress.end <= start) return;
+	for(size_t i = 0; i < ureg_size; i++) {
+		auto & invaddress = used_regions[i];
+		if(invaddress.contains(start)) return;
 	}
 
 	size_t byte_index = page_number / 8;

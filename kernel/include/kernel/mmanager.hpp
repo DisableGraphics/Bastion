@@ -3,9 +3,17 @@
 #include <multiboot/multiboot.h>
 #include <kernel/page.hpp>
 
-struct invalid_address {
+/**
+	\brief Already used regions of memory.
+	Either by the hardware or the kernel.
+ */
+struct used_region {
 	void * begin;
 	void * end;
+	bool contains(void *addr) {
+		uintptr_t addr_ptr = reinterpret_cast<uintptr_t>(addr);
+		return reinterpret_cast<uintptr_t>(begin) >= addr_ptr && reinterpret_cast<uintptr_t>(end) <= addr_ptr;
+	}
 };
 
 /**
@@ -39,9 +47,9 @@ class MemoryManager {
 		size_t bitmap_size = 0;
 		size_t bitmap_size_pages = 0;
 
-		// 32 invalid addresses blocks
-		invalid_address invalid_addresses[32];
-		size_t indaddress_size = 0;
+		// 32 used regions blocks. Should be enough.
+		used_region used_regions[32];
+		size_t ureg_size = 0;
 		
 		MemoryManager() {};
 };
