@@ -11,7 +11,6 @@ target_sources(kernel_obj PRIVATE
 	pit.cpp
 	ps2.cpp
 	serial.cpp
-	tty.c
 	ttycpp.cpp
 	boot.S
 	crti.S
