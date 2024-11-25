@@ -1,5 +1,7 @@
 # Build libc object files
-add_library(libc_obj)
+add_library(libc_obj STATIC)
+
+target_compile_options(libc_obj PRIVATE "-D__is_libk")
 
 add_subdirectory(stdio)
 add_subdirectory(string)

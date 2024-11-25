@@ -7,6 +7,9 @@ enable_language(ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 set(CMAKE_ASM_FLAGS "-g")
 set(CMAKE_C_FLAGS "-g -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
 set(CMAKE_CXX_FLAGS "-g -O2 -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
