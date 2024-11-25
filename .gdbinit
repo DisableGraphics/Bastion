@@ -1,2 +1,2 @@
-file sysroot/boot/nexa.kernel
+file build/bastion
 target remote localhost:1234

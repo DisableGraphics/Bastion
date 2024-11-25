@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
-. ./iso.sh
+. ./isoorig.sh
 
 
-OPTIONS="-cdrom bastion.iso -serial file:bastion.serial -monitor stdio -m 344M"
+OPTIONS="-cdrom nexa.iso -serial file:nexa.serial -monitor stdio -m 344M"
 DEBUG_OPTIONS="-s -S"
 
 if [ "$1" == "debug" ]; then

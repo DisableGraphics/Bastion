@@ -4,6 +4,7 @@
 #include <kernel/interrupts.hpp>
 #include "defs/pic/pic.hpp"
 #include <kernel/pic.hpp>
+#include <kernel/serial.hpp>
 #include <stdio.h>
 
 void PIT::init(int freq) {

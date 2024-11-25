@@ -1,15 +1,15 @@
 #!/bin/sh
-set -e
-. ./build.sh
-
+#set -e
+#. ./build.sh
+#
 mkdir -p isodir
 mkdir -p isodir/boot
 mkdir -p isodir/boot/grub
 
-cp sysroot/boot/nexa.kernel isodir/boot/nexa.kernel
+cp build/bastion isodir/boot/bastion
 cat > isodir/boot/grub/grub.cfg << EOF
-menuentry "Nexa" {
-	multiboot /boot/nexa.kernel
+menuentry "Bastion" {
+	multiboot /boot/bastion
 }
 EOF
-grub-mkrescue -o nexa.iso isodir
+grub-mkrescue -o bastion.iso isodir

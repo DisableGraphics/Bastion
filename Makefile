@@ -5,7 +5,7 @@ clean:
 	./clean.sh
 
 qemu: all
-	./qemu.sh
+	./qemuorig.sh
 
 qemu-debug: all
-	./qemu.sh debug
+	./qemuorig.sh debug

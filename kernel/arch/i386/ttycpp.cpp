@@ -3,6 +3,7 @@
 
 void TTY::init() {
     terminal_initialize();
+
 }
 
 void TTY::putchar(char c) {

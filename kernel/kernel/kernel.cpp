@@ -23,6 +23,7 @@ void breakpoint() {
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
 	Serial::get().init();
+	Serial::get().print("ola\n");
 	GDT::get().init();
 	PIC::get().init();
 	IDT::get().init();

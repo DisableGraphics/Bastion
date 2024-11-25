@@ -13,3 +13,4 @@ sysroot
 isodir
 *.serial
 docs/kernel/*/
+build
