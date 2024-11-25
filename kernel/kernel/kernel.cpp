@@ -30,7 +30,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
 	
-	PIT::get().init(100);
+	PIT::get().init(1000);
 	PS2Controller::get().init();
 	#ifdef DEBUG
 	test_paging();
