@@ -33,6 +33,7 @@ void PS2Controller::init() {
 	if(!test()) {
 		kn::panic("PS2 Controller is broken.");
 	}
+	enable_devices();
 }
 
 void PS2Controller::configure_first_port() {
@@ -108,4 +109,11 @@ bool PS2Controller::test() {
 		}
 	}
 	return are_tests_correct;
+}
+
+void PS2Controller::enable_devices() {
+	// Enable devices
+	outb(COMMAND_REGISTER, ENABLE_FIRST_PORT);
+	if(has_two_channels)
+		outb(COMMAND_REGISTER, ENABLE_SECOND_PORT);
 }

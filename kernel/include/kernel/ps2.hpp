@@ -8,6 +8,7 @@ class PS2Controller {
 		void self_test();
 		bool two_channels();
 		bool test();
+		void enable_devices();
 
 		bool has_two_channels;
 		PS2Controller() {}
