@@ -24,6 +24,7 @@ add_executable(${EXEC_NAME})
 # Add object files from kernel and libc
 target_sources(${EXEC_NAME} PRIVATE
     $<TARGET_OBJECTS:kernel_obj>
+	$<TARGET_OBJECTS:kernel_platform_dependent>
     $<TARGET_OBJECTS:libc_obj>
 )
 

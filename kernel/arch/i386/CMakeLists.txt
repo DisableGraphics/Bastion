@@ -1,4 +1,9 @@
-target_sources(kernel_obj PRIVATE
+add_library(kernel_platform_dependent)
+
+target_include_directories(kernel_platform_dependent PUBLIC ${CMAKE_SOURCE_DIR}/kernel/include/)
+target_include_directories(kernel_platform_dependent PUBLIC ${CMAKE_SOURCE_DIR}/libc/include/)
+
+target_sources(kernel_platform_dependent PRIVATE
 	gdt.cpp
 	handlers.cpp
 	inlineasm.cpp

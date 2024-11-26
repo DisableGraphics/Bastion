@@ -10,3 +10,5 @@ target_include_directories(kernel_obj PUBLIC ${CMAKE_SOURCE_DIR}/libc/include)
 
 add_subdirectory(kernel)
 add_subdirectory(arch/i386)
+
+target_link_libraries(kernel_obj kernel_platform_dependent)
