@@ -12,7 +12,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_ASM_FLAGS "-g")
 set(CMAKE_C_FLAGS "-g -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
-set(CMAKE_CXX_FLAGS "-g -O2 -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
+set(CMAKE_CXX_FLAGS "-g -O2 -ffreestanding -nostdlib -lgcc")
 
 # Add subdirectories for kernel and libc
 add_subdirectory(kernel)
