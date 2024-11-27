@@ -41,6 +41,7 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 		goto finish;
 	} else if(recv == RELEASE_KEY) {
 		// Key has been released
+		printf("Release");
 		Keyboard::get().driver_state = RELEASE;
 		goto finish;
 	} else {
@@ -53,13 +54,13 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 			Keyboard::get().driver_state == RELEASE ? true : false,
 			data
 		});
-		if(Keyboard::get().key_queue.peek().key == LEFT_SHIFT || 
-			Keyboard::get().key_queue.peek().key == RIGHT_SHIFT) {
-			if(Keyboard::get().driver_state == RELEASE) {
-				printf("Lowercase\n");
+		KEY_EVENT key = Keyboard::get().key_queue.peek();
+		if(key.key == LEFT_SHIFT || key.key == RIGHT_SHIFT) {
+			if(key.released) {
+				//printf("Lowercase\n");
 				Keyboard::get().uppercase = false;
 			} else {
-				printf("Uppercase\n");
+				//printf("Uppercase\n");
 				Keyboard::get().uppercase = true;
 			}
 		}
