@@ -46,9 +46,7 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 	} else {
 		// Everything else
 		KEY data = get_key_from_bytes(recv);
-		if(!Keyboard::get().uppercase && isupper(static_cast<char>(data))) {
-			data = static_cast<KEY>(tolower(static_cast<char>(data)));
-		}
+		if(isupper(data)) data = static_cast<KEY>(tolower(data));
 		Keyboard::get().key_queue.push({
 			Keyboard::get().driver_state == RELEASE ? true : false,
 			data
@@ -248,19 +246,35 @@ KEY Keyboard::get_key_from_bytes(uint8_t code) {
 char Keyboard::print_key() {
 	while(key_queue.size() > 0) {
 		KEY_EVENT popped = key_queue.pop();
-		if(popped.key == LEFT_SHIFT) {
-			if(popped.released)
-				uppercase = false;
-			else
-			 	uppercase = true;
-		}
+		update_key_flags(popped);
 		if(!popped.is_special_key()) {
 			if(!popped.released) {
-				if(!uppercase && isupper(popped.key))
-					return tolower(popped.key);
-				return popped.key;
+				return get_char_with_flags(popped);
 			}
 		}
 	}
 	return 0;
+}
+
+void Keyboard::update_key_flags(const KEY_EVENT &event) {
+	if(event.key == LEFT_SHIFT || event.key == RIGHT_SHIFT) {
+		if(event.released)
+			is_shift_pressed = false;
+		else
+			is_shift_pressed = true;
+	}
+	if(event.key == CAPS_LOCK) {
+		if(event.released)
+			caps_lock_active = !caps_lock_active;
+	}
+}
+
+char Keyboard::get_char_with_flags(const KEY_EVENT &event) {
+	if(caps_lock_active && is_shift_pressed)
+		return event.key;
+	if(caps_lock_active && islower(event.key))
+		return toupper(event.key);
+	if(is_shift_pressed)
+		return event.get_with_shift();
+	return event.key;
 }
