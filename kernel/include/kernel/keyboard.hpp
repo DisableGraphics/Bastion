@@ -7,6 +7,26 @@
 struct KEY_EVENT {
 	bool released;
 	KEY key;
+	bool is_special_key() {
+		return key == ESCAPE ||
+			key == CAPS_LOCK ||
+			key == LEFT_SHIFT ||
+			key == RIGHT_SHIFT ||
+			key == LEFT_CTRL ||
+			key == RIGHT_CTRL ||
+			key == LEFT_WIN ||
+			key == FN ||
+			key == LEFT_ALT ||
+			key == ALT_GR ||
+			key == RIGHT_CTRL ||
+			key == BEGIN ||
+			key == END ||
+			key == NEXT_PAGE ||
+			key == PREV_PAGE ||
+			key == NUM_LOCK ||
+			key == SCROLL_LOCK ||
+			(key >= F1 && key <= F12);
+	}
 };
 
 class Keyboard {

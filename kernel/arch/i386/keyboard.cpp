@@ -41,7 +41,6 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 		goto finish;
 	} else if(recv == RELEASE_KEY) {
 		// Key has been released
-		printf("Release");
 		Keyboard::get().driver_state = RELEASE;
 		goto finish;
 	} else {
@@ -54,19 +53,12 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 			Keyboard::get().driver_state == RELEASE ? true : false,
 			data
 		});
-		KEY_EVENT key = Keyboard::get().key_queue.peek();
-		if(key.key == LEFT_SHIFT || key.key == RIGHT_SHIFT) {
-			if(key.released) {
-				//printf("Lowercase\n");
-				Keyboard::get().uppercase = false;
-			} else {
-				//printf("Uppercase\n");
-				Keyboard::get().uppercase = true;
-			}
-		}
 		
-		if(Keyboard::get().driver_state != RELEASE)
-			printf("%c", Keyboard::get().print_key());
+		if(Keyboard::get().driver_state != RELEASE) {
+			char c = Keyboard::get().print_key();
+			if(c)
+				printf("%c", c);
+		}
 		Keyboard::get().driver_state = NORMAL;
 		
 	}
@@ -255,9 +247,19 @@ KEY Keyboard::get_key_from_bytes(uint8_t code) {
 
 char Keyboard::print_key() {
 	while(key_queue.size() > 0) {
-		auto popped = key_queue.pop();
-		if(isalpha(popped.key)) {
-			if(!popped.released) return popped.key;
+		KEY_EVENT popped = key_queue.pop();
+		if(popped.key == LEFT_SHIFT) {
+			if(popped.released)
+				uppercase = false;
+			else
+			 	uppercase = true;
+		}
+		if(!popped.is_special_key()) {
+			if(!popped.released) {
+				if(!uppercase && isupper(popped.key))
+					return tolower(popped.key);
+				return popped.key;
+			}
 		}
 	}
 	return 0;

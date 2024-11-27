@@ -12,6 +12,8 @@ class TTY {
 	private:
 		TTY(){};
 
+		void handle_backspace();
+
 		void putentryat(unsigned char c, uint8_t color, size_t x, size_t y);
 
 		const size_t VGA_WIDTH = 80;

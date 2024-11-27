@@ -17,6 +17,10 @@ void TTY::init() {
 
 void TTY::putchar(char c) {
     unsigned char uc = c;
+	if(uc == '\b') {
+		handle_backspace();
+		return;
+	}
 	if(uc == '\n'){
 		terminal_column = 0;
 		if(++terminal_row == VGA_HEIGHT)
@@ -48,4 +52,13 @@ TTY& TTY::get() {
 void TTY::putentryat(unsigned char c, uint8_t color, size_t x, size_t y) {
 	const size_t index = y * VGA_WIDTH + x;
 	terminal_buffer[index] = vga_entry(c, color);
+}
+
+void TTY::handle_backspace() {
+	if(terminal_column == 0) {
+		terminal_column = VGA_WIDTH;
+		terminal_row--;
+	}
+	terminal_column--;
+	putentryat(' ', terminal_color, terminal_column, terminal_row);
 }
