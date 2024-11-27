@@ -52,3 +52,8 @@ Note: Bit 0 corresponds to the "reset" line. The other output lines don't have a
 Note 2: 0xF0 ~ 0xFF
 */
 #define PULSE_LINE_LOW 0xF0
+/**
+	\brief Commands for devices
+ */
+// Reset device
+#define RESET_DEVICE 0xFF

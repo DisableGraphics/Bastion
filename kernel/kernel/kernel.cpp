@@ -10,6 +10,7 @@
 #include <kernel/pit.hpp>
 #include <kernel/ps2.hpp>
 #include <kernel/mmanager.hpp>
+#include <kernel/keyboard.hpp>
 #include <multiboot/multiboot.h>
 
 #ifdef DEBUG
@@ -33,6 +34,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	PIT::get().init(1000);
 	PS2Controller::get().init();
+	Keyboard::get().init();
 	#ifdef DEBUG
 	test_paging();
 	#endif
