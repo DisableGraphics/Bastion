@@ -53,7 +53,7 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 		});
 		
 		if(Keyboard::get().driver_state != RELEASE) {
-			char c = Keyboard::get().print_key();
+			char c = Keyboard::get().poll_key();
 			if(c)
 				printf("%c", c);
 		}
@@ -243,7 +243,7 @@ KEY Keyboard::get_key_from_bytes(uint8_t code) {
 	return NONE;
 }
 
-char Keyboard::print_key() {
+char Keyboard::poll_key() {
 	while(key_queue.size() > 0) {
 		KEY_EVENT popped = key_queue.pop();
 		update_key_flags(popped);
