@@ -36,47 +36,47 @@ struct KEY_EVENT {
 			return toupper(c);
 		switch(key) {
 			case BACK_TICK:
-				return '~';
+				return TILDE;
 			case COMMA:
-				return '<';
+				return LESS_THAN;
 			case PERIOD:
-				return '>';
+				return MORE_THAN;
 			case SLASH:
-				return '?';
+				return QUESTION_MARK;
 			case SEMICOLON:
-				return ':';
+				return COLON;
 			case MINUS:
-				return '_';
+				return UNDERSCORE;
 			case QUOTE:
-				return '"';
+				return DOUBLE_QUOTE;
 			case SQ_BRACKET_OPEN:
-				return '{';
+				return BRACKET_OPEN;
 			case SQ_BRACKET_CLOSE:
-				return '}';
+				return BRACKET_CLOSE;
 			case EQUALS:
-				return '+';
+				return PLUS;
 			case BACKSLASH:
-				return '|';
+				return PIPE;
 			case ONE:
-				return '!';
+				return EXCLAMATION_MARK;
 			case TWO:
-				return '@';
+				return AT;
 			case THREE:
-				return '#';
+				return HASH;
 			case FOUR:
-				return '$';
+				return DOLLAR;
 			case FIVE:
-				return '%';
+				return PERCENTAGE;
 			case SIX:
-				return '^';
+				return CARET;
 			case SEVEN:
-				return '&';
+				return AMPERSAND;
 			case EIGHT:
-				return '*';
+				return ASTERISK;
 			case NINE:
-				return '(';
+				return PAREN_OPEN;
 			case ZERO:
-				return ')';
+				return PAREN_CLOSE;
 			default:
 				break;
 		}
