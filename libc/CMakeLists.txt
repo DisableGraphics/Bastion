@@ -3,6 +3,7 @@ add_library(libc_obj STATIC)
 
 target_compile_options(libc_obj PRIVATE "-D__is_libk -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib -lgcc")
 
+add_subdirectory(ctype)
 add_subdirectory(stdio)
 add_subdirectory(string)
 add_subdirectory(stdlib)

@@ -26,6 +26,7 @@ class Keyboard {
 			RELEASE,
 			NORMAL
 		} driver_state;
+		bool uppercase = false;
 
 		Keyboard(){}
 };
