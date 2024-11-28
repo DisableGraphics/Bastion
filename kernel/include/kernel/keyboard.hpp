@@ -19,15 +19,41 @@ class Keyboard {
 		 */
 		void init();
 	private:
+		enum STATE {
+			INITIAL,
+			NORMAL_KEY_FINISHED,
+			MEDIA_KEY_PRESSED,
+			NORMAL_KEY_RELEASED,
+			PRINT_SCREEN_0x12,
+			MEDIA_KEY_RELEASED,
+			MEDIA_KEY_FINISHED,
+			PRINT_SCREEN_REL_0x7C,
+			PRINT_SCREEN_0xE0,
+			PRINT_SCREEN_PRESSED,
+			PRINT_SCREEN_REL_0xE0,
+			PRINT_SCREEN_REL_0xF0,
+			PRINT_SCREEN_RELEASED
+		};
+
 		/**
 			\brief Interrupt handler for keypresses.
 		 */
 		[[gnu::interrupt]]
 		static void keyboard_handler(interrupt_frame * a);
 		/**
-			\brief Gets key value from scancode
+			\brief Gets key value from scancode. 
+			Used for the states from the automaton:
+			NORMAL_KEY_FINISHED.
+			Returns a normal key.
 		 */
-		static KEY get_key_from_bytes(uint8_t one);
+		static KEY get_key_normal(uint8_t code);
+		/**
+			\brief Gets key value from scancode.
+			Used for states of the automaton:
+			MEDIA_KEY_FINISHED.
+			Returns a media key-
+		 */
+		static KEY get_key_media(uint8_t code);
 		/**
 			\brief Get a key char from the queue.
 			Only pressed keys will be gotten.
@@ -45,6 +71,10 @@ class Keyboard {
 		 */
 		char get_char_with_flags(const KEY_EVENT &event);
 		/**
+			\brief Get next state from the scancode received from the keyboard
+		 */
+		STATE get_next_state(uint8_t received);
+		/**
 			\brief Queue for all key events
 		 */
 		StaticQueue<KEY_EVENT, 128> key_queue;
@@ -52,11 +82,10 @@ class Keyboard {
 		// keyboard
 		int port, irq_line;
 		// State of the driver. 
-		enum STATE {
-			MEDIA,
-			RELEASE,
-			NORMAL
-		} driver_state;
+		STATE driver_state;
+		// State flags
+		bool is_key_released = false;
+
 		// Flags
 		// Is shift being pressed
 		bool is_shift_pressed = false;

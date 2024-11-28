@@ -2,30 +2,11 @@
 #include <ctype.h>
 
 bool KEY_EVENT::is_special_key() const {
-	return key == ESCAPE ||
-		key == CAPS_LOCK ||
-		key == LEFT_SHIFT ||
-		key == RIGHT_SHIFT ||
-		key == LEFT_CTRL ||
-		key == RIGHT_CTRL ||
-		key == LEFT_WIN ||
-		key == FN ||
-		key == LEFT_ALT ||
-		key == ALT_GR ||
-		key == RIGHT_CTRL ||
-		key == BEGIN ||
-		key == END ||
-		key == NEXT_PAGE ||
-		key == PREV_PAGE ||
-		key == NUM_LOCK ||
-		key == SCROLL_LOCK ||
-		(key >= F1 && key <= F12);
+	return key >= F1;
 }
 
 char KEY_EVENT::get_with_shift() const {
 	char c = static_cast<char>(key);
-	if(isupper(c))
-		return tolower(c);
 	if(islower(c))
 		return toupper(c);
 	switch(key) {
