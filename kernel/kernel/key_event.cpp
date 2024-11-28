@@ -1,8 +1,17 @@
+#include "kernel/key.hpp"
 #include <kernel/key_event.hpp>
 #include <ctype.h>
 
+bool KEY_EVENT::is_special_key(KEY key) {
+	return key >= F1 && key < KEYP_ONE;
+}
+
 bool KEY_EVENT::is_special_key() const {
-	return key >= F1;
+	return is_special_key(key);
+}
+
+bool KEY_EVENT::is_numpad() const {
+	return key >= KEYP_ONE;
 }
 
 char KEY_EVENT::get_with_shift() const {
@@ -54,6 +63,84 @@ char KEY_EVENT::get_with_shift() const {
 			return PAREN_CLOSE;
 		default:
 			break;
+	}
+	return key;
+}
+
+KEY KEY_EVENT::numpad_numlock() const {
+	switch(key) {
+		case KEYP_ONE:
+			return ONE;
+		case KEYP_TWO:
+			return TWO;
+		case KEYP_THREE:
+			return THREE;
+		case KEYP_FOUR:
+			return FOUR;
+		case KEYP_FIVE:
+			return FIVE;
+		case KEYP_SIX:
+			return SIX;
+		case KEYP_SEVEN:
+			return SEVEN;
+		case KEYP_EIGHT:
+			return EIGHT;
+		case KEYP_NINE:
+			return NINE;
+		case KEYP_ZERO:
+			return ZERO;
+		case KEYP_ENTER:
+			return ENTER;
+		case KEYP_MINUS:
+			return MINUS;
+		case KEYP_PERIOD:
+			return PERIOD;
+		case KEYP_PLUS:
+			return PLUS;
+		case KEYP_SLASH:
+			return SLASH;
+		case KEYP_ASTERISK:
+			return ASTERISK;
+		default: break; 
+	}
+	return key;
+}
+
+KEY KEY_EVENT::numpad_no_numlock() const {
+	switch(key) {
+		case KEYP_ONE:
+			return END;
+		case KEYP_TWO:
+			return CURSOR_DOWN;
+		case KEYP_THREE:
+			return PAGE_DOWN;
+		case KEYP_FOUR:
+			return CURSOR_LEFT;
+		case KEYP_FIVE:
+			return NONE;
+		case KEYP_SIX:
+			return CURSOR_RIGHT;
+		case KEYP_SEVEN:
+			return HOME;
+		case KEYP_EIGHT:
+			return CURSOR_UP;
+		case KEYP_NINE:
+			return PAGE_UP;
+		case KEYP_ZERO:
+			return INSERT;
+		case KEYP_ENTER:
+			return ENTER;
+		case KEYP_MINUS:
+			return MINUS;
+		case KEYP_PERIOD:
+			return DELETE;
+		case KEYP_PLUS:
+			return PLUS;
+		case KEYP_SLASH:
+			return SLASH;
+		case KEYP_ASTERISK:
+			return ASTERISK;
+		default: break; 
 	}
 	return key;
 }

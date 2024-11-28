@@ -137,23 +137,23 @@ KEY Keyboard::get_key_normal(uint8_t code) {
 		case 0x66:
 			return BACKSPACE;
 		case 0x69:
-			return ONE;
+			return KEYP_ONE;
 		case 0x6B:
-			return FOUR;
+			return KEYP_FOUR;
 		case 0x6C:
-			return SEVEN;
+			return KEYP_SEVEN;
 		case 0x70:
-			return ZERO;
+			return KEYP_ZERO;
 		case 0x71:
-			return PERIOD;
+			return KEYP_PERIOD;
 		case 0x72:
-			return TWO;
+			return KEYP_TWO;
 		case 0x73:
-			return FIVE;
+			return KEYP_FIVE;
 		case 0x74:
-			return SIX;
+			return KEYP_SIX;
 		case 0x75:
-			return EIGHT;
+			return KEYP_EIGHT;
 		case 0x76:
 			return ESCAPE;
 		case 0x77:
@@ -161,15 +161,15 @@ KEY Keyboard::get_key_normal(uint8_t code) {
 		case 0x78:
 			return F11;
 		case 0x79:
-			return PLUS;
+			return KEYP_PLUS;
 		case 0x7A:
-			return THREE;
+			return KEYP_THREE;
 		case 0x7B:
-			return MINUS;
+			return KEYP_MINUS;
 		case 0x7C:
-			return ASTERISK;
+			return KEYP_ASTERISK;
 		case 0x7D:
-			return NINE;
+			return KEYP_NINE;
 		case 0x7E:
 			return SCROLL_LOCK;
 		case 0x83:

@@ -91,6 +91,8 @@ class Keyboard {
 		bool is_shift_pressed = false;
 		// Is caps lock on
 		bool caps_lock_active = false;
+		// Is num lock on
+		bool num_lock_active = false;
 
 		Keyboard(){}
 };

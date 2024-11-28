@@ -7,6 +7,7 @@
 #include <ctype.h>
 
 #include "defs/ps2/registers.h"
+#include "kernel/key.hpp"
 
 #include <stdio.h>
 
@@ -33,62 +34,56 @@ void Keyboard::init() {
 void Keyboard::keyboard_handler(interrupt_frame* a) {
 	uint8_t recv = inb(DATA_PORT);
 	char c;
+	Keyboard &k = Keyboard::get();
 	// If ack to a command, ignore
 	if(recv == 0xFA) {
 		goto finish;
 	}
-	Keyboard::get().driver_state = Keyboard::get().get_next_state(recv);
-	switch(Keyboard::get().driver_state) {
-        case INITIAL:
-			break;
+	
+	k.driver_state = k.get_next_state(recv);
+	switch(k.driver_state) {
         case NORMAL_KEY_FINISHED:
-			Keyboard::get().key_queue.push({
-				Keyboard::get().is_key_released,
+			k.key_queue.push({
+				k.is_key_released,
 				get_key_normal(recv)
 			});
-			Keyboard::get().is_key_released = false;
-			Keyboard::get().driver_state = INITIAL;
+			k.is_key_released = false;
+			k.driver_state = INITIAL;
 			break;
         case NORMAL_KEY_RELEASED:
-			Keyboard::get().is_key_released = true;
+			k.is_key_released = true;
 			break;
         case MEDIA_KEY_RELEASED:
-			Keyboard::get().is_key_released = true;
+			k.is_key_released = true;
 			break;
         case MEDIA_KEY_FINISHED:
-			Keyboard::get().key_queue.push({
-				Keyboard::get().is_key_released,
+			k.key_queue.push({
+				k.is_key_released,
 				get_key_media(recv)
 			});
-			Keyboard::get().is_key_released = false;
-			Keyboard::get().driver_state = INITIAL;
+			k.is_key_released = false;
+			k.driver_state = INITIAL;
 			break;
-        
         case PRINT_SCREEN_RELEASED:
-			Keyboard::get().is_key_released = true;
+			k.is_key_released = true;
         case PRINT_SCREEN_PRESSED:
-			Keyboard::get().key_queue.push({
-				Keyboard::get().is_key_released,
+			k.key_queue.push({
+				k.is_key_released,
 				PRINT_SCREEN
 			});
-			Keyboard::get().is_key_released = false;
-			Keyboard::get().driver_state = INITIAL;
+			k.is_key_released = false;
+			k.driver_state = INITIAL;
 			break;
-		/* Rubbish states that don't really need to do anything */
-        case MEDIA_KEY_PRESSED:
-		case PRINT_SCREEN_0x12:
-		case PRINT_SCREEN_REL_0x7C:
-        case PRINT_SCREEN_0xE0:
-        case PRINT_SCREEN_REL_0xE0:
-        case PRINT_SCREEN_REL_0xF0:
+		/* For all rubbish states that don't really need to do anything */
+		default:
 			break;
 	}
 
-	c = Keyboard::get().poll_key();
+	c = k.poll_key();
 	if(c) { printf("%c", c); }
 
 finish:
-	PIC::get().send_EOI(Keyboard::get().irq_line);
+	PIC::get().send_EOI(k.irq_line);
 }
 
 char Keyboard::poll_key() {
@@ -97,7 +92,8 @@ char Keyboard::poll_key() {
 		update_key_flags(popped);
 		if(!popped.is_special_key()) {
 			if(!popped.released) {
-				return get_char_with_flags(popped);
+				char c =  get_char_with_flags(popped);
+				if(c) return c;
 			}
 		}
 	}
@@ -115,9 +111,24 @@ void Keyboard::update_key_flags(const KEY_EVENT &event) {
 		if(event.released)
 			caps_lock_active = !caps_lock_active;
 	}
+	if(event.key == NUM_LOCK) {
+		if(event.released)
+			num_lock_active = !num_lock_active;
+	}
 }
 
 char Keyboard::get_char_with_flags(const KEY_EVENT &event) {
+	if(num_lock_active && event.is_numpad())
+		return event.numpad_numlock();
+	else if(is_shift_pressed && event.is_numpad())
+		return event.numpad_numlock();
+	else if(event.is_numpad()) {
+		KEY e = event.numpad_no_numlock();
+		if(!KEY_EVENT::is_special_key(e))
+			return e;
+		else return 0;
+	}
+
 	if(caps_lock_active && is_shift_pressed && isupper(event.key))
 		return tolower(event.key);
 	if(is_shift_pressed)
@@ -131,43 +142,53 @@ char Keyboard::get_char_with_flags(const KEY_EVENT &event) {
 }
 
 Keyboard::STATE Keyboard::get_next_state(uint8_t recv) {
-	if(driver_state == INITIAL) {
-		switch(recv) {
-			case MEDIA_KEY:
-				return MEDIA_KEY_PRESSED;
-			case RELEASE_KEY:
-				return NORMAL_KEY_RELEASED;
-			default:
-				return NORMAL_KEY_FINISHED;
-		}
-	} else if(driver_state == MEDIA_KEY_PRESSED) {
-		return INITIAL;
-	} else if(driver_state == MEDIA_KEY_PRESSED) {
-		switch(recv) {
-			case 0x12:
-				return PRINT_SCREEN_0x12;
-			case RELEASE_KEY:
-				return MEDIA_KEY_RELEASED;
-			default:
-				return MEDIA_KEY_FINISHED;
-		}
-	} else if(driver_state == NORMAL_KEY_RELEASED) {
-		return NORMAL_KEY_FINISHED;
-	} else if(driver_state == PRINT_SCREEN_0x12) {
-		if(recv == 0xE0) return PRINT_SCREEN_0xE0;
-	} else if(driver_state == MEDIA_KEY_RELEASED) {
-		if(recv == 0x7C) return PRINT_SCREEN_REL_0x7C;
-		return MEDIA_KEY_FINISHED;
-	} else if(driver_state == MEDIA_KEY_FINISHED) {
-		return INITIAL;
-	} else if(driver_state == PRINT_SCREEN_REL_0x7C) {
-		if(recv == 0xE0) return PRINT_SCREEN_REL_0xE0;
-	} else if(driver_state == PRINT_SCREEN_0xE0) {
-		if(recv == 0x7C) return PRINT_SCREEN_PRESSED;
-	} else if(driver_state == PRINT_SCREEN_REL_0xE0) {
-		if(recv == 0xF0) return PRINT_SCREEN_REL_0xF0;
-	} else if(driver_state == PRINT_SCREEN_REL_0xF0) {
-		if(recv == 0x12) return PRINT_SCREEN_RELEASED;
+	switch(driver_state) {
+		case INITIAL:
+			switch(recv) {
+				case MEDIA_KEY:
+					return MEDIA_KEY_PRESSED;
+				case RELEASE_KEY:
+					return NORMAL_KEY_RELEASED;
+				default:
+					return NORMAL_KEY_FINISHED;
+			}
+		case NORMAL_KEY_FINISHED:
+			return INITIAL;
+		case MEDIA_KEY_PRESSED:
+			switch(recv) {
+				case 0x12:
+					return PRINT_SCREEN_0x12;
+				case RELEASE_KEY:
+					return MEDIA_KEY_RELEASED;
+				default:
+					return MEDIA_KEY_FINISHED;
+			}
+		case NORMAL_KEY_RELEASED:
+			return NORMAL_KEY_FINISHED;
+		case PRINT_SCREEN_0x12:
+			if(recv == 0xE0) return PRINT_SCREEN_0xE0;
+			break;
+		case MEDIA_KEY_RELEASED:
+			if(recv == 0x7C) return PRINT_SCREEN_REL_0x7C;
+			return MEDIA_KEY_FINISHED;
+		case MEDIA_KEY_FINISHED:
+			return INITIAL;
+		case PRINT_SCREEN_REL_0x7C:
+			if(recv == 0xE0) return PRINT_SCREEN_REL_0xE0;
+			break;
+		case PRINT_SCREEN_0xE0:
+			if(recv == 0x7C) return PRINT_SCREEN_PRESSED;
+			break;
+		case PRINT_SCREEN_PRESSED:
+			return INITIAL;
+		case PRINT_SCREEN_REL_0xE0:
+			if(recv == 0xF0) return PRINT_SCREEN_REL_0xF0;
+			break;
+		case PRINT_SCREEN_REL_0xF0:
+			if(recv == 0x12) return PRINT_SCREEN_RELEASED;
+			break;
+		case PRINT_SCREEN_RELEASED:
+			return INITIAL;
 	}
 	return INITIAL;
 }
