@@ -1,6 +1,7 @@
 #include <kernel/tty.hpp>
 #include "vga.hpp"
 #include <string.h>
+#include <kernel/cursor.hpp>
 
 void TTY::init() {
     terminal_row = 0;
@@ -19,20 +20,19 @@ void TTY::putchar(char c) {
     unsigned char uc = c;
 	if(uc == '\b') {
 		handle_backspace();
-		return;
-	}
-	if(uc == '\n'){
+	} else if(uc == '\n'){
 		terminal_column = 0;
 		if(++terminal_row == VGA_HEIGHT)
 			terminal_row = 0;
-		return;
+	} else {
+		putentryat(uc, terminal_color, terminal_column, terminal_row);
+		if (++terminal_column == VGA_WIDTH) {
+			terminal_column = 0;
+			if (++terminal_row == VGA_HEIGHT)
+				terminal_row = 0;
+		}
 	}
-	putentryat(uc, terminal_color, terminal_column, terminal_row);
-	if (++terminal_column == VGA_WIDTH) {
-		terminal_column = 0;
-		if (++terminal_row == VGA_HEIGHT)
-			terminal_row = 0;
-	}
+	Cursor::get().move(terminal_column, terminal_row+1);
 }
 
 void TTY::write(const char* data, size_t size) {

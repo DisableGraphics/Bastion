@@ -11,6 +11,7 @@
 #include <kernel/ps2.hpp>
 #include <kernel/mmanager.hpp>
 #include <kernel/keyboard.hpp>
+#include <kernel/cursor.hpp>
 #include <multiboot/multiboot.h>
 
 #ifdef DEBUG
@@ -23,6 +24,7 @@ void breakpoint() {
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
+	Cursor::get().init();
 	Serial::get().init();
 	Serial::get().print("ola\n");
 	GDT::get().init();

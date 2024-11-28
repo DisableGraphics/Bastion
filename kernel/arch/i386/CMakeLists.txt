@@ -27,4 +27,5 @@ target_sources(kernel_platform_dependent PRIVATE
 	loadPageDirectory.S
 	reloadsr.S
 	keyboard_get_key.cpp
+	cursor.cpp
 	)
