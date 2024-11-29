@@ -1,3 +1,5 @@
+#include "multiboot/multiboot.h"
+#include <stddef.h>
 #include <stddef.h>
 #include <kernel/mmanager.hpp>
 #include <kernel/panic.hpp>
@@ -22,16 +24,18 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 	if(magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         kn::panic("invalid magic number!");
     }
+	size_t newaddr = reinterpret_cast<size_t>(mbd) + HIGHER_OFFSET_INDEX;
+	multiboot_info_t * map = reinterpret_cast<multiboot_info_t*>(newaddr);
 
-	if(!(mbd->flags >> 6 & 0x1)) {
+	if(!(map->flags >> 6 & 0x1)) {
 		kn::panic("Invalid memory map");
 	}
 
-	for(unsigned i = 0; i < mbd->mmap_length; 
+	for(unsigned i = 0; i < map->mmap_length; 
         i += sizeof(multiboot_memory_map_t)) 
     {
         multiboot_memory_map_t* mmmt = 
-            (multiboot_memory_map_t*) (mbd->mmap_addr + i);
+            (multiboot_memory_map_t*) (map->mmap_addr + i);
 
 		memsize += mmmt->len;
 
