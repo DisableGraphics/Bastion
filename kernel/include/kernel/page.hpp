@@ -16,7 +16,11 @@ constexpr size_t HIGHER_OFFSET_INDEX = HIGHER_HALF_OFFSET >> 22;
 /**
 	\brief Pages manager
 	Manages physical and virtual pages.
-	Implemented as a singleton
+	Implemented as a singleton.
+
+	Has a very close relationship with the Memory Manager.
+	The Memory Manager keeps track of free/used pages.
+	while the Paging Manager keeps tabs on page tables themselves.
  */
 class PagingManager {
 	public:
@@ -41,12 +45,25 @@ class PagingManager {
 		 */
 		void map_page(void *physaddr, void *virtualaddr, unsigned int flags);
 		/**
-		
+			\brief Setup a new page table.
+			\param pt_addr Address of the new page table
+			\param use_heap Use a vector to keep track of the page.
+
+			Note: use_heap should be true for all page tables, except for
+			one in particular that it's used to piggyback memory allocations
+			after the kernel space. That page table is allocated by the Memory Manager.
 		 */
 		void new_page_table(void* pt_addr, bool use_heap = true);
-
+		/**
+			\brief Whether an address is mapped to a physical page or not
+			\param addr Address to check
+			\return true if address is mapped, false if it's not.
+		 */
 		bool is_mapped(void* addr);
-
+		/**
+			\brief Signal that the heap is ready for future page table allocation
+			requests. Initialises the pagevec vector since it requires heap space.
+		 */
 		void heap_ready();
 	private:
 		typedef uint32_t page_t;
@@ -64,7 +81,7 @@ class PagingManager {
 		[[gnu::aligned(PAGE_SIZE)]] page_t page_table_2[1024];
 
 		// Vector of pointers to pages to keep them in check
-		Vector<page_t*>* pagevec;
+		Vector<page_t*>* pagevec = nullptr;
 		PagingManager(){}
 };
 extern uint32_t endkernel;

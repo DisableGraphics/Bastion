@@ -25,16 +25,14 @@ void breakpoint() {
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTY::get().init();
-	PagingManager::get().init();
-	
 	Cursor::get().init();
+	PagingManager::get().init();
+	MemoryManager::get().init(mbd, magic);
+	
 	Serial::get().init();
-	Serial::get().print("ola\n");
 	GDT::get().init();
 	PIC::get().init();
 	IDT::get().init();
-
-	MemoryManager::get().init(mbd, magic);
 	
 	PIT::get().init(1000);
 	PS2Controller::get().init();
