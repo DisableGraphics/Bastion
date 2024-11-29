@@ -34,7 +34,7 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
         i += sizeof(multiboot_memory_map_t)) 
     {
         multiboot_memory_map_t* mmmt = 
-            (multiboot_memory_map_t*) (map->mmap_addr + i);
+            (multiboot_memory_map_t*) (map->mmap_addr + i + HIGHER_HALF_OFFSET);
 
 		memsize += mmmt->len;
 
