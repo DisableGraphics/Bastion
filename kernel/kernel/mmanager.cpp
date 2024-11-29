@@ -26,7 +26,6 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
     }
 	size_t newaddr = reinterpret_cast<size_t>(mbd) + HIGHER_HALF_OFFSET;
 	multiboot_info_t * map = reinterpret_cast<multiboot_info_t*>(newaddr);
-	printf("           %p\n", map);
 	if(!(map->flags >> 6 & 0x1)) {
 		kn::panic("Invalid memory map");
 	}
