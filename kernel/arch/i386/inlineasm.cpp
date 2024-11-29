@@ -102,3 +102,7 @@ void io_wait(void) {
 void halt(void) {
 	__asm__ __volatile__("hlt");
 }
+
+void tlb_flush() {
+	__asm__ __volatile__("movl	%cr3,%eax\nmovl	%eax,%cr3");
+}

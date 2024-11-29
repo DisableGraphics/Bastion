@@ -69,7 +69,7 @@ uint8_t * MemoryManager::alloc_bitmap() {
 	// Get the address of the shitty heap I made
 	// TODO: this explodes with more than 128 TiB of RAM,
 	// allocate new regions if needed.
-	uint8_t* nextpage = reinterpret_cast<uint8_t*>(INITIAL_MAPPING_NOHEAP);
+	uint8_t* nextpage = reinterpret_cast<uint8_t*>(INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET);
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
 	constexpr size_t pages_divisor = divisor * PAGE_SIZE;
 	bitmap_size = memsize / divisor;

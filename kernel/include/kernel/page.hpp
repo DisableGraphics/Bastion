@@ -41,9 +41,9 @@ class PagingManager {
 		void map_page(void *physaddr, void *virtualaddr, unsigned int flags);
 	private:
 		// Kernel page directory
-		[[gnu::aligned(PAGE_SIZE)]] uint32_t page_directory[1024];
+		uint32_t *page_directory;
 		// Kernel page table 1
-		[[gnu::aligned(PAGE_SIZE)]] uint32_t page_table_1[1024];
+		uint32_t *page_table_1;
 		// Kernel page table 2
 		// This table is the "heap" of the kernel since gcc is putting
 		// cursed shit after the end of the kernel and I can't know where the

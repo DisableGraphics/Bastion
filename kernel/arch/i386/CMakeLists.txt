@@ -1,6 +1,6 @@
 add_library(kernel_platform_dependent)
 
-target_compile_options(kernel_platform_dependent PRIVATE -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
+target_compile_options(kernel_platform_dependent PRIVATE -g -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
 
 target_include_directories(kernel_platform_dependent PUBLIC ${CMAKE_SOURCE_DIR}/kernel/include/)
 target_include_directories(kernel_platform_dependent PUBLIC ${CMAKE_SOURCE_DIR}/libc/include/)

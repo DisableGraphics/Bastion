@@ -40,6 +40,8 @@ void io_wait(void);
 
 void halt(void);
 
+void tlb_flush(void);
+
 #ifdef __cplusplus
 }
 #endif

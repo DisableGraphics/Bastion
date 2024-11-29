@@ -1,7 +1,12 @@
+#include <stdint.h>
 #include <kernel/page.hpp>
+#include "kernel/inlineasm.h"
+#include "kernel/serial.hpp"
 #include "pagedef.h"
 #include <error.h>
-#include <stdio.h>
+
+extern uint32_t boot_page_directory[1024];
+extern uint32_t boot_page_table1[1024];
 
 extern "C" void loadPageDirectory(uint32_t*);
 extern "C" void enablePaging();
@@ -12,45 +17,45 @@ PagingManager &PagingManager::get() {
 }
 
 void PagingManager::init() {
-    for(int i = 0; i < 1024; i++)
-    {
-        // This sets the following flags to the pages:
-        //   Supervisor: Only kernel-mode can access them (1 if User-mode can access, 0 if not)
-        //   Write Enabled: It can be both read from and written to
-        //   Not Present: The page table is not present
-		//Note: no need to write the PRESENT flag as it is set to 0 by default
-		// supervisor level (0), read/write (1), not present (0)
-		page_directory[i] = READ_WRITE;
-    }
-    // holds the physical address where we want to start mapping these pages to.
-    // in this case, we want to map these pages to the very beginning of memory.
+	page_directory = boot_page_directory;
+	page_table_1 = boot_page_table1;
     
-    //we will fill all 1024 entries in the two tables, mapping 8 megabytes
+    //Map the second part
     for(unsigned i = 0; i < 1024; i++)
     {
         // As the address is page aligned, it will always leave 12 bits zeroed.
         // Those bits are used by the attributes ;)
-		page_table_1[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
-		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP) | (READ_WRITE | PRESENT);
+		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET) | (READ_WRITE | PRESENT);
     }
-    page_directory[HIGHER_OFFSET_INDEX] = ((unsigned int)page_table_1) | (READ_WRITE | PRESENT);
-	page_directory[HIGHER_OFFSET_INDEX+1] = ((unsigned int)page_table_2) | (READ_WRITE | PRESENT);
+	printf("%p\n", (size_t)get_physaddr(page_table_2));
+	///page_directory[HIGHER_OFFSET_INDEX+1] = ((size_t)get_physaddr(page_table_2)) | (READ_WRITE | PRESENT);
 
-	loadPageDirectory(page_directory);
-	enablePaging();
+	//loadPageDirectory(page_directory);
+	//enablePaging();
+	//invlpg(page_directory);
+	//tlb_flush();
 }
 
 void * PagingManager::get_physaddr(void *virtualaddr) {
-    unsigned long pdindex = (unsigned long)virtualaddr >> 22;
+	printf("%p\n", virtualaddr);
+	unsigned long pdindex = (unsigned long)virtualaddr >> 22;
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
 
 	if(!(page_directory[pdindex] & PRESENT)) return 0;
 	uint32_t * page_table = (uint32_t*)(page_directory[pdindex] & ~0xFFF);
 
-    unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
-	if(!(pt[ptindex] & PRESENT)) return 0;
+	printf("%p\n", page_table);
+	printf("%p\n", pdindex);
+	printf("%p\n", ptindex);
 
-    return (void *)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
+    //unsigned long *pt = ((unsigned long *)page_table) + (0x0400 * ptindex);
+	//printf("%p\n", pt);
+	//printf("%p\n", page_table[ptindex]);
+	//if(!(page_table[ptindex] & PRESENT)) return 0;
+
+	//Serial::get().print("After2\n");
+	return NULL;
+   	//return (void *)((page_table[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
 }
 
 void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int flags) {
