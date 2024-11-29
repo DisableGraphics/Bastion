@@ -12,7 +12,7 @@ static bool print(const char* data, size_t length) {
 	return true;
 }
 
-char * itoa(long value, char* str, int base) {
+char * itoa(unsigned long value, char* str, int base) {
 	char *rc;
 	char *ptr;
 	char *low;
