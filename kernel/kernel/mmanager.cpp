@@ -47,9 +47,9 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 				continue;
 			}
         } else {
-			void * begin = reinterpret_cast<void*>(mmmt->addr);
+			void * begin = reinterpret_cast<void*>(mmmt->addr + HIGHER_HALF_OFFSET);
 			uint8_t* end = reinterpret_cast<uint8_t*>(
-    			static_cast<uintptr_t>(mmmt->addr) + static_cast<size_t>(mmmt->len));
+    			reinterpret_cast<uintptr_t>(begin) + static_cast<size_t>(mmmt->len));
 			used_regions[ureg_size++] = { 
 				begin, 
 				end-1
@@ -79,16 +79,16 @@ uint8_t * MemoryManager::alloc_bitmap() {
 	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
 
 	// Mark the initial mapping as used.
-	for(size_t i = 0; i < INITIAL_MAPPING_WITHHEAP; i++) {
+	for(size_t i = 0; i < INITIAL_MAPPING_WITHHEAP/8; i += 8) {
 		size_t bit_disp = i % (BITS_PER_BYTE*sizeof(bitmap_t));
 		bitmap_t* disp = nextpage + (i / (BITS_PER_BYTE*sizeof(bitmap_t)));
 
-		*disp |= (1 << bit_disp);
+		*disp = 0xFF;
 	}
 	// Mark these addresses as used
 	used_regions[ureg_size++] = {
-		NULL,
-		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP - 1)
+		reinterpret_cast<void*>(HIGHER_HALF_OFFSET),
+		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP + HIGHER_HALF_OFFSET - 1)
 	};
 
 	return nextpage;
