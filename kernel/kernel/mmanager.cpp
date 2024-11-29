@@ -70,7 +70,7 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 
 MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	// Get the address of the shitty heap I made
-	// TODO: this explodes with more than 128 TiB of RAM,
+	// TODO: this explodes with more than 128 TiB - 4MiB of RAM,
 	// allocate new regions if needed.
 	bitmap_t* nextpage = reinterpret_cast<bitmap_t*>(INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET);
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
@@ -83,6 +83,8 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	// Fill already allocated regions with ones
 	bitmap_t* addr = reinterpret_cast<bitmap_t*>(reinterpret_cast<uint8_t*>(nextpage) + orig_map_size_in_bitmap);
 	for (bitmap_t *disp = nextpage; disp < addr; disp++) *disp = -1;
+
+	PagingManager::get().new_page_table(reinterpret_cast<void*>(HIGHER_HALF_OFFSET + INITIAL_MAPPING_WITHHEAP - PAGE_SIZE), false);
 
 	// Mark these addresses as used
 	used_regions[ureg_size++] = {
@@ -147,7 +149,6 @@ void * MemoryManager::alloc_pages(size_t pages) {
 
 void MemoryManager::free_pages(void *start, size_t pages) {
 	uintptr_t address = reinterpret_cast<uintptr_t>(start);
-	if(address > memsize) return; // Out of my address space, ignore it
     size_t page_number = address / PAGE_SIZE;
 	// Check wether this overlaps with a used region
 	// You should NEVER free a page here since the next

@@ -58,7 +58,7 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
 
 	if(!(page_directory[pdindex] & PRESENT)) return; //TODO: Create new page
 
-	unsigned long * page_table = (unsigned long*)(page_directory[pdindex] & ~0xFFF);
+	unsigned long * page_table = (unsigned long*)(page_directory[pdindex] & ~0xFFF + HIGHER_HALF_OFFSET);
 
     unsigned long *pt = ((unsigned long *)page_table) + (0x400 * pdindex);
     // Here you need to check whether the PT entry is present.
@@ -67,4 +67,34 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
     pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | PRESENT; // Present
 
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
+}
+
+void PagingManager::new_page_table(void *pt_addr, bool use_heap) {
+	if(use_heap)
+		pagevec->push_back(reinterpret_cast<page_t*>(pt_addr));
+
+	uint32_t * page_table = reinterpret_cast<uint32_t*>(pt_addr);
+	unsigned long pdindex = (unsigned long)pt_addr >> 22;
+
+	for(size_t i = 0; i < 1024; i++) {
+		page_table[i] = 0;
+	}
+	page_directory[pdindex] = (reinterpret_cast<uint32_t> (pt_addr) - HIGHER_HALF_OFFSET) | (READ_WRITE | PRESENT);
+
+	tlb_flush();
+}
+
+void PagingManager::heap_ready() {
+	pagevec = new Vector<page_t*>();
+}
+
+bool PagingManager::is_mapped(void *addr) {
+	unsigned long pdindex = (unsigned long)addr >> 22;
+    unsigned long ptindex = (unsigned long)addr >> 12 & 0x03FF;
+	if(!(page_directory[pdindex] & PRESENT)) return false;
+	uint32_t * page_table = (uint32_t*)((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
+
+    unsigned long *pt = ((unsigned long *)page_table) + (0x0400 * ptindex);
+	if(!(page_table[ptindex] & PRESENT)) return false;
+	return true;
 }

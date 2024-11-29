@@ -12,6 +12,7 @@
 #include <kernel/mmanager.hpp>
 #include <kernel/keyboard.hpp>
 #include <kernel/cursor.hpp>
+#include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
 
 #ifdef DEBUG
@@ -47,4 +48,5 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}
+	__cxa_finalize(0);
 }
