@@ -23,6 +23,7 @@ void breakpoint() {
 }
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
+	PagingManager::get().init();
 	TTY::get().init();
 	Cursor::get().init();
 	Serial::get().init();
@@ -31,7 +32,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PIC::get().init();
 	IDT::get().init();
 
-	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
 	
 	PIT::get().init(1000);
