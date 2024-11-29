@@ -9,7 +9,8 @@
 
 constexpr size_t INITIAL_MAPPING_NOHEAP = ONE_MEG * 4;
 constexpr size_t INITIAL_MAPPING_WITHHEAP = INITIAL_MAPPING_NOHEAP * 2;
-constexpr size_t HIGHER_HALF_OFFSET = 0xE0000000;
+constexpr size_t HIGHER_HALF_OFFSET = 0xC0000000;
+constexpr size_t HIGHER_OFFSET_INDEX = HIGHER_HALF_OFFSET >> 22;
 
 /**
 	\brief Pages manager

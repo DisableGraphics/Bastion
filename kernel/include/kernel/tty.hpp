@@ -18,7 +18,7 @@ class TTY {
 		void handle_backspace();
 
 		void putentryat(unsigned char c, uint8_t color, size_t x, size_t y);
-		uint16_t* const VGA_MEMORY = (uint16_t*) 0xB8000;
+		uint16_t* const VGA_MEMORY = (uint16_t*) 0xC03FF000;
 
 		size_t terminal_row;
 		size_t terminal_column;

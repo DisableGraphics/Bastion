@@ -33,8 +33,8 @@ void PagingManager::init() {
 		page_table_1[i] = (i * 0x1000) | (READ_WRITE | PRESENT); // attributes: supervisor level, read/write, present.
 		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP) | (READ_WRITE | PRESENT);
     }
-    page_directory[0] = ((unsigned int)page_table_1) | (READ_WRITE | PRESENT);
-	page_directory[1] = ((unsigned int)page_table_2) | (READ_WRITE | PRESENT);
+    page_directory[HIGHER_OFFSET_INDEX] = ((unsigned int)page_table_1) | (READ_WRITE | PRESENT);
+	page_directory[HIGHER_OFFSET_INDEX+1] = ((unsigned int)page_table_2) | (READ_WRITE | PRESENT);
 
 	loadPageDirectory(page_directory);
 	enablePaging();
