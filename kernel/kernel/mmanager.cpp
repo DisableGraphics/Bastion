@@ -68,23 +68,22 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Available memory: %d B (%d KiB) (%d MiB)\n", real_memsize, real_memsize / ONE_KILO, real_memsize / ONE_MEG);
 }
 
-uint8_t * MemoryManager::alloc_bitmap() {
+MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	// Get the address of the shitty heap I made
 	// TODO: this explodes with more than 128 TiB of RAM,
 	// allocate new regions if needed.
-	uint8_t* nextpage = reinterpret_cast<uint8_t*>(INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET);
+	bitmap_t* nextpage = reinterpret_cast<bitmap_t*>(INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET);
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
 	constexpr size_t pages_divisor = divisor * PAGE_SIZE;
 	bitmap_size = memsize / divisor;
 	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
+	// Size of the initial mapping inside the bitmap
+	const size_t orig_map_size_in_bitmap = INITIAL_MAPPING_WITHHEAP / divisor;
 
-	// Mark the initial mapping as used.
-	for(size_t i = 0; i < INITIAL_MAPPING_WITHHEAP/8; i += 8) {
-		size_t bit_disp = i % (BITS_PER_BYTE*sizeof(bitmap_t));
-		bitmap_t* disp = nextpage + (i / (BITS_PER_BYTE*sizeof(bitmap_t)));
+	// Fill already allocated regions with ones
+	bitmap_t* addr = reinterpret_cast<bitmap_t*>(reinterpret_cast<uint8_t*>(nextpage) + orig_map_size_in_bitmap);
+	for (bitmap_t *disp = nextpage; disp < addr; disp++) *disp = -1;
 
-		*disp = 0xFF;
-	}
 	// Mark these addresses as used
 	used_regions[ureg_size++] = {
 		reinterpret_cast<void*>(HIGHER_HALF_OFFSET),

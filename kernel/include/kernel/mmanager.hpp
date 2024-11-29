@@ -46,12 +46,13 @@ class MemoryManager {
 		 */
 		void free_pages(void *start, size_t pages);
 	private:
+		typedef uint64_t bitmap_t;
 		/**
 			\brief Initialise the page bitmap.
 			This explodes if your computer has more than
 			128 TiB of RAM.
 		 */
-		uint8_t * alloc_bitmap();
+		bitmap_t * alloc_bitmap();
 		/**
 			\brief memsize: size of all memory.
 			real_memsize: size of available memory.
@@ -61,7 +62,7 @@ class MemoryManager {
 			\brief Pages bitmap. Contains wether a page
 			has been allocated (1) or not (0).
 		 */
-		typedef uint8_t bitmap_t;
+		
 		bitmap_t *pages_bitmap = nullptr;
 		/**
 			\brief bitmap_size: size of the bitmap in bytes.
