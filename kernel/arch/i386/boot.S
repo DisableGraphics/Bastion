@@ -53,8 +53,8 @@ _start:
 	# Only map the kernel.
 	#cmpl $_kernel_start, %esi
 	#jl 2f
-	cmpl $(_kernel_end - 0xC0000000), %esi
-	jge 3f
+	cmpl $(0xC0400000 - 0xC0000000), %esi
+	#jge 3f
 
 	# Map physical address as "present, writable". Note that this maps
 	# .text and .rodata as writable. Mind security and map them as non-writable.

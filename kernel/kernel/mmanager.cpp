@@ -66,6 +66,7 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 	}
 	printf("Total memory: %d B (%d KiB) (%d MiB)\n", memsize, memsize / ONE_KILO, memsize / ONE_MEG);
 	printf("Available memory: %d B (%d KiB) (%d MiB)\n", real_memsize, real_memsize / ONE_KILO, real_memsize / ONE_MEG);
+	//PagingManager::get().heap_ready();
 }
 
 MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
@@ -95,19 +96,21 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	return nextpage;
 }
 
-void * MemoryManager::alloc_pages(size_t pages) {
-	if (pages == 0 || !pages_bitmap) return nullptr;
+void *MemoryManager::alloc_pages(size_t pages) {
+    if (pages == 0 || !pages_bitmap) return nullptr;
 
     size_t consecutive_free = 0;
     size_t start_page = 0;
+	PagingManager &pm = PagingManager::get(); 
 
-    for (size_t i = 0; i < bitmap_size * 8; ++i) {
+    for (size_t i = 0; i < bitmap_size * BITS_PER_BYTE; ++i) {
         size_t byte_index = i / 8;
         size_t bit_index = i % 8;
 
         if (!(pages_bitmap[byte_index] & (1 << bit_index))) {
             if (consecutive_free == 0) start_page = i;
             ++consecutive_free;
+
             if (consecutive_free == pages) {
                 uintptr_t start_addr = reinterpret_cast<uintptr_t>(start_page * PAGE_SIZE);
                 uintptr_t end_addr = start_addr + pages * PAGE_SIZE;
@@ -128,15 +131,24 @@ void * MemoryManager::alloc_pages(size_t pages) {
                     continue;
                 }
 
+                // Allocate new page tables if the requested range exceeds the current page table coverage
+                size_t needed_tables = (end_addr / REGION_SIZE) + 1;
+                for (size_t table_idx = current_page_tables; table_idx < needed_tables; ++table_idx) {
+					printf("              needing dis\n");
+                    pm.new_page_table(alloc_pages(1));
+                }
+
                 // Mark the pages as allocated
                 for (size_t j = 0; j < pages; ++j) {
                     size_t alloc_byte = (start_page + j) / 8;
                     size_t alloc_bit = (start_page + j) % 8;
                     pages_bitmap[alloc_byte] |= (1 << alloc_bit); // Mark bit as allocated
+					pm.map_page(reinterpret_cast<void*>(start_page * PAGE_SIZE), 
+						reinterpret_cast<void*>(start_page * PAGE_SIZE + HIGHER_HALF_OFFSET), READ_WRITE);
                 }
 
                 // Calculate the starting physical address and return it
-                uintptr_t address = start_page * 4096; // Start address
+                uintptr_t address = start_page * PAGE_SIZE; // Start address
                 return reinterpret_cast<void *>(address);
             }
         } else {

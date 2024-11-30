@@ -46,7 +46,7 @@ class MemoryManager {
 		 */
 		void free_pages(void *start, size_t pages);
 	private:
-		typedef uint64_t bitmap_t;
+		typedef uint8_t bitmap_t;
 		/**
 			\brief Initialise the page bitmap.
 			This explodes if your computer has more than
@@ -66,10 +66,14 @@ class MemoryManager {
 		bitmap_t *pages_bitmap = nullptr;
 		/**
 			\brief bitmap_size: size of the bitmap in bytes.
+			bitmap_n: Number of bitmap_t's in the bitmap
 			bitmap_size_pages: size of the bitmap in pages
 		 */
 		size_t bitmap_size = 0;
+		size_t bitmap_n = 0;
 		size_t bitmap_size_pages = 0;
+
+		size_t current_page_tables = 0;
 
 		// 32 used region blocks. Should be enough.
 		used_region used_regions[32];

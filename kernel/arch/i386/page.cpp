@@ -25,7 +25,7 @@ void PagingManager::init() {
     {
         // As the address is page aligned, it will always leave 12 bits zeroed.
         // Those bits are used by the attributes ;)
-		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET) | (READ_WRITE | PRESENT);
+		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP) | (READ_WRITE | PRESENT);
     }
 	page_directory[HIGHER_OFFSET_INDEX+1] = ((size_t)get_physaddr(page_table_2)) | (READ_WRITE | PRESENT);
 
@@ -67,6 +67,7 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
     pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | PRESENT; // Present
 
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
+	printf("                Mapped\n");
 }
 
 void PagingManager::new_page_table(void *pt_addr, bool use_heap) {

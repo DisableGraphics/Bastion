@@ -28,4 +28,5 @@ target_sources(kernel_platform_dependent PRIVATE
 	reloadsr.S
 	keyboard_get_key.cpp
 	cursor.cpp
+	bits.cpp
 	)
