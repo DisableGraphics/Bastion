@@ -48,13 +48,15 @@ class PagingManager {
 		/**
 			\brief Setup a new page table.
 			\param pt_addr Address of the new page table
+			\param begin_with This page table will map addresses linearly
+			from begin_with
 			\param use_heap Use a vector to keep track of the page.
 
 			Note: use_heap should be true for all page tables, except for
 			one in particular that it's used to piggyback memory allocations
 			after the kernel space. That page table is allocated by the Memory Manager.
 		 */
-		void new_page_table(void* pt_addr, bool use_heap = true);
+		void new_page_table(void* pt_addr, void* begin_with, bool use_heap = true);
 		/**
 			\brief Whether an address is mapped to a physical page or not
 			\param addr Address to check

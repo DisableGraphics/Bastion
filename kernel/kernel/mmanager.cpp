@@ -77,6 +77,7 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
 	constexpr size_t pages_divisor = divisor * PAGE_SIZE;
 	bitmap_size = memsize / divisor;
+	bitmap_n = memsize / sizeof(bitmap_t);
 	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
 	// Size of the initial mapping inside the bitmap
 	const size_t orig_map_size_in_bitmap = INITIAL_MAPPING_WITHHEAP / divisor;
@@ -85,7 +86,8 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	bitmap_t* addr = reinterpret_cast<bitmap_t*>(reinterpret_cast<uint8_t*>(nextpage) + orig_map_size_in_bitmap);
 	for (bitmap_t *disp = nextpage; disp < addr; disp++) *disp = -1;
 
-	PagingManager::get().new_page_table(reinterpret_cast<void*>(HIGHER_HALF_OFFSET + INITIAL_MAPPING_WITHHEAP - PAGE_SIZE), false);
+	PagingManager::get().new_page_table(reinterpret_cast<void*>(HIGHER_HALF_OFFSET + INITIAL_MAPPING_WITHHEAP - PAGE_SIZE),
+		reinterpret_cast<void*>(HIGHER_HALF_OFFSET + INITIAL_MAPPING_WITHHEAP), false);
 
 	// Mark these addresses as used
 	used_regions[ureg_size++] = {
@@ -103,13 +105,14 @@ void *MemoryManager::alloc_pages(size_t pages) {
     size_t start_page = 0;
 	PagingManager &pm = PagingManager::get(); 
 
-    for (size_t i = 0; i < bitmap_size * BITS_PER_BYTE; ++i) {
-        size_t byte_index = i / 8;
-        size_t bit_index = i % 8;
+    for (size_t i = 0; i < bitmap_n * BITS_PER_BYTE; ++i) {
+        size_t byte_index = i / (sizeof(bitmap_t) * BITS_PER_BYTE);
+        size_t bit_index = i % (sizeof(bitmap_t) * BITS_PER_BYTE);
 
         if (!(pages_bitmap[byte_index] & (1 << bit_index))) {
             if (consecutive_free == 0) start_page = i;
             ++consecutive_free;
+			printf("              bit %p of byte %p\n", bit_index, byte_index);
 
             if (consecutive_free == pages) {
                 uintptr_t start_addr = reinterpret_cast<uintptr_t>(start_page * PAGE_SIZE);
@@ -135,7 +138,9 @@ void *MemoryManager::alloc_pages(size_t pages) {
                 size_t needed_tables = (end_addr / REGION_SIZE) + 1;
                 for (size_t table_idx = current_page_tables; table_idx < needed_tables; ++table_idx) {
 					printf("              needing dis\n");
-                    pm.new_page_table(alloc_pages(1));
+					printf("              %p\n", table_idx * REGION_SIZE);
+                    pm.new_page_table(alloc_pages(1), 
+						reinterpret_cast<void*>(table_idx * REGION_SIZE));
                 }
 
                 // Mark the pages as allocated
@@ -143,6 +148,7 @@ void *MemoryManager::alloc_pages(size_t pages) {
                     size_t alloc_byte = (start_page + j) / 8;
                     size_t alloc_bit = (start_page + j) % 8;
                     pages_bitmap[alloc_byte] |= (1 << alloc_bit); // Mark bit as allocated
+					printf("             Mapping %p %p\n", start_addr * PAGE_SIZE, j);
 					pm.map_page(reinterpret_cast<void*>(start_page * PAGE_SIZE), 
 						reinterpret_cast<void*>(start_page * PAGE_SIZE + HIGHER_HALF_OFFSET), READ_WRITE);
                 }

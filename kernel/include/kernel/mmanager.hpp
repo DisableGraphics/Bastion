@@ -73,7 +73,7 @@ class MemoryManager {
 		size_t bitmap_n = 0;
 		size_t bitmap_size_pages = 0;
 
-		size_t current_page_tables = 0;
+		size_t current_page_tables = 3;
 
 		// 32 used region blocks. Should be enough.
 		used_region used_regions[32];

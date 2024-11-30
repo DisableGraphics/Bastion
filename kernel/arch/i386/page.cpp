@@ -27,11 +27,9 @@ void PagingManager::init() {
         // Those bits are used by the attributes ;)
 		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP) | (READ_WRITE | PRESENT);
     }
-	page_directory[HIGHER_OFFSET_INDEX+1] = ((size_t)get_physaddr(page_table_2)) | (READ_WRITE | PRESENT);
-
-	//loadPageDirectory(page_directory);
-	//enablePaging();
-	//invlpg(page_directory);
+	size_t physical_addr = reinterpret_cast<size_t>(get_physaddr(page_table_2));
+	page_directory[HIGHER_OFFSET_INDEX+1] = ((size_t) physical_addr) | (READ_WRITE | PRESENT);
+	
 	tlb_flush();
 }
 
@@ -67,15 +65,14 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
     pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | PRESENT; // Present
 
 	__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
-	printf("                Mapped\n");
 }
 
-void PagingManager::new_page_table(void *pt_addr, bool use_heap) {
+void PagingManager::new_page_table(void *pt_addr, void *begin_with, bool use_heap) {
 	if(use_heap)
 		pagevec->push_back(reinterpret_cast<page_t*>(pt_addr));
 
 	uint32_t * page_table = reinterpret_cast<uint32_t*>(pt_addr);
-	unsigned long pdindex = (unsigned long)pt_addr >> 22;
+	unsigned long pdindex = (unsigned long)begin_with >> 22;
 
 	for(size_t i = 0; i < 1024; i++) {
 		page_table[i] = 0;
@@ -92,6 +89,7 @@ void PagingManager::heap_ready() {
 bool PagingManager::is_mapped(void *addr) {
 	unsigned long pdindex = (unsigned long)addr >> 22;
     unsigned long ptindex = (unsigned long)addr >> 12 & 0x03FF;
+
 	if(!(page_directory[pdindex] & PRESENT)) return false;
 	uint32_t * page_table = (uint32_t*)((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
 
