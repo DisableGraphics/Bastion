@@ -54,6 +54,10 @@ class MemoryManager {
 		 */
 		bitmap_t * alloc_bitmap();
 		/**
+			\brief Allocate the page tables vector
+		 */
+		void alloc_pagevec();
+		/**
 			\brief memsize: size of all memory.
 			real_memsize: size of available memory.
 		 */
@@ -73,7 +77,7 @@ class MemoryManager {
 		size_t bitmap_n = 0;
 		size_t bitmap_size_pages = 0;
 
-		size_t current_page_tables = 3;
+		size_t pagevec_size = 0;
 
 		// 32 used region blocks. Should be enough.
 		used_region used_regions[32];

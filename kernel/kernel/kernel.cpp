@@ -41,8 +41,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	test_paging();
 	#endif
 
-	int * pt = new int[1];
-	pt[0] = 1;
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");

@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <kernel/const.hpp>
 #include <kernel/datastr/vector.hpp>
+#include <kernel/datastr/pair.hpp>
 
 #ifdef __i386
 #include "../arch/i386/pagedef.h"
@@ -13,7 +14,7 @@ constexpr size_t REGION_SIZE = ONE_MEG * 4;
 constexpr size_t INITIAL_MAPPING_WITHHEAP = INITIAL_MAPPING_NOHEAP * 2;
 constexpr size_t HIGHER_HALF_OFFSET = 0xC0000000;
 constexpr size_t HIGHER_OFFSET_INDEX = HIGHER_HALF_OFFSET >> 22;
-
+typedef uint32_t page_t;
 /**
 	\brief Pages manager
 	Manages physical and virtual pages.
@@ -48,15 +49,10 @@ class PagingManager {
 		/**
 			\brief Setup a new page table.
 			\param pt_addr Address of the new page table
-			\param begin_with This page table will map addresses linearly
-			from begin_with
-			\param use_heap Use a vector to keep track of the page.
-
-			Note: use_heap should be true for all page tables, except for
-			one in particular that it's used to piggyback memory allocations
-			after the kernel space. That page table is allocated by the Memory Manager.
+			\param begin_with This page table will map all region addresses linearly
+			beginning with begin_with
 		 */
-		void new_page_table(void* pt_addr, void* begin_with, bool use_heap = true);
+		void new_page_table(void* pt_addr, void* begin_withe);
 		/**
 			\brief Whether an address is mapped to a physical page or not
 			\param addr Address to check
@@ -64,12 +60,10 @@ class PagingManager {
 		 */
 		bool is_mapped(void* addr);
 		/**
-			\brief Signal that the heap is ready for future page table allocation
-			requests. Initialises the pagevec vector since it requires heap space.
+
 		 */
-		void heap_ready();
+		void set_pagevec(page_t * vec);
 	private:
-		typedef uint32_t page_t;
 		// Kernel page directory
 		page_t *page_directory;
 		// Kernel page table 1
@@ -83,8 +77,9 @@ class PagingManager {
 		// In all seriousness tho, I need space for the pages bitmap
 		[[gnu::aligned(PAGE_SIZE)]] page_t page_table_2[1024];
 
-		// Vector of pointers to pages to keep them in check
-		Vector<page_t*>* pagevec = nullptr;
+		// Page table vector
+		page_t *pt_vector;
+
 		PagingManager(){}
 };
 extern uint32_t endkernel;
