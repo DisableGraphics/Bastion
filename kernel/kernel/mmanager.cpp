@@ -1,16 +1,16 @@
 #include "multiboot/multiboot.h"
 #include <stddef.h>
 #include <stddef.h>
-#include <kernel/mmanager.hpp>
-#include <kernel/panic.hpp>
-#include <kernel/const.hpp>
-#include <kernel/page.hpp>
 #include <stdio.h>
-#include <kernel/pit.hpp>
+#include <kernel/memory/mmanager.hpp>
+#include <kernel/kernel/panic.hpp>
+#include <kernel/kernel/const.hpp>
+#include <kernel/memory/page.hpp>
+#include <kernel/drivers/pit.hpp>
 
 #ifdef __i386
-#include "../arch/i386/pagedef.h"
-#include "../arch/i386/defs/max_addr_size.hpp"
+#include "../arch/i386/defs/page/pagedef.h"
+#include "../arch/i386/defs/sizes/max_addr_size.hpp"
 #endif
 
 extern uint32_t endkernel;

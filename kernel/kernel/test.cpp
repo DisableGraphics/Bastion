@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include <kernel/page.hpp>
 #include <assert.h>
 #include <stddef.h>
+#include <kernel/memory/page.hpp>
 
 void test_paging() {
 	PagingManager &page = PagingManager::get();

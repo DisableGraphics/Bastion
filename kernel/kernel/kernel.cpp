@@ -1,17 +1,17 @@
 #include <stdio.h>
 
-#include <kernel/page.hpp>
-#include <kernel/tty.hpp>
-#include <kernel/gdt.hpp>
-#include <kernel/interrupts.hpp>
-#include <kernel/inlineasm.h>
-#include <kernel/serial.hpp>
-#include <kernel/pic.hpp>
-#include <kernel/pit.hpp>
-#include <kernel/ps2.hpp>
-#include <kernel/mmanager.hpp>
-#include <kernel/keyboard.hpp>
-#include <kernel/cursor.hpp>
+#include <kernel/memory/page.hpp>
+#include <kernel/drivers/tty.hpp>
+#include <kernel/memory/gdt.hpp>
+#include <kernel/drivers/interrupts.hpp>
+#include <kernel/assembly/inlineasm.h>
+#include <kernel/drivers/serial.hpp>
+#include <kernel/drivers/pic.hpp>
+#include <kernel/drivers/pit.hpp>
+#include <kernel/drivers/ps2.hpp>
+#include <kernel/memory/mmanager.hpp>
+#include <kernel/keyboard/keyboard.hpp>
+#include <kernel/drivers/cursor.hpp>
 #include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
 
