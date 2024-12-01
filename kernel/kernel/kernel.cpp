@@ -40,7 +40,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	#ifdef DEBUG
 	test_paging();
 	#endif
-
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
