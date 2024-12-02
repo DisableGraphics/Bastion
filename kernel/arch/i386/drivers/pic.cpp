@@ -9,7 +9,7 @@ PIC &PIC::get() {
 
 void PIC::init() {
 	remap(0x20, 0x28);
-	disable();
+	disable_irqs();
 }
 
 void PIC::remap(int offset1, int offset2) {
@@ -40,7 +40,7 @@ void PIC::remap(int offset1, int offset2) {
 	outb(PIC2_DATA, a2);
 }
 
-void PIC::disable() {
+void PIC::disable_irqs() {
 	outb(PIC1_DATA, 0xff);
     outb(PIC2_DATA, 0xff);
 }

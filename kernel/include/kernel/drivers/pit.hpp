@@ -1,6 +1,5 @@
 #pragma once
 #include <kernel/drivers/interrupts.hpp>
-#include <stddef.h>
 #include <stdint.h>
 #ifdef __i386
 #include "../arch/i386/defs/pit/pit.hpp"
