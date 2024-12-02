@@ -85,7 +85,6 @@ void Mouse::mouse_handler(interrupt_frame*) {
 			case FOURTH_BYTE:
 				m.cur_mouse_event.zdesp = byte;
 				m.events_queue.push(m.cur_mouse_event);
-				printf("Paice q va\n");
 				break;
 		}
 		m.state = static_cast<MouseState>((m.state + 1) % m.nbytes);
@@ -99,16 +98,15 @@ void Mouse::mouse_handler(interrupt_frame*) {
 void Mouse::try_init_wheel() {
 	PS2Controller &ps2 = PS2Controller::get();
 	ps2.write_to_port(port, 0xF3);
+	inb(DATA_PORT);
 	ps2.write_to_port(port, 200);
-	uint8_t b = inb(DATA_PORT);
-	printf("%p \n", b);
+	inb(DATA_PORT);
 	ps2.write_to_port(port, 0xF3);
+	inb(DATA_PORT);
 	ps2.write_to_port(port, 100);
-	b = inb(DATA_PORT);
-	printf("%p \n", b);
+	inb(DATA_PORT);
 	ps2.write_to_port(port, 0xF3);
+	inb(DATA_PORT);
 	ps2.write_to_port(port, 80);
-	b = inb(DATA_PORT);
-	printf("%p \n", b);
-
+	inb(DATA_PORT);
 }
