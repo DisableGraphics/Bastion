@@ -27,7 +27,7 @@ void TTYManager::writestring(const char * data) {
 }
 
 void TTYManager::display() {
-	memcpy(VGA_MEMORY, ttys[current_tty].get_buffer(), TTY::VGA_HEIGHT * TTY::VGA_WIDTH);
+	memcpy(VGA_MEMORY, ttys[current_tty].get_buffer(), sizeof(uint16_t)*TTY::VGA_HEIGHT * TTY::VGA_WIDTH);
 }
 
 void TTYManager::set_current_tty(size_t tty) {

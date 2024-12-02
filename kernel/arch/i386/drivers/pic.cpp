@@ -91,7 +91,7 @@ uint16_t PIC::get_isr() {
 
 void PIC::send_EOI(uint8_t irq) {
 	if (irq >= 8) {
-        outb (PIC_EOI, PIC_EOI);
+        outb (PIC2_COMMAND, PIC_EOI);
     }
-    outb (PIC_EOI, PIC_EOI);
+    outb (PIC1_COMMAND, PIC_EOI);
 }

@@ -11,6 +11,7 @@
 #include <kernel/drivers/ps2.hpp>
 #include <kernel/memory/mmanager.hpp>
 #include <kernel/keyboard/keyboard.hpp>
+#include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
@@ -37,6 +38,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PIT::get().init(1000);
 	PS2Controller::get().init();
 	Keyboard::get().init();
+	Mouse::get().init();
 	#ifdef DEBUG
 	test_paging();
 	#endif

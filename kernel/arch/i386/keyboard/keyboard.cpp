@@ -31,6 +31,8 @@ void Keyboard::init() {
 }
 
 void Keyboard::keyboard_handler(interrupt_frame* a) {
+	IDT &idt = IDT::get();
+	idt.disable_interrupts();
 	uint8_t recv = inb(DATA_PORT);
 	char c;
 	Keyboard &k = Keyboard::get();
@@ -80,6 +82,7 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 
 	c = k.poll_key();
 	if(c) { printf("%c", c); }
+	idt.enable_interrupts();
 
 finish:
 	PIC::get().send_EOI(k.irq_line);

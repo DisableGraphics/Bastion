@@ -1,1 +1,1 @@
-target_sources(kernel_platform_dependent PRIVATE cursor.cpp handlers.cpp interrupts.cpp nmi.cpp pic.cpp pit.cpp ps2.cpp serial.cpp)
+target_sources(kernel_platform_dependent PRIVATE cursor.cpp handlers.cpp interrupts.cpp nmi.cpp pic.cpp pit.cpp ps2.cpp serial.cpp mouse.cpp)

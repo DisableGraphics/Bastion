@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 /**
 	\brief PS/2 Driver.
@@ -5,6 +6,20 @@
  */
 class PS2Controller {
 	public:
+		enum DeviceType {
+			MOUSE = 0x00,
+			MOUSE_SCROLLWHEEL = 0x03,
+			MOUSE_5BUTTON = 0x05,
+			MF2_KEYBOARD,
+			SHORT_KEYBOARD,
+			NCD_122_KEYBOARD,
+			KEYBOARD_122_KEY,
+			JP_G_KEYBOARD,
+			JP_P_KEYBOARD,
+			JP_A_KEYBOARD,
+			NCD_SUN_KEYBOARD,
+			NONE
+		};
 		/**
 			\brief Get singleton instance
 		 */
@@ -24,6 +39,14 @@ class PS2Controller {
 			\return the mouse port or -1 if there isn't a mouse
 		 */
 		int get_mouse_port();
+		/**
+			\brief Get device type connected to the port port
+		 */
+		DeviceType get_device_type(int port);
+		/**
+			\brief Write to port port the command command
+		 */
+		void write_to_port(uint8_t port, uint8_t command);
 	private:
 		/**
 			\brief Configure first port
@@ -71,29 +94,7 @@ class PS2Controller {
 		/**
 			\brief Device type
 		 */
-		enum DeviceType {
-			MOUSE = 0x00,
-			MOUSE_SCROLLWHEEL = 0x03,
-			MOUSE_5BUTTON = 0x05,
-			MF2_KEYBOARD,
-			SHORT_KEYBOARD,
-			NCD_122_KEYBOARD,
-			KEYBOARD_122_KEY,
-			JP_G_KEYBOARD,
-			JP_P_KEYBOARD,
-			JP_A_KEYBOARD,
-			NCD_SUN_KEYBOARD,
-			NONE
-		} first_port_device, second_port_device;
-
-		/**
-			\brief Write to port port the command command
-		 */
-		void write_to_port(uint8_t port, uint8_t command);
-		/**
-			\brief Get device type connected to the port port
-		 */
-		DeviceType get_device_type(int port);
+		DeviceType first_port_device, second_port_device;		
 		/**
 			\brief Set device type for port port
 		 */
