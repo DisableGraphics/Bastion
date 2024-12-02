@@ -8,7 +8,7 @@ Cursor& Cursor::get() {
 }
 
 void Cursor::init() {
-	enable(0,0);
+	enable(15,15);
 }
 
 void Cursor::enable(uint8_t cursor_start, uint8_t cursor_end) {

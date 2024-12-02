@@ -32,7 +32,7 @@ void TTY::putchar(char c) {
 				terminal_row = 0;
 		}
 	}
-	Cursor::get().move(terminal_column, terminal_row+1);
+	Cursor::get().move(terminal_column, terminal_row);
 }
 
 void TTY::write(const char* data, size_t size) {
