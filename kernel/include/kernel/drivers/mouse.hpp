@@ -26,7 +26,7 @@ class Mouse {
 		StaticQueue<MouseEvent, 128> events_queue;
 		bool negx = false, negy = false;
 
-
+		void try_init_wheel();
 		size_t port;
 		size_t irqline;
 		size_t nbytes;

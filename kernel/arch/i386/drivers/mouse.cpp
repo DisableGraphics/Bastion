@@ -9,6 +9,7 @@ void Mouse::init() {
 	port = PS2Controller::get().get_mouse_port();
 	if(port == -1) return; // No mouse connected
 	irqline = port == 1 ? 1 : 12;
+	try_init_wheel();
 	type = PS2Controller::get().get_device_type(port);
 	switch(type) {
         case PS2Controller::MOUSE:
@@ -84,6 +85,7 @@ void Mouse::mouse_handler(interrupt_frame*) {
 			case FOURTH_BYTE:
 				m.cur_mouse_event.zdesp = byte;
 				m.events_queue.push(m.cur_mouse_event);
+				printf("Paice q va\n");
 				break;
 		}
 		m.state = static_cast<MouseState>((m.state + 1) % m.nbytes);
@@ -92,4 +94,21 @@ void Mouse::mouse_handler(interrupt_frame*) {
 	finish:
 	PIC::get().send_EOI(m.irqline);
 	idt.enable_interrupts();
+}
+
+void Mouse::try_init_wheel() {
+	PS2Controller &ps2 = PS2Controller::get();
+	ps2.write_to_port(port, 0xF3);
+	ps2.write_to_port(port, 200);
+	uint8_t b = inb(DATA_PORT);
+	printf("%p \n", b);
+	ps2.write_to_port(port, 0xF3);
+	ps2.write_to_port(port, 100);
+	b = inb(DATA_PORT);
+	printf("%p \n", b);
+	ps2.write_to_port(port, 0xF3);
+	ps2.write_to_port(port, 80);
+	b = inb(DATA_PORT);
+	printf("%p \n", b);
+
 }

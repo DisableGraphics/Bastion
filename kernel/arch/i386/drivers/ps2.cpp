@@ -223,7 +223,7 @@ PS2Controller::DeviceType PS2Controller::get_device_type(int port) {
 				printf("Mouse\n");
 				device_type =  static_cast<PS2Controller::DeviceType>(response);
 			} else {
-				printf("Unknown or broken\n");
+				printf("Unknown or broken. Received code: %p\n", response);
 				device_type = NONE;
 			}
 			// Enable scanning again
