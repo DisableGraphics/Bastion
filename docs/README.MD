@@ -12,7 +12,7 @@ Guidelines:
 		- Avoid C completely (unless with interfacing with assembly). The reason is simple: having a bunch of functions instead of a bunch of classes has this side effect of polluting the global namespace, and function names end up being super long. It's a good practice in the C world to prefix functions with their "namespace" (like pit_init()), but it ends up being annoying when you have to write `pagingmanager_alloc_page(&pagingmanager, virtaddr, realaddr)` instead of "just" `PagingManager::get().alloc(virtaddr, realaddr)`.
 	- Kernel LibC: Interfaces *must* be C (for bloody obvious reasons), but internal code *can* be anything else.
 - On Rust and Zig:
-	- Rust and Zig are two languages that have beginning taking off, and for a good reason. They do solve perceived or real warts on C++ and C.
+	- Rust and Zig are two languages that have begun taking off, and for a good reason. They do solve perceived or real warts on C++ and C.
 	- They can be used in this codebase. However, take into account the following:
 		- They are slightly better candidates for the libc than for the kernel, as the kernel uses a very hard OOP paradigm which both languages may or may not support completely. They might also have differing struct layouts in memory which aren't compatible with C++.
 		- They can only work with the kernel interfaces using the libc and/or internal functions. This may reduce their perceived safety (In particular Rust's) since you have to "go back" to char *'s for text.
