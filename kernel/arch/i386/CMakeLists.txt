@@ -7,6 +7,7 @@ add_subdirectory(boot)
 add_subdirectory(assembly)
 add_subdirectory(keyboard)
 add_subdirectory(sync)
+add_subdirectory(tty)
 
 target_compile_options(kernel_platform_dependent PRIVATE -g -fno-asynchronous-unwind-tables -fno-exceptions -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
 

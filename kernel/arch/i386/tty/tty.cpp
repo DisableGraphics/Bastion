@@ -1,13 +1,13 @@
-#include <kernel/drivers/tty.hpp>
+#include <kernel/tty/tty.hpp>
 #include "../defs/vga/vga.hpp"
 #include <kernel/drivers/cursor.hpp>
 #include <string.h>
 
-void TTY::init() {
+TTY::TTY() {
     terminal_row = 0;
 	terminal_column = 0;
 	terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-	terminal_buffer = VGA_MEMORY;
+
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
 			const size_t index = y * VGA_WIDTH + x;
@@ -44,11 +44,6 @@ void TTY::writestring(const char* data) {
     write(data, strlen(data));
 }
 
-TTY& TTY::get() {
-	static TTY instance;
-	return instance;
-}
-
 void TTY::putentryat(unsigned char c, uint8_t color, size_t x, size_t y) {
 	const size_t index = y * VGA_WIDTH + x;
 	terminal_buffer[index] = vga_entry(c, color);
@@ -61,4 +56,8 @@ void TTY::handle_backspace() {
 	}
 	terminal_column--;
 	putentryat(' ', terminal_color, terminal_column, terminal_row);
+}
+
+uint16_t * TTY::get_buffer() {
+	return terminal_buffer;
 }

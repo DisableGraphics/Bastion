@@ -1,6 +1,6 @@
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/assembly/inlineasm.h>
-#include <kernel/drivers/tty.hpp>
+#include <kernel/tty/tty.hpp>
 
 Cursor& Cursor::get() {
 	static Cursor instance;
@@ -25,7 +25,7 @@ void Cursor::disable() {
 }
 
 void Cursor::move(int x, int y) {
-	uint16_t pos = y * TTY::get().VGA_WIDTH + x;
+	uint16_t pos = y * TTY::VGA_WIDTH + x;
 
 	outb(0x3D4, 0x0F);
 	outb(0x3D5, (uint8_t) (pos & 0xFF));
