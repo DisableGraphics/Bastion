@@ -28,10 +28,8 @@ void semaphore_wait(sem_t* sem) {
 	InternalSemaphore* internal = (InternalSemaphore*)sem->count;
 	int expected;
 	do {
-		expected = atomic_load(&internal->count);
-		while (expected <= 0) {
+		while ((expected = atomic_load(&internal->count)) <= 0) {
 			__builtin_ia32_pause();
-			expected = atomic_load(&internal->count);
 		}
 	} while (!atomic_compare_exchange_weak(&internal->count, &expected, expected - 1));
 }
