@@ -1,1 +1,1 @@
-target_sources(kernel_platform_dependent PRIVATE mutex.cpp)
+target_sources(kernel_platform_dependent PRIVATE mutex.cpp semaphore.cpp semaphore.c)

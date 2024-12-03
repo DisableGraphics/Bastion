@@ -1,1 +1,1 @@
-target_sources(libc_obj PRIVATE abort.c)
+target_sources(libc_obj PRIVATE abort.cpp)
