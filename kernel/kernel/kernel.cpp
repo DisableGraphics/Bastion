@@ -42,8 +42,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Mouse::get().init();
 
 	ata_test();
-	ata_test_write();
-
 	#ifdef DEBUG
 	test_paging();
 	#endif
