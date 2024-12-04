@@ -7,9 +7,7 @@ mkdir -p isodir/boot
 mkdir -p isodir/boot/grub
 
 cp build/bastion isodir/boot/bastion
-cat > isodir/boot/grub/grub.cfg << EOF
-menuentry "Bastion" {
-	multiboot /boot/bastion
-}
-EOF
+cp grub.cfg  isodir/boot/grub/grub.cfg
 grub-mkrescue -o bastion.iso isodir
+
+rm -rf isodir
