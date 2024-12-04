@@ -1,30 +1,24 @@
+#pragma once
 #include <kernel/assembly/inlineasm.h>
 #include <stdio.h>
-// I/O Ports for the Primary ATA Controller
-#define ATA_PRIMARY_IO 0x1F0
-#define ATA_PRIMARY_CONTROL 0x3F6
-#define ATA_DATA_REG (ATA_PRIMARY_IO + 0) // Data register (16-bit)
-#define ATA_ERROR_REG (ATA_PRIMARY_IO + 1) // Error register
-#define ATA_SECTOR_COUNT_REG (ATA_PRIMARY_IO + 2) // Sector count register
-#define ATA_LBA_LOW_REG (ATA_PRIMARY_IO + 3) // LBA low byte
-#define ATA_LBA_MID_REG (ATA_PRIMARY_IO + 4) // LBA mid byte
-#define ATA_LBA_HIGH_REG (ATA_PRIMARY_IO + 5) // LBA high byte
-#define ATA_DRIVE_HEAD_REG (ATA_PRIMARY_IO + 6) // Drive/head register
-#define ATA_STATUS_REG (ATA_PRIMARY_IO + 7) // Status register
-#define ATA_COMMAND_REG (ATA_PRIMARY_IO + 7) // Command register
-#define ATA_ALT_STATUS_REG (ATA_PRIMARY_CONTROL + 0) // Alternate status register
+#ifdef __i386
+#include "../arch/i386/defs/ata/cmd.hpp"
+#include "../arch/i386/defs/ata/ports.hpp"
+#include "../arch/i386/defs/ata/status_flags.hpp"
+#endif
 
-// ATA Commands
-#define ATA_CMD_IDENTIFY 0xEC
-#define ATA_CMD_READ_SECTORS 0x20
-
-// Status Flags
-#define ATA_STATUS_ERR 0x01
-#define ATA_STATUS_DRQ 0x08
-#define ATA_STATUS_SRV 0x10
-#define ATA_STATUS_DF 0x20
-#define ATA_STATUS_RDY 0x40
-#define ATA_STATUS_BSY 0x80
+class ATA {
+	public:
+		static ATA &get();
+		void init();
+		bool identify();
+		bool read_sector(uint32_t lba, uint16_t* buffer);
+		bool write_sector(uint32_t lba, const uint16_t* buffer);
+	private:
+		bool wait_ready();
+		uint16_t identity_buffer[256];
+		ATA(){};
+};
 
 bool ata_wait_ready() {
     while (inb(ATA_STATUS_REG) & ATA_STATUS_BSY);
@@ -33,25 +27,7 @@ bool ata_wait_ready() {
 
 // Identify the drive
 bool ata_identify(uint16_t* buffer) {
-    ata_wait_ready();
-    outb(ATA_DRIVE_HEAD_REG, 0xA0); // Select master drive
-    outb(ATA_SECTOR_COUNT_REG, 0); // Sector count = 0
-    outb(ATA_LBA_LOW_REG, 0); // LBA Low = 0
-    outb(ATA_LBA_MID_REG, 0); // LBA Mid = 0
-    outb(ATA_LBA_HIGH_REG, 0); // LBA High = 0
-    outb(ATA_COMMAND_REG, ATA_CMD_IDENTIFY); // Send IDENTIFY command
-
-    if (inb(ATA_STATUS_REG) == 0) {
-        return false; // No drive connected
-    }
-
-    while (!(inb(ATA_STATUS_REG) & ATA_STATUS_DRQ)); // Wait for data
-
-    // Read 256 words (512 bytes) of data
-    for (int i = 0; i < 256; i++) {
-        buffer[i] = inw(ATA_DATA_REG);
-    }
-    return true;
+    
 }
 
 // Read a sector from the drive

@@ -1,0 +1,2 @@
+#define ATA_CMD_IDENTIFY 0xEC
+#define ATA_CMD_READ_SECTORS 0x20
