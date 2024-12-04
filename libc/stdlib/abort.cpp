@@ -1,11 +1,10 @@
-#include <stdio.h>
+#include <kernel/kernel/panic.hpp>
 #include <stdlib.h>
 
 __attribute__((__noreturn__))
 void abort(void) {
 #if defined(__is_libk)
-	// TODO: Add proper kernel panic.
-	printf("kernel: panic: abort()\n");
+	kn::panic("kernel: panic: abort()\n");
 #else
 	// TODO: Abnormally terminate the process as if by SIGABRT.
 	printf("abort()\n");
