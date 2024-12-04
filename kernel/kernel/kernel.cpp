@@ -40,6 +40,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PS2Controller::get().init();
 	Keyboard::get().init();
 	Mouse::get().init();
+	ATA::get().init();
 
 	#ifdef DEBUG
 	test_paging();
