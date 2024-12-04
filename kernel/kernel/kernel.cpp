@@ -15,6 +15,7 @@
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
+#include <kernel/disk/atapio.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -39,6 +40,10 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PS2Controller::get().init();
 	Keyboard::get().init();
 	Mouse::get().init();
+
+	ata_test();
+	ata_test_write();
+
 	#ifdef DEBUG
 	test_paging();
 	#endif

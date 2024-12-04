@@ -14,3 +14,4 @@ isodir
 *.serial
 docs/kernel/*/
 build
+*.img

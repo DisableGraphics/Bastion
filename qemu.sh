@@ -3,7 +3,7 @@ set -e
 . ./iso.sh
 
 
-OPTIONS="-cdrom bastion.iso -serial file:bastion.serial -monitor stdio -m 344M"
+OPTIONS="-cdrom bastion.iso -serial file:bastion.serial -monitor stdio -m 344M -hda disk.img"
 DEBUG_OPTIONS="-s -S"
 
 if [ "$1" == "debug" ]; then
