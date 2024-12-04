@@ -9,6 +9,7 @@ if [ ! -f "$IMAGE_FILE" ]; then
   qemu-img create -f raw ${IMAGE_FILE} 256M
 fi
 LOOP_DEVICE=$(sudo losetup --find --partscan --show $IMAGE_FILE)
+sleep 1
 if [ -z "$LOOP_DEVICE" ]; then
   echo "Failed to attach loop device"
   exit 1
