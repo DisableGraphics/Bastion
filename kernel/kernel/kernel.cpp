@@ -15,6 +15,7 @@
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
+#include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/atapio.hpp>
 
 #ifdef DEBUG
@@ -40,7 +41,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PS2Controller::get().init();
 	Keyboard::get().init();
 	Mouse::get().init();
+	PCI::get().init();
 	ATA::get().init();
+
+	for(size_t i = 0; i < PCI::get().getDeviceCount(); i++) {
+		const PCI::PCIDevice &dev = PCI::get().getDevices()[i];
+		printf("%p %p %p %p %p\n", dev.device, dev.device, dev.bus, dev.function, dev.vendorID);
+	}
 
 	#ifdef DEBUG
 	test_paging();
