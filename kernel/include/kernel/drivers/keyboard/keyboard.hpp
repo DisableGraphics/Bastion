@@ -2,7 +2,7 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/datastr/queue.hpp>
 #include <kernel/sync/mutex.hpp>
-#include <kernel/keyboard/key_event.hpp>
+#include <kernel/drivers/keyboard/key_event.hpp>
 /**
 	\brief Keyboard controller.
 	Implemented as a singleton.

@@ -1,6 +1,6 @@
-#include <kernel/keyboard/key.hpp>
+#include <kernel/drivers/keyboard/key.hpp>
 #include <stdint.h>
-#include <kernel/keyboard/keyboard.hpp>
+#include <kernel/drivers/keyboard/keyboard.hpp>
 
 KEY Keyboard::get_key_normal(uint8_t code) {
 	switch(code) {

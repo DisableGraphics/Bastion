@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/tty/tty.hpp>
+#include <kernel/drivers/tty/tty.hpp>
 
 /**
 	\brief TTY Manager.

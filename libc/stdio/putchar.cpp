@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #if defined(__is_libk)
-#include <kernel/tty/ttyman.hpp>
+#include <kernel/drivers/tty/ttyman.hpp>
 #endif
 
 int putchar(int ic) {

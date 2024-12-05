@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include <kernel/memory/page.hpp>
-#include <kernel/tty/ttyman.hpp>
+#include <kernel/drivers/tty/ttyman.hpp>
 #include <kernel/memory/gdt.hpp>
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/assembly/inlineasm.h>
@@ -10,12 +10,12 @@
 #include <kernel/drivers/pit.hpp>
 #include <kernel/drivers/ps2.hpp>
 #include <kernel/memory/mmanager.hpp>
-#include <kernel/keyboard/keyboard.hpp>
+#include <kernel/drivers/keyboard/keyboard.hpp>
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
-#include <kernel/disk/atapio.hpp>
+#include <kernel/drivers/disk/atapio.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>

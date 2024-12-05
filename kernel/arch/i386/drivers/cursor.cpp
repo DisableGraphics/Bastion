@@ -1,6 +1,6 @@
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/assembly/inlineasm.h>
-#include <kernel/tty/tty.hpp>
+#include <kernel/drivers/tty/tty.hpp>
 
 Cursor& Cursor::get() {
 	static Cursor instance;

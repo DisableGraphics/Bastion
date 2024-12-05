@@ -1,10 +1,10 @@
-#include <kernel/keyboard/keyboard.hpp>
+#include <kernel/drivers/keyboard/keyboard.hpp>
 #include <kernel/drivers/ps2.hpp>
 #include <kernel/drivers/pic.hpp>
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/assembly/inlineasm.h>
 
-#include "../defs/ps2/registers.h"
+#include "../../defs/ps2/registers.h"
 
 #include <stdio.h>
 #include <stdint.h>

@@ -1,4 +1,4 @@
-#include <kernel/keyboard/key.hpp>
+#include <kernel/drivers/keyboard/key.hpp>
 
 struct KEY_EVENT {
 	bool released;

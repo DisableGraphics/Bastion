@@ -1,5 +1,5 @@
 #include <stddef.h>
-#include <kernel/tty/ttyman.hpp>
+#include <kernel/drivers/tty/ttyman.hpp>
 #include <string.h>
 
 void TTYManager::init() {

@@ -1,5 +1,5 @@
-#include <kernel/tty/tty.hpp>
-#include "../defs/vga/vga.hpp"
+#include <kernel/drivers/tty/tty.hpp>
+#include "../../defs/vga/vga.hpp"
 #include <kernel/drivers/cursor.hpp>
 #include <string.h>
 

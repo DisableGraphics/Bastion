@@ -1,5 +1,5 @@
-#include <kernel/keyboard/key.hpp>
-#include <kernel/keyboard/key_event.hpp>
+#include <kernel/drivers/keyboard/key.hpp>
+#include <kernel/drivers/keyboard/key_event.hpp>
 #include <ctype.h>
 
 bool KEY_EVENT::is_special_key(KEY key) {
