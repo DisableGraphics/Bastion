@@ -27,6 +27,15 @@ class PCI {
 		// Private constructor
 		PCI() {}
 
+		void checkBus(uint8_t bus);
+		void checkDevice(uint8_t bus, uint8_t device);
+		void checkFunction(uint8_t bus, uint8_t device, uint8_t function);
+
+		uint16_t getVendorID(uint8_t bus, uint8_t device, uint8_t function);
+		uint16_t getDeviceID(uint8_t bus, uint8_t device, uint8_t function);
+		uint8_t getHeaderType(uint8_t bus, uint8_t device, uint8_t function);
+
+
 		// Helper functions
 		uint16_t readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
 

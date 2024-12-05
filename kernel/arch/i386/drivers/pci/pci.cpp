@@ -7,30 +7,54 @@ PCI& PCI::get() {
 }
 
 void PCI::init() {
-    deviceCount = 0; // Reset device count
-    for (uint16_t bus = 0; bus < 256; ++bus) {
-        for (uint8_t device = 0; device < 32; ++device) {
-            for (uint8_t function = 0; function < 8; ++function) {
-                if (deviceCount >= MAX_DEVICES) return; // Prevent overflow
+	deviceCount = 0;
+	for (uint16_t bus = 0; bus < 256; ++bus) {
+		checkBus(bus);
+	}
+}
 
-                // Read Vendor ID to check if a device is present
-                uint16_t vendorID = readConfigWord(bus, device, function, 0x00);
-                if (vendorID == 0xFFFF) continue; // No device present
+void PCI::checkBus(uint8_t bus) {
+    for (uint8_t device = 0; device < 32; ++device) {
+        checkDevice(bus, device);
+    }
+}
 
-                // Read Device ID
-                uint16_t deviceID = readConfigWord(bus, device, function, 0x02);
+void PCI::checkDevice(uint8_t bus, uint8_t device) {
+    uint8_t function = 0;
+    uint16_t vendorID = getVendorID(bus, device, function);
+    if (vendorID == 0xFFFF) return; // No device present
 
-                // Store the device information
-                devices[deviceCount++] = {static_cast<uint8_t>(bus), device, function, vendorID, deviceID};
+    checkFunction(bus, device, function);
 
-                // If function 0 doesn't support multi-function, skip remaining functions
-                if (function == 0) {
-                    uint8_t headerType = (readConfigWord(bus, device, function, 0x0C) >> 8) & 0x7F;
-                    if (!(headerType & 0x80)) break;
-                }
+    uint8_t headerType = getHeaderType(bus, device, function);
+    if ((headerType & 0x80) != 0) {
+        for (function = 1; function < 8; ++function) {
+            if (getVendorID(bus, device, function) != 0xFFFF) {
+                checkFunction(bus, device, function);
             }
         }
     }
+}
+
+void PCI::checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
+    if (deviceCount >= MAX_DEVICES) return;
+
+    uint16_t vendorID = getVendorID(bus, device, function);
+    uint16_t deviceID = getDeviceID(bus, device, function);
+
+    devices[deviceCount++] = {bus, device, function, vendorID, deviceID};
+}
+
+uint16_t PCI::getVendorID(uint8_t bus, uint8_t device, uint8_t function) {
+    return readConfigWord(bus, device, function, 0x00);
+}
+
+uint16_t PCI::getDeviceID(uint8_t bus, uint8_t device, uint8_t function) {
+    return readConfigWord(bus, device, function, 0x02);
+}
+
+uint8_t PCI::getHeaderType(uint8_t bus, uint8_t device, uint8_t function) {
+    return static_cast<uint8_t>(readConfigWord(bus, device, function, 0x0C) >> 8);
 }
 
 uint16_t PCI::readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
