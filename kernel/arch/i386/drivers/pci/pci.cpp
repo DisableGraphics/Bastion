@@ -1,6 +1,8 @@
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/assembly/inlineasm.h>
 
+#include "../arch/i386/defs/pci/addresses.hpp"
+
 PCI& PCI::get() {
 	static PCI instance;
 	return instance;
@@ -63,6 +65,6 @@ uint16_t PCI::readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint
                      | (device << 11)
                      | (function << 8)
                      | (offset & 0xFC);
-    outl(0xCF8, address); // Write to CONFIG_ADDRESS port
-    return static_cast<uint16_t>(inl(0xCFC) >> ((offset & 2) * 8));
+    outl(CONFIG_ADDRESS, address); // Write to CONFIG_ADDRESS port
+    return static_cast<uint16_t>(inl(CONFIG_DATA) >> ((offset & 2) * 8));
 }
