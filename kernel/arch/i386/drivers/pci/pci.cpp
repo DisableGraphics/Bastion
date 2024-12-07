@@ -99,7 +99,9 @@ const PCI::PCIDevice* PCI::search_device(size_t dev_class, size_t dev_subclass) 
 
 uint32_t PCI::getBAR(uint8_t bus, uint8_t device, uint8_t function, uint8_t barIndex) {
     uint8_t offset = 0x10 + (barIndex * 4); // BARs start at 0x10
-    return readConfigWord(bus, device, function, offset);
+    uint32_t lower = readConfigWord(bus, device, function, offset);
+	uint32_t upper = readConfigWord(bus, device, function, offset + 2);
+	return (upper << 16) | lower; 
 }
 
 uint8_t PCI::getProgIF(uint8_t bus, uint8_t device, uint8_t function) {

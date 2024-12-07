@@ -21,11 +21,11 @@ void DiskManager::init() {
 			switch(devices[i].subclass_code) {
 				case SATA_CONTROLLER:
 					if(devices[i].prog_if == AHCI_PROGIF) {
-						disk_controllers.push_back(AHCI());
-						printf("AHCI disk detected\n");
+						disk_controllers.push_back(AHCI(devices[i]));
 					}
 					break;
 				default:
+					printf("Disk type not supported: %d\n", devices[i].subclass_code);
 					break;
 			}
 		}

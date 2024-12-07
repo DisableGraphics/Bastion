@@ -5,7 +5,7 @@
 template <typename T>
 class Vector {
 	public:
-		Vector(){ arr = new T[alloc_size]; };
+		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T))); };
 		~Vector() { kfree(arr); }
 		
 		size_t size();
