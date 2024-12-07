@@ -15,6 +15,8 @@ class PCI {
 			uint8_t function;
 			uint16_t vendorID;
 			uint16_t deviceID;
+			uint8_t class_code;
+			uint8_t subclass_code;
 		};
 
 		// Get the detected device count
@@ -30,11 +32,13 @@ class PCI {
 		void checkBus(uint8_t bus);
 		void checkDevice(uint8_t bus, uint8_t device);
 		void checkFunction(uint8_t bus, uint8_t device, uint8_t function);
+		void checkAllBuses();
 
 		uint16_t getVendorID(uint8_t bus, uint8_t device, uint8_t function);
 		uint16_t getDeviceID(uint8_t bus, uint8_t device, uint8_t function);
 		uint8_t getHeaderType(uint8_t bus, uint8_t device, uint8_t function);
-
+		uint8_t getClassCode(uint8_t bus, uint8_t device, uint8_t function);
+		uint8_t getSubclassCode(uint8_t bus, uint8_t device, uint8_t function);
 
 		// Helper functions
 		uint16_t readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);

@@ -46,7 +46,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	for(size_t i = 0; i < PCI::get().getDeviceCount(); i++) {
 		const PCI::PCIDevice &dev = PCI::get().getDevices()[i];
-		printf("%p %p %p %p %p\n", dev.device, dev.device, dev.bus, dev.function, dev.vendorID);
+		printf("dev: %p id: %p bus: %p function: %p vendorid: %p class: %p subclass: %p\n", 
+		dev.device, dev.deviceID, dev.bus, dev.function, dev.vendorID, dev.class_code, dev.subclass_code);
 	}
 
 	#ifdef DEBUG
