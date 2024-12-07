@@ -16,7 +16,7 @@
 #include <kernel/cpp/icxxabi.h>
 #include <multiboot/multiboot.h>
 #include <kernel/drivers/pci/pci.hpp>
-#include <kernel/drivers/disk/atapio.hpp>
+#include <kernel/drivers/disk/disk.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -42,12 +42,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Keyboard::get().init();
 	Mouse::get().init();
 	PCI::get().init();
-	ATA::get().init();
+	DiskManager::get().init();
 
 	for(size_t i = 0; i < PCI::get().getDeviceCount(); i++) {
 		const PCI::PCIDevice &dev = PCI::get().getDevices()[i];
-		printf("dev: %p id: %p bus: %p function: %p vendorid: %p class: %p subclass: %p\n", 
-		dev.device, dev.deviceID, dev.bus, dev.function, dev.vendorID, dev.class_code, dev.subclass_code);
+		printf("d: %p i: %p b: %p f: %p vi: %p c: %p sc: %p pi: %p\n", 
+		dev.device, dev.deviceID, dev.bus, dev.function, dev.vendorID, dev.class_code, dev.subclass_code, dev.prog_if);
 	}
 
 	#ifdef DEBUG

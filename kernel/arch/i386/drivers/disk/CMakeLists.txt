@@ -1,1 +1,1 @@
-target_sources(kernel_platform_dependent PRIVATE atapio.cpp)
+target_sources(kernel_platform_dependent PRIVATE ahci.cpp disk.cpp)

@@ -9,7 +9,7 @@ if [ ! -f "$IMAGE_FILE" ]; then
   qemu-img create -f raw ${IMAGE_FILE} 256M
 fi
 LOOP_DEVICE=$(sudo losetup --find --partscan --show $IMAGE_FILE)
-sleep 1
+sync
 if [ -z "$LOOP_DEVICE" ]; then
   echo "Failed to attach loop device"
   exit 1
@@ -56,6 +56,6 @@ sudo umount "$MOUNT_DIR"
 rm -rf "$MOUNT_DIR"
 echo "Detaching loop device: $LOOP_DEVICE"
 sudo losetup -d $LOOP_DEVICE
-sudo kpartx -d $LOOP_DEVICE 2>/dev/null
+sync
 
 echo "Done! The OS is in $IMAGE_FILE."

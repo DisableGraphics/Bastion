@@ -17,14 +17,17 @@ class PCI {
 			uint16_t deviceID;
 			uint8_t class_code;
 			uint8_t subclass_code;
+			uint8_t prog_if;
 		};
+
+		const PCIDevice* search_device(size_t dev_class, size_t dev_subclass);
 
 		// Get the detected device count
 		size_t getDeviceCount() const { return deviceCount; }
 
 		// Get device information
 		const PCIDevice* getDevices() const { return devices; }
-
+		uint32_t getBAR(uint8_t bus, uint8_t device, uint8_t function, uint8_t barIndex);
 	private:
 		// Private constructor
 		PCI() {}
@@ -39,6 +42,9 @@ class PCI {
 		uint8_t getHeaderType(uint8_t bus, uint8_t device, uint8_t function);
 		uint8_t getClassCode(uint8_t bus, uint8_t device, uint8_t function);
 		uint8_t getSubclassCode(uint8_t bus, uint8_t device, uint8_t function);
+		uint8_t getProgIF(uint8_t bus, uint8_t device, uint8_t function);
+
+		void addDevice(uint8_t bus, uint8_t device, uint8_t function);
 
 		// Helper functions
 		uint16_t readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
