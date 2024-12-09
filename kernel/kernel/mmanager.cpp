@@ -229,3 +229,11 @@ void MemoryManager::alloc_pagevec() {
 		}
 	}
 }
+
+used_region * MemoryManager::get_used_regions() {
+	return used_regions;
+}
+
+size_t MemoryManager::get_used_regions_size() {
+	return ureg_size;
+}

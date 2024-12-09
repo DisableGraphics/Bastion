@@ -17,6 +17,7 @@
 #include <multiboot/multiboot.h>
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/disk.hpp>
+#include <kernel/kernel/mmio.hpp>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -31,6 +32,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Cursor::get().init();
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
+	MMIO::get().init(MemoryManager::get().get_used_regions(), MemoryManager::get().get_used_regions_size());
 	
 	Serial::get().init();
 	GDT::get().init();

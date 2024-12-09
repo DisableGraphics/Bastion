@@ -45,6 +45,14 @@ class MemoryManager {
 			\param pages Number of pages to free.
 		 */
 		void free_pages(void *start, size_t pages);
+		/**
+			\brief Get used regions
+		 */
+		used_region * get_used_regions();
+		/**
+			\brief Get number of used regions
+		 */
+		size_t get_used_regions_size();
 	private:
 		typedef uint32_t bitmap_t;
 		/**
