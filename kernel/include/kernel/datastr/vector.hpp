@@ -5,7 +5,7 @@
 template <typename T>
 class Vector {
 	public:
-		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T))); };
+		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); };
 		~Vector() { kfree(arr); }
 		
 		size_t size();
@@ -34,6 +34,8 @@ void Vector<T>::push_back(const T&elem) {
 		void * tmp = krealloc(arr, alloc_size*sizeof(T));
 		if(tmp) {
 			arr = reinterpret_cast<T*>(tmp);
+		} else {
+			return;
 		}
 	}
 	arr[arrsize++] = elem;

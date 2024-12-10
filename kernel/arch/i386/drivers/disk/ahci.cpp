@@ -28,7 +28,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device){
 	pm.map_page(reinterpret_cast<void*>(ptr+PAGE_SIZE), reinterpret_cast<void*>(ptr+PAGE_SIZE), CACHE_DISABLE | READ_WRITE);
 	HBA_MEM * hba = reinterpret_cast<HBA_MEM*>(ptr);
 
-	size_t AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76));
+	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76));
 
 	uint32_t pi = hba->pi;
 	for(size_t i = 0; i < 32; i++, pi >>= 1) {
@@ -76,14 +76,12 @@ void AHCI::rebase_port(HBA_PORT *port, int portno) {
 	port->clb = AHCI_BASE + (portno<<10);
 	port->clbu = 0;
 	memset((void*)(port->clb), 0, 1024);
-	port->clb -= HIGHER_HALF_OFFSET;
 
 	// FIS offset: 32K+256*portno
 	// FIS entry size = 256 bytes per port
 	port->fb = AHCI_BASE+ (32<<10) + (portno<<8);
 	port->fbu = 0;
 	memset((void*)(port->fb), 0, 256);
-	port->fb -= HIGHER_HALF_OFFSET;
 
 	// Command table offset: 40K + 8K*portno
 	// Command table size = 256*32 = 8K per port
@@ -95,7 +93,6 @@ void AHCI::rebase_port(HBA_PORT *port, int portno) {
 		cmdheader[i].ctba = AHCI_BASE + (40<<10) + (portno<<13) + (i<<8);
 		cmdheader[i].ctbau = 0;
 		memset((void*)cmdheader[i].ctba, 0, 256);
-		cmdheader[i].ctba -= HIGHER_HALF_OFFSET;
 	}
 
 	start_cmd(port);	// Start command engine
