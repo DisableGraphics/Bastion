@@ -16,4 +16,5 @@ class AHCI : public DiskDriver {
 		void stop_cmd(HBA_PORT *port);
 		void start_cmd(HBA_PORT *port);
 		Vector<AHCI_DEV> devices;
+		size_t AHCI_BASE;
 };
