@@ -63,6 +63,10 @@ class PagingManager {
 
 		 */
 		void set_pagevec(page_t * vec);
+		/**
+		
+		 */
+		bool page_table_exists(void *addr);
 	private:
 		// Kernel page directory
 		page_t *page_directory;

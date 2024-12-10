@@ -91,3 +91,8 @@ bool PagingManager::is_mapped(void *addr) {
 void PagingManager::set_pagevec(page_t * pagevec) {
 	pt_vector = pagevec;
 }
+
+bool PagingManager::page_table_exists(void *addr) {
+	unsigned long pdindex = (unsigned long)addr >> 22;
+	return page_directory[pdindex] & PRESENT;
+}
