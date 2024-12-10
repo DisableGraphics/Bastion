@@ -10,7 +10,9 @@ extern "C" {
 #endif
 
 int printf(const char* __restrict, ...);
+int serial_printf(const char* __restrict, ...);
 int putchar(int);
+int putchar_serial(int);
 int puts(const char*);
 
 #ifdef __cplusplus

@@ -12,6 +12,14 @@ static bool print(const char* data, size_t length) {
 	return true;
 }
 
+static bool serial_print(const char *data, size_t length) {
+	const unsigned char* bytes = (const unsigned char*) data;
+	for (size_t i = 0; i < length; i++)
+		if (putchar_serial(bytes[i]) == EOF)
+			return false;
+	return true;
+}
+
 char * itoa(unsigned long value, char* str, int base) {
 	char *rc;
 	char *ptr;
@@ -49,9 +57,7 @@ char * itoa(unsigned long value, char* str, int base) {
 	return rc;
 }
 
-int printf(const char* restrict format, ...) {
-	va_list parameters;
-	va_start(parameters, format);
+static int format_print(bool (*print)(const char *, size_t), const char* restrict format, va_list parameters) {
 
 	int written = 0;
 
@@ -150,6 +156,21 @@ int printf(const char* restrict format, ...) {
 		}
 	}
 
-	va_end(parameters);
 	return written;
+}
+
+int printf(const char* restrict format, ...) {
+	va_list args;
+	va_start(args, format);
+	int ret = format_print(print, format, args);
+	va_end(args);
+	return ret;
+}
+
+int serial_printf(const char *__restrict format, ...) {
+	va_list args;
+	va_start(args, format);
+	int ret = format_print(serial_print, format, args);
+	va_end(args);
+	return ret;
 }

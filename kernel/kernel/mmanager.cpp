@@ -154,8 +154,7 @@ void *MemoryManager::alloc_pages(size_t pages) {
 
 		pm.map_page(current_addr, virtuaddr, READ_WRITE);
     }
-
-    return start_addr;
+	return start_addr;
 }
 
 
