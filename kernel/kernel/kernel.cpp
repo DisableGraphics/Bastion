@@ -44,12 +44,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PCI::get().init();
 	DiskManager::get().init();
 
-	for(size_t i = 0; i < PCI::get().getDeviceCount(); i++) {
-		const PCI::PCIDevice &dev = PCI::get().getDevices()[i];
-		printf("d: %p i: %p b: %p f: %p vi: %p c: %p sc: %p pi: %p\n", 
-		dev.device, dev.deviceID, dev.bus, dev.function, dev.vendorID, dev.class_code, dev.subclass_code, dev.prog_if);
-	}
-
 	#ifdef DEBUG
 	test_paging();
 	#endif
