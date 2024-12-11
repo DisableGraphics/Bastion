@@ -10,6 +10,7 @@ class Vector {
 		
 		size_t size();
 		void push_back(const T& elem);
+		void emplace_back(T&& args);
 		void pop_back();
 
 		void reserve(size_t n);
@@ -66,4 +67,18 @@ void Vector<T>::reserve(size_t n) {
 template<typename T>
 T& Vector<T>::operator[](size_t index) {
 	return arr[index];
+}
+
+template <typename T>
+void Vector<T>::emplace_back(T&& elem) {
+	if(arrsize == alloc_size) {
+		alloc_size *= 2;
+		void * tmp = krealloc(arr, alloc_size*sizeof(T));
+		if(tmp) {
+			arr = reinterpret_cast<T*>(tmp);
+		} else {
+			return;
+		}
+	}
+	arr[arrsize++] = elem;
 }
