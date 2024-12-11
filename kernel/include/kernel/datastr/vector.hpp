@@ -62,3 +62,8 @@ void Vector<T>::reserve(size_t n) {
 	if(tmp)
 		arr = reinterpret_cast<T*>(tmp);
 }
+
+template<typename T>
+T& Vector<T>::operator[](size_t index) {
+	return arr[index];
+}

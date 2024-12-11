@@ -1,3 +1,4 @@
+#pragma once
 #define IO_SPACE 1
 #define MEM_SPACE (1 << 1)
 #define BUS_MASTER (1 << 2)

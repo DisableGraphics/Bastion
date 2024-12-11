@@ -120,3 +120,22 @@ void PCI::addDevice(uint8_t bus, uint8_t device, uint8_t function) {
 	class_code, subclass_code, 
 	prog_if};
 }
+void PCI::writeConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data) {
+    // Validate offset (must be aligned to 2 bytes)
+    if (offset % 2 != 0) {
+        return;
+    }
+
+    // Calculate the address to write to 0xCF8
+    uint32_t address = (1 << 31) | // Enable bit
+                       (bus << 16) |
+                       (device << 11) |
+                       (function << 8) |
+                       (offset & 0xFC); // Mask lower 2 bits to align
+
+    // Write the address to 0xCF8
+    outl(CONFIG_ADDRESS, address);
+
+    // Write the data to 0xCFC (word access)
+    outl(CONFIG_DATA + (offset % 4), data);
+}

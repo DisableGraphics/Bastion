@@ -29,6 +29,9 @@ class PCI {
 		// Get device information
 		const PCIDevice* getDevices() const { return devices; }
 		uint32_t getBAR(uint8_t bus, uint8_t device, uint8_t function, uint8_t barIndex);
+
+		void writeConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data);
+		uint16_t readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
 	private:
 		// Private constructor
 		PCI() {}
@@ -46,10 +49,6 @@ class PCI {
 		uint8_t getProgIF(uint8_t bus, uint8_t device, uint8_t function);
 
 		void addDevice(uint8_t bus, uint8_t device, uint8_t function);
-
-		// Helper functions
-		uint16_t readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
-
 		// Fixed-size array to store devices
 		static constexpr size_t MAX_DEVICES = 256; // Arbitrary limit, can adjust as needed
 		PCIDevice devices[MAX_DEVICES];
