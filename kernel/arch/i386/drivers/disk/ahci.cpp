@@ -2,6 +2,7 @@
 #include <kernel/memory/page.hpp>
 #include <stdio.h>
 #include <kernel/memory/mmanager.hpp>
+#include <kernel/drivers/pic.hpp>
 #include <string.h>
 
 #include "../../defs/ahci/dev_type.hpp"
@@ -206,5 +207,10 @@ void AHCI::setup_interrupts() {
 		printf("Well we cannot interrupt... fuck\n");
 	} else {
 		printf("Interrupt: %p\n", int_line);
+		PIC::get().IRQ_clear_mask(int_line);
 	}
+}
+
+void AHCI::enable_ahci_mode() {
+	hba->ghc |= 0x80000010;
 }

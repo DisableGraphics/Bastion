@@ -19,6 +19,7 @@ class AHCI : public DiskDriver {
 		bool bios_handoff();
 		bool reset_controller();
 		void setup_interrupts();
+		void enable_ahci_mode();
 		AHCI_DEV get_device_type(HBA_PORT* port);
 		void rebase_port(HBA_PORT *port, int portno);
 		void stop_cmd(HBA_PORT *port);
