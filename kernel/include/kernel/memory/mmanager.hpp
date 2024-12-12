@@ -36,9 +36,8 @@ class MemoryManager {
 			\brief Allocate pages continuous pages.
 			\param pages The number of pages to allocate.
 			\return The address of the first page or NULL
-			if there isn't any memory left
-		 */
-		void * alloc_pages(size_t pages);
+			if there isn't any memory left		 */
+		void * alloc_pages(size_t pages, size_t map_flags = READ_WRITE);
 		/**
 			\brief Free pages continuous pages.
 			\param start Address of the first page.

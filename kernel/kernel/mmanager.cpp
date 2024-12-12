@@ -96,7 +96,7 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	return nextpage;
 }
 
-void *MemoryManager::alloc_pages(size_t pages) {
+void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
     // Total number of pages in the system
     size_t total_pages = memsize / PAGE_SIZE;
 
@@ -152,7 +152,7 @@ void *MemoryManager::alloc_pages(size_t pages) {
 		void *current_addr = reinterpret_cast<void *>(addr - HIGHER_HALF_OFFSET);
 		void *virtuaddr = reinterpret_cast<void*>(addr);
 
-		pm.map_page(current_addr, virtuaddr, READ_WRITE);
+		pm.map_page(current_addr, virtuaddr, map_flags);
     }
 	return start_addr;
 }

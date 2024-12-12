@@ -33,7 +33,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device){
 	pm.map_page(reinterpret_cast<void*>(ptr+PAGE_SIZE), reinterpret_cast<void*>(ptr+PAGE_SIZE), CACHE_DISABLE | READ_WRITE);
 	hba = reinterpret_cast<HBA_MEM*>(ptr);
 
-	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76));
+	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76, CACHE_DISABLE | READ_WRITE));
 
 	uint32_t pi = hba->pi;
 	for(size_t i = 0; i < 32; i++, pi >>= 1) {
@@ -120,7 +120,10 @@ void AHCI::rebase_port(HBA_PORT *port, int portno) {
 		cmdheader[i].ctba = AHCI_BASE + (40<<10) + (portno<<13) + (i<<8);
 		cmdheader[i].ctbau = 0;
 		memset((void*)cmdheader[i].ctba, 0, 256);
+		cmdheader[i].ctba -= HIGHER_HALF_OFFSET;
 	}
+	port->clb -= HIGHER_HALF_OFFSET;
+	port->fb -= HIGHER_HALF_OFFSET;
 
 	start_cmd(port);	// Start command engine
 }
