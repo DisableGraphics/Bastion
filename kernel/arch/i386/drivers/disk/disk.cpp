@@ -10,8 +10,7 @@
 
 diskname::diskname(const char *type, char number) {
 	memcpy(this->type, type, sizeof(this->type));
-	this->number[0] = number;
-	this->number[1] = 0;
+	this->number = number;
 }
 
 diskname::operator char *() {

@@ -7,7 +7,8 @@ struct diskname {
 	diskname(const char *type, char number);
 	operator char*();
 	char type[4];
-	char number[2];
+	char number;
+	char zero = '\0';
 };
 
 class DiskManager {
