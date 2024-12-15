@@ -3,3 +3,7 @@
 DiskDriver::DiskDriver(const PCI::PCIDevice &device) {
 	this->device = device;
 }
+
+DiskDriver::~DiskDriver() {
+
+}

@@ -12,6 +12,11 @@
 class AHCI : public DiskDriver {
 	public:
 		AHCI(const PCI::PCIDevice &device);
+		~AHCI(){}
+
+		bool read(uint64_t lba, uint32_t sector_count, void* buffer) override;
+		bool write(uint64_t lba, uint32_t sector_count, const void* buffer) override;
+		uint64_t get_disk_size() const override;
 	private:
 		[[gnu::interrupt]]
 		static void interrupt_handler(interrupt_frame*);

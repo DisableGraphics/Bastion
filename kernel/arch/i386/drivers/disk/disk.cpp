@@ -32,7 +32,7 @@ void DiskManager::init() {
 				case SATA_CONTROLLER:
 					if(devices[i].prog_if == AHCI_PROGIF) {
 						diskname dn{"ahci", numberdisk};
-						disk_controllers.emplace_back({dn, AHCI(devices[i])});
+						disk_controllers.emplace_back({dn, new AHCI(devices[i])});
 						char * name = dn;
 						printf("New disk: %s\n", name);
 						numberdisk++;

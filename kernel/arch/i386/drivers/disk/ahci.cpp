@@ -217,3 +217,15 @@ void AHCI::setup_interrupts() {
 void AHCI::enable_ahci_mode() {
 	hba->ghc |= 0x80000010;
 }
+
+bool AHCI::read(uint64_t lba, uint32_t sector_count, void* buffer) {
+	return true;
+}
+
+bool AHCI::write(uint64_t lba, uint32_t sector_count, const void* buffer) {
+	return true;
+}
+
+uint64_t AHCI::get_disk_size() const {
+	return 0;
+}
