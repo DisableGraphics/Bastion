@@ -9,13 +9,17 @@
 #include "../../defs/ahci/port_const.hpp"
 #include "../../defs/ahci/hba_bits.hpp"
 #include "../../defs/ahci/com_header.hpp"
+#include "../../defs/ahci/fis_h2d.hpp"
+#include "../../defs/ahci/fis_type.hpp"
+#include "../../defs/ahci/hba_cmd_tbl.hpp"
+#include "../../defs/ahci/hba_prdt_entry.hpp"
 
 #include "../../defs/pci/command_reg.hpp"
 #include "../../defs/pci/offsets/offsets.hpp"
 #include "../../defs/pci/offsets/header_0.hpp"
 
 
-AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device){
+AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	PCI &pci = PCI::get();
 	PagingManager& pm = PagingManager::get();
 	for(int i = 0; i < 6; i++) {
@@ -41,7 +45,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device){
 			AHCI_DEV device = get_device_type(hba->ports + i);
 			if(device != NULLDEV)
 				rebase_port(&hba->ports[i], i);
-			devices.push_back(device);
+			devices.push_back({i, device});
 		}
 	}
 
@@ -115,7 +119,7 @@ void AHCI::rebase_port(HBA_PORT *port, int portno) {
 	HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb);
 	for (int i=0; i< 32; i++) {
 		cmdheader[i].prdtl = 8;	// 8 prdt entries per command table
-					// 256 bytes per command table, 64+16+48+16*8
+					// 256 bytes per command table, 64+16+48+16*8cmdslots
 		// Command table offset: 40K + 8K*portno + cmdheader_index*256
 		cmdheader[i].ctba = AHCI_BASE + (40<<10) + (portno<<13) + (i<<8);
 		cmdheader[i].ctbau = 0;
@@ -181,7 +185,7 @@ bool AHCI::bios_handoff() {
 
 bool AHCI::reset_controller() {
 	for (int port = 0; port < devices.size(); ++port) {
-		if(devices[port] != NULLDEV) {
+		if(devices[port].second != NULLDEV) {
 			stop_cmd(hba->ports+port);
 		}
     }
@@ -219,13 +223,96 @@ void AHCI::enable_ahci_mode() {
 }
 
 bool AHCI::read(uint64_t lba, uint32_t sector_count, void* buffer) {
-	return true;
+	return dma_transfer(false, lba, sector_count, buffer);
 }
 
 bool AHCI::write(uint64_t lba, uint32_t sector_count, const void* buffer) {
-	return true;
+	return dma_transfer(true, lba, sector_count, const_cast<void*>(buffer));
 }
 
 uint64_t AHCI::get_disk_size() const {
 	return 0;
+}
+
+HBA_PORT* AHCI::get_port(uint64_t lba) const {
+    if (devices.empty()) return nullptr;
+	for(size_t i = 0; i < devices.size(); i++) {
+		if(devices[i].second != NULLDEV)
+    		return &hba->ports[i];
+	}
+	return nullptr;
+}
+
+bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void* buffer) {
+	PagingManager &pm = PagingManager::get();
+	HBA_PORT* port = get_port(lba);
+    if (!port) return false;
+
+    int command_slot = find_cmdslot(port);
+    if (command_slot < 0) return false;
+
+    // Set up Command Header
+    HBA_CMD_HEADER* cmd_header = &((HBA_CMD_HEADER*)(port->clb+HIGHER_HALF_OFFSET))[command_slot];
+    memset(cmd_header, 0, sizeof(HBA_CMD_HEADER));
+    cmd_header->cfl = sizeof(FIS_REG_H2D) / sizeof(uint32_t);
+    cmd_header->w = is_write;
+    cmd_header->prdtl = 1; // Simplified PRDT
+
+    // Set up Command Table and PRDT
+    HBA_CMD_TBL* cmd_table = (HBA_CMD_TBL*)(port->fb+HIGHER_HALF_OFFSET) + (command_slot * sizeof(HBA_CMD_HEADER));
+    memset(cmd_table, 0, sizeof(HBA_CMD_TBL));
+
+    HBA_PRDT_ENTRY* prdt = cmd_table->prdt_entry;
+    prdt->dba = reinterpret_cast<uint32_t>(pm.get_physaddr(buffer));
+    prdt->dbc = (sector_count * get_sector_size()) - 1;
+    prdt->i = 1;
+
+    // Set up FIS
+    FIS_REG_H2D* cmd_fis = (FIS_REG_H2D*)(&cmd_table->cfis);
+    memset(cmd_fis, 0, sizeof(FIS_REG_H2D));
+    cmd_fis->fis_type = FIS_TYPE_REG_H2D;
+    cmd_fis->control = 1;
+    cmd_fis->command = is_write ? ATA_CMD_WRITE_DMA : ATA_CMD_READ_DMA;
+    cmd_fis->lba0 = lba & 0xFF;
+    cmd_fis->lba1 = (lba >> 8) & 0xFF;
+    cmd_fis->lba2 = (lba >> 16) & 0xFF;
+    cmd_fis->device = (1 << 6); // LBA mode
+    cmd_fis->lba3 = (lba >> 24) & 0xFF;
+    cmd_fis->lba4 = (lba >> 32) & 0xFF;
+    cmd_fis->lba5 = (lba >> 40) & 0xFF;
+    cmd_fis->countl = sector_count;
+
+    // Enable DMA-completion interrupt for this port
+    port->ie |= HBA_PORT_IE_DPE | HBA_PORT_IE_DPS; // Enable desired interrupts
+
+    {
+        std::unique_lock<std::mutex> lock(dma_mutex);
+        dma_done = false;
+
+        // Issue command
+        port->ci |= (1 << command_slot);
+
+        // Wait for DMA completion via interrupt
+        dma_cv.wait(lock, [this]() { return dma_done; });
+    }
+
+    // Check for errors
+    if (port->is & HBA_PORT_IS_ERROR) {
+        port->is = (uint32_t)-1; // Clear errors
+        return false;
+    }
+
+    return true;
+}
+
+int AHCI::find_cmdslot(HBA_PORT *port)
+{
+	// If not set in SACT and CI, the slot is free
+	uint32_t slots = (port->sact | port->ci);
+	for (int i = 0; i < 32; i++, slots >>= 1) {
+		if ((slots&1) == 0)
+			return i;
+	}
+	printf("Cannot find free command list entry\n");
+	return -1;
 }

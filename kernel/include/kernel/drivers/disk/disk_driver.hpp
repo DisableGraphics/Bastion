@@ -4,7 +4,7 @@
 class DiskDriver {
 	public:
 		DiskDriver(const PCI::PCIDevice &device);
-		~DiskDriver();
+		virtual ~DiskDriver() = default;
 		virtual bool read(uint64_t lba, uint32_t sector_count, void* buffer) = 0;
 		virtual bool write(uint64_t lba, uint32_t sector_count, const void* buffer) = 0;
 

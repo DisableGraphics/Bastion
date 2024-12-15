@@ -8,15 +8,17 @@ class Vector {
 		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); };
 		~Vector() { kfree(arr); }
 		
-		size_t size();
+		size_t size() const;
 		void push_back(const T& elem);
 		void emplace_back(T&& args);
 		void pop_back();
+		bool empty() const;
 
 		void reserve(size_t n);
 		
 		T &back();
 		T &operator[](size_t index);
+		const T &operator[](size_t index) const;
 	private:
 		T *arr;
 		size_t arrsize = 0;
@@ -24,7 +26,7 @@ class Vector {
 };
 
 template<typename T>
-size_t Vector<T>::size() {
+size_t Vector<T>::size() const {
 	return arrsize;
 }
 
@@ -69,6 +71,11 @@ T& Vector<T>::operator[](size_t index) {
 	return arr[index];
 }
 
+template<typename T>
+const T& Vector<T>::operator[](size_t index) const {
+	return arr[index];
+}
+
 template <typename T>
 void Vector<T>::emplace_back(T&& elem) {
 	if(arrsize == alloc_size) {
@@ -81,4 +88,9 @@ void Vector<T>::emplace_back(T&& elem) {
 		}
 	}
 	arr[arrsize++] = elem;
+}
+
+template<typename T>
+bool Vector<T>::empty() const {
+	return size() == 0;
 }

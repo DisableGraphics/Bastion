@@ -2,6 +2,8 @@
 #include "kernel/drivers/interrupts.hpp"
 #include <kernel/drivers/disk/disk_driver.hpp>
 #include <kernel/datastr/vector.hpp>
+#include <kernel/datastr/pair.hpp>
+#include <kernel/sync/semaphore.hpp>
 
 #ifdef __i386__
 #include "../arch/i386/defs/ahci/dev_type.hpp"
@@ -12,7 +14,6 @@
 class AHCI : public DiskDriver {
 	public:
 		AHCI(const PCI::PCIDevice &device);
-		~AHCI(){}
 
 		bool read(uint64_t lba, uint32_t sector_count, void* buffer) override;
 		bool write(uint64_t lba, uint32_t sector_count, const void* buffer) override;
@@ -29,7 +30,11 @@ class AHCI : public DiskDriver {
 		void rebase_port(HBA_PORT *port, int portno);
 		void stop_cmd(HBA_PORT *port);
 		void start_cmd(HBA_PORT *port);
-		Vector<AHCI_DEV> devices;
+		Vector<Pair<size_t, AHCI_DEV>> devices;
 		size_t AHCI_BASE;
+		HBA_PORT *get_port(uint64_t lba) const;
 		HBA_MEM* hba;
+		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void* buffer);
+		int find_cmdslot(HBA_PORT *port);
+		Semaphore sm{1};
 };
