@@ -272,7 +272,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void
     memset(cmd_fis, 0, sizeof(FIS_REG_H2D));
     cmd_fis->fis_type = FIS_TYPE_REG_H2D;
     cmd_fis->control = 1;
-    cmd_fis->command = is_write ? ATA_CMD_WRITE_DMA : ATA_CMD_READ_DMA;
+    cmd_fis->command = is_write ? 35 : 26;
     cmd_fis->lba0 = lba & 0xFF;
     cmd_fis->lba1 = (lba >> 8) & 0xFF;
     cmd_fis->lba2 = (lba >> 16) & 0xFF;
@@ -283,9 +283,9 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void
     cmd_fis->countl = sector_count;
 
     // Enable DMA-completion interrupt for this port
-    port->ie |= HBA_PORT_IE_DPE | HBA_PORT_IE_DPS; // Enable desired interrupts
+    port->ie |= -1; // Enable desired interrupts
 
-    {
+    /*{
         std::unique_lock<std::mutex> lock(dma_mutex);
         dma_done = false;
 
@@ -300,7 +300,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void
     if (port->is & HBA_PORT_IS_ERROR) {
         port->is = (uint32_t)-1; // Clear errors
         return false;
-    }
+    }*/
 
     return true;
 }
