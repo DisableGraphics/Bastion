@@ -283,7 +283,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void
     cmd_fis->countl = sector_count;
 
     // Enable DMA-completion interrupt for this port
-    port->ie |= -1; // Enable desired interrupts
+    port->ie |= 1 | 2; // Enable desired interrupts
 
     /*{
         std::unique_lock<std::mutex> lock(dma_mutex);
