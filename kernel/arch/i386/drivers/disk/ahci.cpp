@@ -267,8 +267,10 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void
     prdt->dbc = (sector_count * get_sector_size()) - 1;
     prdt->i = 1;
 
+
+	uint8_t *fis = reinterpret_cast<uint8_t*>(&cmd_table->cfis);
     // Set up FIS
-    FIS_REG_H2D* cmd_fis = (FIS_REG_H2D*)(&cmd_table->cfis);
+    FIS_REG_H2D* cmd_fis = (FIS_REG_H2D*)(fis+HIGHER_HALF_OFFSET);
     memset(cmd_fis, 0, sizeof(FIS_REG_H2D));
     cmd_fis->fis_type = FIS_TYPE_REG_H2D;
     cmd_fis->control = 1;

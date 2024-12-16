@@ -34,7 +34,9 @@ void DiskManager::init() {
 						diskname dn{"ahci", numberdisk};
 						disk_controllers.emplace_back({dn, new AHCI(devices[i])});
 						char * name = dn;
+						buf = (char*)kcalloc(512, sizeof(char));
 						printf("New disk: %s\n", name);
+						disk_controllers.back().second->read(0, 1, buf);
 						numberdisk++;
 					}
 					break;

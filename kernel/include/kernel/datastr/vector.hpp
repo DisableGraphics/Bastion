@@ -1,6 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdlib.h>
+#include <kernel/kernel/utility.hpp>
 
 template <typename T>
 class Vector {
@@ -87,7 +88,7 @@ void Vector<T>::emplace_back(T&& elem) {
 			return;
 		}
 	}
-	arr[arrsize++] = elem;
+	arr[arrsize++] = move(elem);
 }
 
 template<typename T>

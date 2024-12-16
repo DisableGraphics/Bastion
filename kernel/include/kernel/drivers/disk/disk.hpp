@@ -16,6 +16,7 @@ class DiskManager {
 	public:
 		static DiskManager &get();
 		void init();
+		char * buf;
 	private:
 		DiskManager(){}
 		Vector<Pair<diskname, UniquePtr<DiskDriver>>> disk_controllers;
