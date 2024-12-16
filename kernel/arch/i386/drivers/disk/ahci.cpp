@@ -272,7 +272,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void
     memset(cmd_fis, 0, sizeof(FIS_REG_H2D));
     cmd_fis->fis_type = FIS_TYPE_REG_H2D;
     cmd_fis->control = 1;
-    cmd_fis->command = is_write ? 35 : 26;
+    cmd_fis->command = is_write ? 0x35 : 0x25;
     cmd_fis->lba0 = lba & 0xFF;
     cmd_fis->lba1 = (lba >> 8) & 0xFF;
     cmd_fis->lba2 = (lba >> 16) & 0xFF;
