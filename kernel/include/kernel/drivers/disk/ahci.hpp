@@ -15,8 +15,8 @@ class AHCI : public DiskDriver {
 	public:
 		AHCI(const PCI::PCIDevice &device);
 
-		bool read(uint64_t lba, uint32_t sector_count, void* buffer) override;
-		bool write(uint64_t lba, uint32_t sector_count, const void* buffer) override;
+		bool read(uint64_t lba, uint32_t sector_count, uint16_t *buf) override;
+		bool write(uint64_t lba, uint32_t sector_count, uint16_t*) override;
 		uint64_t get_disk_size() const override;
 	private:
 		[[gnu::interrupt]]
@@ -34,7 +34,7 @@ class AHCI : public DiskDriver {
 		size_t AHCI_BASE;
 		HBA_PORT *get_port(uint64_t lba) const;
 		HBA_MEM* hba;
-		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, void* buffer);
+		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, uint16_t *buf);
 		int find_cmdslot(HBA_PORT *port);
 		Semaphore sm{1};
 };

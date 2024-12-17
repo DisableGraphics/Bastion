@@ -46,8 +46,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	PIT::get().sleep(1200);
 
-	for(size_t i = 0; i < 512; i++) {
-		printf("%c ", DiskManager::get().buf[i]);
+	for(size_t i = 0; i < 512; i += sizeof(int)) {
+		printf("%p ", DiskManager::get().buf[i]);
 	}
 
 	#ifdef DEBUG

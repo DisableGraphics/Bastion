@@ -5,8 +5,8 @@ class DiskDriver {
 	public:
 		DiskDriver(const PCI::PCIDevice &device);
 		virtual ~DiskDriver() = default;
-		virtual bool read(uint64_t lba, uint32_t sector_count, void* buffer) = 0;
-		virtual bool write(uint64_t lba, uint32_t sector_count, const void* buffer) = 0;
+		virtual bool read(uint64_t lba, uint32_t sector_count, uint16_t *buf) = 0;
+		virtual bool write(uint64_t lba, uint32_t sector_count, uint16_t* buf) = 0;
 
 		virtual uint64_t get_disk_size() const = 0;
 		virtual uint32_t get_sector_size() const { return 512; };
