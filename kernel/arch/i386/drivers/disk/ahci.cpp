@@ -285,7 +285,7 @@ HBA_PORT* AHCI::get_port(uint64_t lba) const {
 
 bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *buf) {
 	PagingManager &pm = PagingManager::get();
-	volatile HBA_PORT* port = get_port(lba);
+	MMIOPtr<HBA_PORT> port = get_port(lba);
     if (!port) return false;
 
 	uint32_t startl = lba;
@@ -378,7 +378,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	return true;
 }
 
-int AHCI::find_cmdslot(HBA_PORT *port)
+int AHCI::find_cmdslot(MMIOPtr<HBA_PORT>& port)
 {
 	// If not set in SACT and CI, the slot is free
 	uint32_t slots = (port->sact | port->ci);

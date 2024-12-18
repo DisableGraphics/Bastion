@@ -4,6 +4,7 @@
 #include <kernel/datastr/vector.hpp>
 #include <kernel/datastr/pair.hpp>
 #include <kernel/sync/semaphore.hpp>
+#include <kernel/memory/mmio.hpp>
 
 #ifdef __i386__
 #include "../arch/i386/defs/ahci/dev_type.hpp"
@@ -32,11 +33,11 @@ class AHCI : public DiskDriver {
 		void start_cmd(HBA_PORT *port);
 		Vector<Pair<size_t, AHCI_DEV>> devices;
 		size_t AHCI_BASE;
-		HBA_PORT *get_port(uint64_t lba) const;
-		volatile HBA_MEM* hba;
+		HBA_PORT* get_port(uint64_t lba) const;
+		MMIOPtr<HBA_MEM> hba;
 		void reset_port(HBA_PORT *port);
 		void start_command_list_processing(HBA_PORT* port);
 		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, uint16_t *buf);
-		int find_cmdslot(HBA_PORT *port);
+		int find_cmdslot(MMIOPtr<HBA_PORT>& port);
 		Semaphore sm{1};
 };
