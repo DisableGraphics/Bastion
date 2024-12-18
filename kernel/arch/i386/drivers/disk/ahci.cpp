@@ -30,11 +30,17 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	for(int i = 0; i < 6; i++) {
 		bars[i] = pci.getBAR(device.bus, device.device, device.function, i);
 	}
+
+	uint16_t command_register = pci.readConfigWord(device.bus, device.device, device.function, COMMAND);
+	command_register |= IO_SPACE;
+	command_register |= BUS_MASTER;
+	command_register |= MEM_SPACE;
+	pci.writeConfigWord(device.bus, device.device, device.function, COMMAND, command_register);
 	
 	uintptr_t ptr = reinterpret_cast<uintptr_t>(bars[5]);
 	uintptr_t region = ptr & 0xFFC00000;
 	if(!pm.page_table_exists(reinterpret_cast<void*>(ptr))) {
-		void * newpagetable = MemoryManager::get().alloc_pages(1);
+		void * newpagetable = MemoryManager::get().alloc_pages(1, CACHE_DISABLE | READ_WRITE);
 		pm.new_page_table(newpagetable, reinterpret_cast<void*>(region));
 	}
 	// Identity map the region (No need for the higher half offset, since this address was already at the higher half)
@@ -54,12 +60,6 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 		}
 	}
 
-	uint16_t command_register = pci.readConfigWord(device.bus, device.device, device.function, COMMAND);
-	command_register |= IO_SPACE;
-	command_register |= BUS_MASTER;
-	command_register |= MEM_SPACE;
-	pci.writeConfigWord(device.bus, device.device, device.function, COMMAND, command_register);
-
 	if((hba->bohc & 0x1)) {
 		if(!bios_handoff()) {
 			printf("BIOS is a fucker\nReason: BIOS is selfish, doesn't want to hand off device.");
@@ -75,6 +75,40 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 		printf("AHCI reset went wrong\n");
 	}
 	setup_interrupts();
+	for(size_t i = 0; i < devices.size(); i++) {
+		hba->ghc |= 1;
+		while(hba->ghc & 1);
+		if(devices[i].second != NULLDEV) {
+			reset_port(&hba->ports[i]);
+			start_command_list_processing(&hba->ports[i]);
+		}
+	}
+}
+
+#define GHC_REG    0x00    // Global Host Control Register offset
+#define PORT_CMD   0x18    // Port Command Register offset
+#define PORT_SCR   0x28    // Port Status/Control Register offset
+
+// Define the global control register bits
+#define GHC_HRST   (1 << 0)   // Host reset bit
+
+// Define the port command register bits
+#define PORT_CMD_ST  (1 << 0)  // Start the port
+#define PORT_CMD_SPD (1 << 8)  // Port reset (Soft Reset)
+
+void AHCI::reset_port(volatile HBA_PORT *port) {
+	port->cmd |= PORT_CMD_SPD;
+	while(port->cmd & PORT_CMD_SPD);
+
+	port->cmd &= ~PORT_CMD_SPD;  // Clear the reset bit
+    port->cmd |= PORT_CMD_ST;   // Set the start bit
+}
+
+void AHCI::start_command_list_processing(HBA_PORT* port) {
+	port->cmd &= ~PORT_CMD_SPD;
+    
+    // Set the Start Command bit (ST)
+    port->cmd |= PORT_CMD_ST;
 }
 
 AHCI_DEV AHCI::get_device_type(HBA_PORT* port) {
@@ -102,7 +136,7 @@ AHCI_DEV AHCI::get_device_type(HBA_PORT* port) {
 }
 
 void AHCI::rebase_port(HBA_PORT *port, int portno) {
-	
+	printf("Port %d\n", portno);
 	stop_cmd(port);	// Stop command engine
 
 	// Command list offset: 1K*portno
@@ -111,17 +145,17 @@ void AHCI::rebase_port(HBA_PORT *port, int portno) {
 	// Command list maxim size = 32*32 = 1K per port
 	port->clb = AHCI_BASE + (portno<<10);
 	port->clbu = 0;
-	memset((void*)(port->clb), 0, 1024);
+	vmemset((void*)(port->clb), 0, 1024);
 
 	// FIS offset: 32K+256*portno
 	// FIS entry size = 256 bytes per port
 	port->fb = AHCI_BASE+ (32<<10) + (portno<<8);
 	port->fbu = 0;
-	memset((void*)(port->fb), 0, 256);
+	vmemset((void*)(port->fb), 0, 256);
 
 	// Command table offset: 40K + 8K*portno
 	// Command table size = 256*32 = 8K per port
-	HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb);
+	volatile HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb);
 	for (int i=0; i< 32; i++) {
 		cmdheader[i].prdtl = 8;	// 8 prdt entries per command table
 					// 256 bytes per command table, 64+16+48+16*8cmdslots
@@ -251,7 +285,7 @@ HBA_PORT* AHCI::get_port(uint64_t lba) const {
 
 bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *buf) {
 	PagingManager &pm = PagingManager::get();
-	HBA_PORT* port = get_port(lba);
+	volatile HBA_PORT* port = get_port(lba);
     if (!port) return false;
 
 	uint32_t startl = lba;
@@ -263,14 +297,14 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	if (slot == -1)
 		return false;
 
-	HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb+HIGHER_HALF_OFFSET);
+	volatile HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb+HIGHER_HALF_OFFSET);
 	cmdheader += slot;
 	cmdheader->cfl = sizeof(FIS_REG_H2D)/sizeof(uint32_t);	// Command FIS size
 	cmdheader->w = 0;		// Read from device
 	cmdheader->prdtl = (uint16_t)((count-1)>>4) + 1;	// PRDT entries count
 
-	HBA_CMD_TBL *cmdtbl = (HBA_CMD_TBL*)(cmdheader->ctba+HIGHER_HALF_OFFSET);
-	memset(cmdtbl, 0, sizeof(HBA_CMD_TBL) +
+	volatile HBA_CMD_TBL *cmdtbl = (HBA_CMD_TBL*)(cmdheader->ctba+HIGHER_HALF_OFFSET);
+	vmemset(cmdtbl, 0, sizeof(HBA_CMD_TBL) +
  		(cmdheader->prdtl-1)*sizeof(HBA_PRDT_ENTRY));
 	int i = 0;
 	// 8K bytes (16 sectors) per PRDT
@@ -288,7 +322,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	cmdtbl->prdt_entry[i].i = 1;
 
 	// Setup command
-	FIS_REG_H2D *cmdfis = (FIS_REG_H2D*)(&cmdtbl->cfis);
+	volatile FIS_REG_H2D *cmdfis = (FIS_REG_H2D*)(&cmdtbl->cfis);
 
 	cmdfis->fis_type = FIS_TYPE_REG_H2D;
 	cmdfis->featurel = 1 | (1 << 2);
