@@ -441,7 +441,7 @@ bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uin
     vmemset(cmd_table, 0, sizeof(HBA_CMD_TBL));
 
     // PRDT entry
-    cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)buffer;
+    cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)PagingManager::get().get_physaddr(buffer);
     cmd_table->prdt_entry[0].dbc = 511; // 512 bytes - 1
     cmd_table->prdt_entry[0].i = 1;     // Interrupt on completion
 
