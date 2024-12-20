@@ -2,6 +2,7 @@
 #include <kernel/memory/page.hpp>
 #include <stdio.h>
 #include <kernel/memory/mmanager.hpp>
+#include <kernel/memory/mmio.hpp>
 #include <kernel/drivers/pic.hpp>
 #include <string.h>
 
@@ -46,7 +47,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	// Identity map the region (No need for the higher half offset, since this address was already at the higher half)
 	pm.map_page(reinterpret_cast<void*>(ptr), reinterpret_cast<void*>(ptr), CACHE_DISABLE | READ_WRITE);
 	pm.map_page(reinterpret_cast<void*>(ptr+PAGE_SIZE), reinterpret_cast<void*>(ptr+PAGE_SIZE), CACHE_DISABLE | READ_WRITE);
-	hba = reinterpret_cast<HBA_MEM*>(ptr);
+	hba = reinterpret_cast<volatile HBA_MEM*>(ptr);
 
 	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76, CACHE_DISABLE | READ_WRITE));
 
@@ -79,8 +80,21 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 		hba->ghc |= 1;
 		while(hba->ghc & 1);
 		if(devices[i].second != NULLDEV) {
-			reset_port(&hba->ports[i]);
-			start_command_list_processing(&hba->ports[i]);
+			volatile HBA_PORT * currport = &hba->ports[i];
+			reset_port(currport);
+			start_command_list_processing(currport);
+			port_interrupts(currport);
+			printf("Connected: %s\n", is_drive_connected(currport) ? "yes" : "no");
+			uint8_t identify_buffer[512];
+			DriveInfo dev;
+			if (send_identify_ata(currport, &dev, identify_buffer)) {
+                    printf("Port %d: Drive identified\n", i);
+                    printf("  Sector size: %d bytes\n", dev.sector_size);
+                    printf("  Sector count: %d\n", dev.sector_count);
+                } else {
+                    printf("Port %d: IDENTIFY ATA command failed\n", i);
+                }
+			
 		}
 	}
 }
@@ -95,6 +109,8 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 // Define the port command register bits
 #define PORT_CMD_ST  (1 << 0)  // Start the port
 #define PORT_CMD_SPD (1 << 8)  // Port reset (Soft Reset)
+
+#define ATA_CMD_IDENTIFY 0xEC
 
 void AHCI::reset_port(volatile HBA_PORT *port) {
 	port->cmd |= PORT_CMD_SPD;
@@ -285,7 +301,7 @@ HBA_PORT* AHCI::get_port(uint64_t lba) const {
 
 bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *buf) {
 	PagingManager &pm = PagingManager::get();
-	MMIOPtr<HBA_PORT> port = get_port(lba);
+	volatile HBA_PORT* port = get_port(lba);
     if (!port) return false;
 
 	uint32_t startl = lba;
@@ -378,7 +394,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	return true;
 }
 
-int AHCI::find_cmdslot(MMIOPtr<HBA_PORT>& port)
+int AHCI::find_cmdslot(HBA_PORT* port)
 {
 	// If not set in SACT and CI, the slot is free
 	uint32_t slots = (port->sact | port->ci);
@@ -388,4 +404,73 @@ int AHCI::find_cmdslot(MMIOPtr<HBA_PORT>& port)
 	}
 	printf("Cannot find free command list entry\n");
 	return -1;
+}
+
+void AHCI::port_interrupts(volatile HBA_PORT *port) {
+	const uint32_t D2H_INTERRUPT_BIT = (1 << 6);
+	port->ie |= D2H_INTERRUPT_BIT;
+}
+
+bool AHCI::is_drive_connected(volatile HBA_PORT *port) {
+    // Read the SATA Status Register (PxSSTS)
+    uint32_t ssts = port->ssts;
+    uint8_t det = ssts & 0x0F;       // Device Detection bits (0–3)
+    uint8_t ipm = (ssts >> 8) & 0x0F; // Interface Power Management bits (8–11)
+
+    // Check if a device is connected and communicating
+    if (det == 0x3 && ipm == 0x1) {
+        return true; // Drive is connected and active
+    }
+
+    return false; // No drive connected or not active
+}
+
+bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uint8_t *buffer) {
+	port->is = (uint32_t)-1; // Clear interrupt status
+
+    // 2. Prepare Command Header
+    uint32_t slot = 0; // Assume using slot 0
+    volatile HBA_CMD_HEADER *cmd_header = (volatile HBA_CMD_HEADER *)(port->clb+HIGHER_HALF_OFFSET) + slot;
+    vmemset(cmd_header, 0, sizeof(HBA_CMD_HEADER));
+    cmd_header->cfl = sizeof(FIS_REG_H2D) / 4; // Command FIS length in DWORDs
+    cmd_header->w = 0;                         // Write (0 for read)
+    cmd_header->prdtl = 1;                     // 1 PRDT entry
+
+    // 3. Prepare Command Table
+    volatile HBA_CMD_TBL *cmd_table = (volatile HBA_CMD_TBL *)(cmd_header->ctba+HIGHER_HALF_OFFSET);
+    vmemset(cmd_table, 0, sizeof(HBA_CMD_TBL));
+
+    // PRDT entry
+    cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)buffer;
+    cmd_table->prdt_entry[0].dbc = 511; // 512 bytes - 1
+    cmd_table->prdt_entry[0].i = 1;     // Interrupt on completion
+
+    // Command FIS
+    FIS_REG_H2D *cmd_fis = (FIS_REG_H2D *)cmd_table->cfis;
+    memset(cmd_fis, 0, sizeof(FIS_REG_H2D));
+    cmd_fis->fis_type = FIS_TYPE_REG_H2D;
+    cmd_fis->command = ATA_CMD_IDENTIFY;
+    cmd_fis->device = 0; // Master device
+
+    // 4. Issue Command
+    port->ci = 1 << slot; // Issue command
+
+    // 5. Wait for completion
+    while (port->ci & (1 << slot)) {
+        if (port->is & (1 << 30)) { // Check for error
+            return false; // Command failed
+        }
+    }
+
+    // 6. Process Response
+    uint16_t *identify_data = (uint16_t *)buffer;
+    drive_info->sector_count = ((uint64_t)identify_data[61] << 16) | identify_data[60];
+    if (identify_data[106] & (1 << 14)) {
+        drive_info->sector_size = 2 * 1024; // 4K sector size
+    } else {
+        drive_info->sector_size = 512; // Default sector size
+    }
+
+    return true;
+
 }

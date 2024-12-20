@@ -12,6 +12,11 @@
 #include "../arch/i386/defs/ahci/hba_mem.hpp"
 #endif
 
+typedef struct {
+    uint16_t sector_size;
+    uint64_t sector_count;
+} DriveInfo;
+
 class AHCI : public DiskDriver {
 	public:
 		AHCI(const PCI::PCIDevice &device);
@@ -31,13 +36,16 @@ class AHCI : public DiskDriver {
 		void rebase_port(HBA_PORT *port, int portno);
 		void stop_cmd(HBA_PORT *port);
 		void start_cmd(HBA_PORT *port);
+		bool send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uint8_t *buffer);
 		Vector<Pair<size_t, AHCI_DEV>> devices;
 		size_t AHCI_BASE;
 		HBA_PORT* get_port(uint64_t lba) const;
-		MMIOPtr<HBA_MEM> hba;
+		volatile HBA_MEM* hba;
+		void port_interrupts(volatile HBA_PORT *port);
+		bool is_drive_connected(volatile HBA_PORT *port);
 		void reset_port(HBA_PORT *port);
 		void start_command_list_processing(HBA_PORT* port);
 		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, uint16_t *buf);
-		int find_cmdslot(MMIOPtr<HBA_PORT>& port);
+		int find_cmdslot(HBA_PORT* port);
 		Semaphore sm{1};
 };

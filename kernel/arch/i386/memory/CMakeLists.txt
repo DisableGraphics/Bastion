@@ -1,1 +1,1 @@
-target_sources(kernel_platform_dependent PRIVATE gdt.cpp page.cpp reloadsr.S)
+target_sources(kernel_platform_dependent PRIVATE gdt.cpp page.cpp reloadsr.S mmio.cpp)
