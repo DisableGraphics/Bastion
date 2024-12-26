@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-typedef volatile struct tagHBA_PORT
+typedef struct tagHBA_PORT
 {
 	uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
 	uint32_t clbu;		// 0x04, command list base address upper 32 bits

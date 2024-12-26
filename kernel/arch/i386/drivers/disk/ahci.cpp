@@ -50,13 +50,15 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	hba = reinterpret_cast<volatile HBA_MEM*>(ptr);
 
 	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76, CACHE_DISABLE | READ_WRITE));
-
+	enable_ahci_mode();
 	uint32_t pi = hba->pi;
 	for(size_t i = 0; i < 32; i++, pi >>= 1) {
 		if(pi & 1) {
 			AHCI_DEV device = get_device_type(hba->ports + i);
-			if(device != NULLDEV)
+			if(device != NULLDEV) {
 				rebase_port(&hba->ports[i], i);
+				printf("Setting up %d\n", i);
+			}
 			devices.push_back({i, device});
 		}
 	}
@@ -76,6 +78,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 		printf("AHCI reset went wrong\n");
 	}
 	setup_interrupts();
+	
 	for(size_t i = 0; i < devices.size(); i++) {
 		hba->ghc |= 1;
 		while(hba->ghc & 1);
@@ -88,12 +91,12 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 			uint8_t identify_buffer[512];
 			DriveInfo dev;
 			if (send_identify_ata(currport, &dev, identify_buffer)) {
-                    printf("Port %d: Drive identified\n", i);
-                    printf("  Sector size: %d bytes\n", dev.sector_size);
-                    printf("  Sector count: %d\n", dev.sector_count);
-                } else {
-                    printf("Port %d: IDENTIFY ATA command failed\n", i);
-                }
+				printf("Port %d: Drive identified\n", i);
+				printf("  Sector size: %d bytes\n", dev.sector_size);
+				printf("  Sector count: %d\n", dev.sector_count);
+			} else {
+				printf("Port %d: IDENTIFY ATA command failed\n", i);
+			}
 			
 		}
 	}
@@ -117,17 +120,17 @@ void AHCI::reset_port(volatile HBA_PORT *port) {
 	while(port->cmd & PORT_CMD_SPD);
 
 	port->cmd &= ~PORT_CMD_SPD;  // Clear the reset bit
-    port->cmd |= PORT_CMD_ST;   // Set the start bit
+	port->cmd |= PORT_CMD_ST;   // Set the start bit
 }
 
-void AHCI::start_command_list_processing(HBA_PORT* port) {
+void AHCI::start_command_list_processing(volatile HBA_PORT* port) {
 	port->cmd &= ~PORT_CMD_SPD;
-    
-    // Set the Start Command bit (ST)
-    port->cmd |= PORT_CMD_ST;
+	
+	// Set the Start Command bit (ST)
+	port->cmd |= PORT_CMD_ST;
 }
 
-AHCI_DEV AHCI::get_device_type(HBA_PORT* port) {
+AHCI_DEV AHCI::get_device_type(volatile HBA_PORT* port) {
 	uint32_t ssts = port->ssts;
 
 	uint8_t ipm = (ssts >> 8) & 0x0F;
@@ -151,7 +154,7 @@ AHCI_DEV AHCI::get_device_type(HBA_PORT* port) {
 	}
 }
 
-void AHCI::rebase_port(HBA_PORT *port, int portno) {
+void AHCI::rebase_port(volatile HBA_PORT *port, int portno) {
 	printf("Port %d\n", portno);
 	stop_cmd(port);	// Stop command engine
 
@@ -183,11 +186,12 @@ void AHCI::rebase_port(HBA_PORT *port, int portno) {
 	}
 	port->clb -= HIGHER_HALF_OFFSET;
 	port->fb -= HIGHER_HALF_OFFSET;
+	port->serr = -1;
 
 	start_cmd(port);	// Start command engine
 }
 
-void AHCI::start_cmd(HBA_PORT *port) {
+void AHCI::start_cmd(volatile HBA_PORT *port) {
 	// Wait until CR (bit15) is cleared
 	while (port->cmd & HBA_PxCMD_CR);
 
@@ -196,7 +200,7 @@ void AHCI::start_cmd(HBA_PORT *port) {
 	port->cmd |= HBA_PxCMD_ST;
 }
 
-void AHCI::stop_cmd(HBA_PORT *port) {
+void AHCI::stop_cmd(volatile HBA_PORT *port) {
 	// Clear ST (bit0)
 	port->cmd &= ~HBA_PxCMD_ST;
 
@@ -222,21 +226,21 @@ bool AHCI::bios_handoff() {
 	hba->bohc |= 1;
 	uint32_t bohc;
 	const int timeout = 1000000; // Timeout in microseconds
-    for (int i = 0; i < timeout; i++) {
-        bohc = hba->bohc;
-        if ((bohc & (1 << 1)) == 0) {
-            // BIOS has relinquished control
-            return true;
-        }
-    }
+	for (int i = 0; i < timeout; i++) {
+		bohc = hba->bohc;
+		if ((bohc & (1 << 1)) == 0) {
+			// BIOS has relinquished control
+			return true;
+		}
+	}
 	bohc = hba->bohc;
-    if (bohc & (1 << 2)) {
-        // Handoff successful
-        return true;
-    }
+	if (bohc & (1 << 2)) {
+		// Handoff successful
+		return true;
+	}
 
-    // Handoff failed
-    return false;
+	// Handoff failed
+	return false;
 }
 
 bool AHCI::reset_controller() {
@@ -244,24 +248,24 @@ bool AHCI::reset_controller() {
 		if(devices[port].second != NULLDEV) {
 			stop_cmd(hba->ports+port);
 		}
-    }
+	}
 
-    // Step 2: Initiate global HBA reset
-    uint32_t hctl = hba->ghc;
-    hctl |= (1 << 0); // Set HR bit
-    hba->ghc = hctl;
+	// Step 2: Initiate global HBA reset
+	uint32_t hctl = hba->ghc;
+	hctl |= (1 << 0); // Set HR bit
+	hba->ghc = hctl;
 
-    // Step 3: Wait for the reset to complete
-    for (int i = 0; i < 1000000; ++i) {
-        hctl = hba->ghc;
-        if ((hctl & (1 << 0)) == 0) {
-            // Reset completed
-            return true;
-        }
-    }
+	// Step 3: Wait for the reset to complete
+	for (int i = 0; i < 1000000; ++i) {
+		hctl = hba->ghc;
+		if ((hctl & (1 << 0)) == 0) {
+			// Reset completed
+			return true;
+		}
+	}
 
-    // Reset failed
-    return false;
+	// Reset failed
+	return false;
 }
 
 void AHCI::setup_interrupts() {
@@ -290,11 +294,11 @@ uint64_t AHCI::get_disk_size() const {
 	return 0;
 }
 
-HBA_PORT* AHCI::get_port(uint64_t lba) const {
-    if (devices.empty()) return nullptr;
+volatile HBA_PORT* AHCI::get_port(uint64_t lba) const {
+	if (devices.empty()) return nullptr;
 	for(size_t i = 0; i < devices.size(); i++) {
 		if(devices[i].second != NULLDEV)
-    		return &hba->ports[i];
+			return &hba->ports[i];
 	}
 	return nullptr;
 }
@@ -302,7 +306,7 @@ HBA_PORT* AHCI::get_port(uint64_t lba) const {
 bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *buf) {
 	PagingManager &pm = PagingManager::get();
 	volatile HBA_PORT* port = get_port(lba);
-    if (!port) return false;
+	if (!port) return false;
 
 	uint32_t startl = lba;
 	uint32_t starth = lba >> 32;
@@ -394,7 +398,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	return true;
 }
 
-int AHCI::find_cmdslot(HBA_PORT* port)
+int AHCI::find_cmdslot(volatile HBA_PORT* port)
 {
 	// If not set in SACT and CI, the slot is free
 	uint32_t slots = (port->sact | port->ci);
@@ -412,65 +416,65 @@ void AHCI::port_interrupts(volatile HBA_PORT *port) {
 }
 
 bool AHCI::is_drive_connected(volatile HBA_PORT *port) {
-    // Read the SATA Status Register (PxSSTS)
-    uint32_t ssts = port->ssts;
-    uint8_t det = ssts & 0x0F;       // Device Detection bits (0–3)
-    uint8_t ipm = (ssts >> 8) & 0x0F; // Interface Power Management bits (8–11)
+	// Read the SATA Status Register (PxSSTS)
+	uint32_t ssts = port->ssts;
+	uint8_t det = ssts & 0x0F;       // Device Detection bits (0–3)
+	uint8_t ipm = (ssts >> 8) & 0x0F; // Interface Power Management bits (8–11)
 
-    // Check if a device is connected and communicating
-    if (det == 0x3 && ipm == 0x1) {
-        return true; // Drive is connected and active
-    }
+	// Check if a device is connected and communicating
+	if (det == 0x3 && ipm == 0x1) {
+		return true; // Drive is connected and active
+	}
 
-    return false; // No drive connected or not active
+	return false; // No drive connected or not active
 }
 
 bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uint8_t *buffer) {
 	port->is = (uint32_t)-1; // Clear interrupt status
 
-    // 2. Prepare Command Header
-    uint32_t slot = 0; // Assume using slot 0
-    volatile HBA_CMD_HEADER *cmd_header = (volatile HBA_CMD_HEADER *)(port->clb+HIGHER_HALF_OFFSET) + slot;
-    vmemset(cmd_header, 0, sizeof(HBA_CMD_HEADER));
-    cmd_header->cfl = sizeof(FIS_REG_H2D) / 4; // Command FIS length in DWORDs
-    cmd_header->w = 0;                         // Write (0 for read)
-    cmd_header->prdtl = 1;                     // 1 PRDT entry
+	// 2. Prepare Command Header
+	uint32_t slot = 0; // Assume using slot 0
+	volatile HBA_CMD_HEADER *cmd_header = (volatile HBA_CMD_HEADER *)(port->clb+HIGHER_HALF_OFFSET) + slot;
+	vmemset(cmd_header, 0, sizeof(HBA_CMD_HEADER));
+	cmd_header->cfl = sizeof(FIS_REG_H2D) / 4; // Command FIS length in DWORDs
+	cmd_header->w = 0;                         // Write (0 for read)
+	cmd_header->prdtl = 1;                     // 1 PRDT entry
 
-    // 3. Prepare Command Table
-    volatile HBA_CMD_TBL *cmd_table = (volatile HBA_CMD_TBL *)(cmd_header->ctba+HIGHER_HALF_OFFSET);
-    vmemset(cmd_table, 0, sizeof(HBA_CMD_TBL));
+	// 3. Prepare Command Table
+	volatile HBA_CMD_TBL *cmd_table = (volatile HBA_CMD_TBL *)(cmd_header->ctba+HIGHER_HALF_OFFSET);
+	vmemset(cmd_table, 0, sizeof(HBA_CMD_TBL));
 
-    // PRDT entry
-    cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)PagingManager::get().get_physaddr(buffer);
-    cmd_table->prdt_entry[0].dbc = 511; // 512 bytes - 1
-    cmd_table->prdt_entry[0].i = 1;     // Interrupt on completion
+	// PRDT entry
+	cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)PagingManager::get().get_physaddr(buffer);
+	cmd_table->prdt_entry[0].dbc = 511; // 512 bytes - 1
+	cmd_table->prdt_entry[0].i = 1;     // Interrupt on completion
 
-    // Command FIS
-    FIS_REG_H2D *cmd_fis = (FIS_REG_H2D *)cmd_table->cfis;
-    memset(cmd_fis, 0, sizeof(FIS_REG_H2D));
-    cmd_fis->fis_type = FIS_TYPE_REG_H2D;
-    cmd_fis->command = ATA_CMD_IDENTIFY;
-    cmd_fis->device = 0; // Master device
+	// Command FIS
+	volatile FIS_REG_H2D *cmd_fis = (FIS_REG_H2D *)cmd_table->cfis;
+	vmemset(cmd_fis, 0, sizeof(FIS_REG_H2D));
+	cmd_fis->fis_type = FIS_TYPE_REG_H2D;
+	cmd_fis->command = ATA_CMD_IDENTIFY;
+	cmd_fis->device = 0; // Master device
 
-    // 4. Issue Command
-    port->ci = 1 << slot; // Issue command
+	// 4. Issue Command
+	port->ci = 1 << slot; // Issue command
 
-    // 5. Wait for completion
-    while (port->ci & (1 << slot)) {
-        if (port->is & (1 << 30)) { // Check for error
-            return false; // Command failed
-        }
-    }
+	// 5. Wait for completion
+	while (port->ci & (1 << slot)) {
+		if (port->is & (1 << 30)) { // Check for error
+			return false; // Command failed
+		}
+	}
 
-    // 6. Process Response
-    uint16_t *identify_data = (uint16_t *)buffer;
-    drive_info->sector_count = ((uint64_t)identify_data[61] << 16) | identify_data[60];
-    if (identify_data[106] & (1 << 14)) {
-        drive_info->sector_size = 2 * 1024; // 4K sector size
-    } else {
-        drive_info->sector_size = 512; // Default sector size
-    }
+	// 6. Process Response
+	uint16_t *identify_data = (uint16_t *)buffer;
+	drive_info->sector_count = ((uint64_t)identify_data[61] << 16) | identify_data[60];
+	if (identify_data[106] & (1 << 14)) {
+		drive_info->sector_size = 2 * 1024; // 4K sector size
+	} else {
+		drive_info->sector_size = 512; // Default sector size
+	}
 
-    return true;
+	return true;
 
 }
