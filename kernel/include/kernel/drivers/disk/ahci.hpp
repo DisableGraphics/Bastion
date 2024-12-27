@@ -24,6 +24,10 @@ class AHCI : public DiskDriver {
 		bool read(uint64_t lba, uint32_t sector_count, uint16_t *buf) override;
 		bool write(uint64_t lba, uint32_t sector_count, uint16_t*) override;
 		uint64_t get_disk_size() const override;
+		uint32_t get_sector_size() const override;
+		void init();
+
+		void enable_interrupts();
 	private:
 		[[gnu::interrupt]]
 		static void interrupt_handler(interrupt_frame*);
@@ -47,5 +51,6 @@ class AHCI : public DiskDriver {
 		void start_command_list_processing(volatile HBA_PORT* port);
 		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, uint16_t *buf);
 		int find_cmdslot(volatile HBA_PORT* port);
-		Semaphore sm{1};
+
+		size_t size, sector_size;
 };

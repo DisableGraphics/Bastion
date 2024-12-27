@@ -44,10 +44,10 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PCI::get().init();
 	DiskManager::get().init();
 
-	PIT::get().sleep(1200);
-
-	for(size_t i = 0; i < 512; i += sizeof(int)) {
-		printf("%p ", DiskManager::get().buf[i]);
+	auto disks = DiskManager::get().get_disks();
+	for(size_t i = 0; i < disks.size(); i++) {
+		char * name = disks[i].first;
+		printf("New disk: %s\n", name);
 	}
 
 	#ifdef DEBUG

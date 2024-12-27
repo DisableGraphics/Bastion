@@ -1,7 +1,6 @@
 #pragma once
 #include <kernel/datastr/pair.hpp>
 #include <kernel/datastr/vector.hpp>
-#include <kernel/datastr/uptr.hpp>
 #include <kernel/drivers/disk/disk_driver.hpp>
 
 struct diskname {
@@ -16,8 +15,13 @@ class DiskManager {
 	public:
 		static DiskManager &get();
 		void init();
-		char * buf;
+		
+		DiskDriver* get_driver(size_t pos);
+		Vector<Pair<diskname, DiskDriver*>>& get_disks();
+		size_t size() const;
 	private:
 		DiskManager(){}
-		Vector<Pair<diskname, UniquePtr<DiskDriver>>> disk_controllers;
+		~DiskManager();
+		Vector<Pair<diskname, DiskDriver*>> disk_controllers;
+		size_t ndevices;
 };

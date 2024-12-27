@@ -22,8 +22,14 @@ DiskManager &DiskManager::get() {
 	return instance;
 }
 
+DiskManager::~DiskManager() {
+	for(size_t i = 0; i < ndevices; i++) {
+		delete disk_controllers[i].second;
+	}
+}
+
 void DiskManager::init() {
-	const size_t ndevices = PCI::get().getDeviceCount();
+	ndevices = PCI::get().getDeviceCount();
 	PCI::PCIDevice const *devices = PCI::get().getDevices();
 	char numberdisk = 'a';
 	for(size_t i = 0; i < ndevices; i++) {
@@ -32,11 +38,9 @@ void DiskManager::init() {
 				case SATA_CONTROLLER:
 					if(devices[i].prog_if == AHCI_PROGIF) {
 						diskname dn{"ahci", numberdisk};
-						disk_controllers.emplace_back({dn, new AHCI(devices[i])});
 						char * name = dn;
-						buf = (char*)kcalloc(128*512, sizeof(char));
-						printf("New disk: %s\n", name);
-						disk_controllers.back().second->read(0, 128, reinterpret_cast<uint16_t*>(buf));
+						AHCI * ahcicont = new AHCI(devices[i]);
+						disk_controllers.emplace_back({dn, ahcicont});
 						numberdisk++;
 					}
 					break;
@@ -46,4 +50,16 @@ void DiskManager::init() {
 			}
 		}
 	}
+}
+
+DiskDriver* DiskManager::get_driver(size_t pos) {
+	return disk_controllers[pos].second;
+}
+
+Vector<Pair<diskname, DiskDriver*>>& DiskManager::get_disks() {
+	return disk_controllers;
+}
+
+size_t DiskManager::size() const {
+	return disk_controllers.size();
 }

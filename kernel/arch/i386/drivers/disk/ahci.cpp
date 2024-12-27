@@ -4,6 +4,9 @@
 #include <kernel/memory/mmanager.hpp>
 #include <kernel/memory/mmio.hpp>
 #include <kernel/drivers/pic.hpp>
+#include <kernel/drivers/pit.hpp>
+#include <kernel/kernel/panic.hpp>
+#include <kernel/drivers/disk/disk.hpp>
 #include <string.h>
 
 #include "../../defs/ahci/dev_type.hpp"
@@ -14,6 +17,7 @@
 #include "../../defs/ahci/fis_type.hpp"
 #include "../../defs/ahci/hba_cmd_tbl.hpp"
 #include "../../defs/ahci/hba_prdt_entry.hpp"
+#include "../../defs/ahci/port_cmd.hpp"
 
 #include "../../defs/ata/status_flags.hpp"
 
@@ -25,13 +29,21 @@
 
 uint8_t int_line;
 
+AHCI *self;
+
 AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
+	init();
+	//init_standard();
+}
+
+void AHCI::init() {
 	PCI &pci = PCI::get();
 	PagingManager& pm = PagingManager::get();
 	for(int i = 0; i < 6; i++) {
 		bars[i] = pci.getBAR(device.bus, device.device, device.function, i);
 	}
 
+	// Enable interrupts, DMA, and memory space access in the PCI command register
 	uint16_t command_register = pci.readConfigWord(device.bus, device.device, device.function, COMMAND);
 	command_register |= IO_SPACE;
 	command_register |= BUS_MASTER;
@@ -50,7 +62,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	hba = reinterpret_cast<volatile HBA_MEM*>(ptr);
 
 	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76, CACHE_DISABLE | READ_WRITE));
-	enable_ahci_mode();
+	
 	uint32_t pi = hba->pi;
 	for(size_t i = 0; i < 32; i++, pi >>= 1) {
 		if(pi & 1) {
@@ -72,16 +84,17 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	} else {
 		printf("No need to hand off from BIOS\n");
 	}
-	if(reset_controller()) {
+	/*if(reset_controller()) {
 		printf("AHCI reset successful\n");
 	} else {
 		printf("AHCI reset went wrong\n");
-	}
+	}*/
+	enable_ahci_mode();
 	setup_interrupts();
 	
 	for(size_t i = 0; i < devices.size(); i++) {
-		hba->ghc |= 1;
-		while(hba->ghc & 1);
+		//hba->ghc |= 1;
+		//while(hba->ghc & 1);
 		if(devices[i].second != NULLDEV) {
 			volatile HBA_PORT * currport = &hba->ports[i];
 			reset_port(currport);
@@ -94,12 +107,21 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 				printf("Port %d: Drive identified\n", i);
 				printf("  Sector size: %d bytes\n", dev.sector_size);
 				printf("  Sector count: %d\n", dev.sector_count);
+				printf("  Total size: %dB\n", dev.sector_count * dev.sector_size);
+				size = dev.sector_count;
+				sector_size = dev.sector_size;
 			} else {
 				printf("Port %d: IDENTIFY ATA command failed\n", i);
 			}
 			
 		}
 	}
+	self = this;
+	enable_interrupts();
+}
+
+void AHCI::enable_interrupts() {
+	hba->ghc |= (1 << 1);
 }
 
 #define GHC_REG    0x00    // Global Host Control Register offset
@@ -172,6 +194,10 @@ void AHCI::rebase_port(volatile HBA_PORT *port, int portno) {
 	port->fbu = 0;
 	vmemset((void*)(port->fb), 0, 256);
 
+	port->serr = 1;   //For each implemented port, clear the PxSERR register, by writing 1 to each mplemented location
+    port->is   = 0;
+    port->ie   = 1;
+
 	// Command table offset: 40K + 8K*portno
 	// Command table size = 256*32 = 8K per port
 	volatile HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb);
@@ -186,9 +212,9 @@ void AHCI::rebase_port(volatile HBA_PORT *port, int portno) {
 	}
 	port->clb -= HIGHER_HALF_OFFSET;
 	port->fb -= HIGHER_HALF_OFFSET;
-	port->serr = -1;
-
 	start_cmd(port);	// Start command engine
+	port->is = 0;
+	port->ie = -1;
 }
 
 void AHCI::start_cmd(volatile HBA_PORT *port) {
@@ -218,7 +244,21 @@ void AHCI::stop_cmd(volatile HBA_PORT *port) {
 }
 
 void AHCI::interrupt_handler(interrupt_frame*) {
-	printf("a");
+	uint32_t global_is = self->hba->is;  // Read global interrupt status
+    for (int port = 0; port < self->devices.size(); ++port) {
+        if (global_is & (1 << port)) {
+            uint32_t port_is = self->hba->ports[port].is;  // Read port-specific interrupt status
+            if (port_is & (1 << 0)) {
+				printf("yass\n");
+            }
+            if (port_is & (1 << 30)) {
+				printf("o no\n");
+            }
+            self->hba->ports[port].is = port_is;  // Clear port-specific status
+        }
+    }
+    self->hba->is = global_is;  
+
 	PIC::get().send_EOI(int_line);
 }
 
@@ -273,8 +313,8 @@ void AHCI::setup_interrupts() {
 	if(int_line == 0xFF) {
 		printf("Well we cannot interrupt... fuck\n");
 	} else {
-		printf("Interrupt: %p\n", int_line);
 		PIC::get().IRQ_clear_mask(int_line);
+		IDT::get().set_handler(int_line + 0x20, interrupt_handler);
 	}
 }
 
@@ -291,7 +331,11 @@ bool AHCI::write(uint64_t lba, uint32_t sector_count, uint16_t* buffer) {
 }
 
 uint64_t AHCI::get_disk_size() const {
-	return 0;
+	return size;
+}
+
+uint32_t AHCI::get_sector_size() const {
+	return sector_size;
 }
 
 volatile HBA_PORT* AHCI::get_port(uint64_t lba) const {
@@ -411,8 +455,8 @@ int AHCI::find_cmdslot(volatile HBA_PORT* port)
 }
 
 void AHCI::port_interrupts(volatile HBA_PORT *port) {
-	const uint32_t D2H_INTERRUPT_BIT = (1 << 6);
-	port->ie |= D2H_INTERRUPT_BIT;
+	port->ie = -1;
+	port->ie = (1 << 0) | (1 << 2) | (1 << 30); 
 }
 
 bool AHCI::is_drive_connected(volatile HBA_PORT *port) {
@@ -430,47 +474,67 @@ bool AHCI::is_drive_connected(volatile HBA_PORT *port) {
 }
 
 bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uint8_t *buffer) {
-	port->is = (uint32_t)-1; // Clear interrupt status
+	port->is = 0xffff; // Clear interrupt status
 
 	// 2. Prepare Command Header
-	uint32_t slot = 0; // Assume using slot 0
-	volatile HBA_CMD_HEADER *cmd_header = (volatile HBA_CMD_HEADER *)(port->clb+HIGHER_HALF_OFFSET) + slot;
-	vmemset(cmd_header, 0, sizeof(HBA_CMD_HEADER));
+	int slot = find_cmdslot(port); // Assume using slot 0
+	if(slot == -1)
+		return false;
+	volatile HBA_CMD_HEADER *cmd_header = (volatile HBA_CMD_HEADER *)((port->clb+HIGHER_HALF_OFFSET) + slot);
 	cmd_header->cfl = sizeof(FIS_REG_H2D) / 4; // Command FIS length in DWORDs
 	cmd_header->w = 0;                         // Write (0 for read)
 	cmd_header->prdtl = 1;                     // 1 PRDT entry
+	cmd_header->p = 1;
 
 	// 3. Prepare Command Table
 	volatile HBA_CMD_TBL *cmd_table = (volatile HBA_CMD_TBL *)(cmd_header->ctba+HIGHER_HALF_OFFSET);
 	vmemset(cmd_table, 0, sizeof(HBA_CMD_TBL));
 
 	// PRDT entry
-	cmd_table->prdt_entry[0].dba = (uint32_t)(uintptr_t)PagingManager::get().get_physaddr(buffer);
+	cmd_table->prdt_entry[0].dba = (uint32_t)PagingManager::get().get_physaddr(buffer);
+	cmd_table->prdt_entry[0].dbau = 0;
 	cmd_table->prdt_entry[0].dbc = 511; // 512 bytes - 1
-	cmd_table->prdt_entry[0].i = 1;     // Interrupt on completion
+	cmd_table->prdt_entry[0].i = 0;     // Interrupt on completion
 
 	// Command FIS
 	volatile FIS_REG_H2D *cmd_fis = (FIS_REG_H2D *)cmd_table->cfis;
 	vmemset(cmd_fis, 0, sizeof(FIS_REG_H2D));
 	cmd_fis->fis_type = FIS_TYPE_REG_H2D;
 	cmd_fis->command = ATA_CMD_IDENTIFY;
-	cmd_fis->device = 0; // Master device
+	cmd_fis->c = 1;
 
 	// 4. Issue Command
 	port->ci = 1 << slot; // Issue command
 
 	// 5. Wait for completion
-	while (port->ci & (1 << slot)) {
-		if (port->is & (1 << 30)) { // Check for error
-			return false; // Command failed
-		}
-	}
+	// Wait for completion
+    while (1)
+    {
+        // In some longer duration reads, it may be helpful to spin on the DPS bit 
+        // in the PxIS port field as well (1 << 5)
+        if ((port->ci & (1<<slot)) == 0) 
+        {
+            break;
+        }
+        if (port->is & HBA_PxIS_TFES)   // Task file error
+        {
+            printf("Read disk error\n");
+            return 0;
+        }
+    }
+
+    // Check again
+    if (port->is & HBA_PxIS_TFES)
+    {
+        printf("Read disk error\n");
+        return 0;
+    }
 
 	// 6. Process Response
 	uint16_t *identify_data = (uint16_t *)buffer;
 	drive_info->sector_count = ((uint64_t)identify_data[61] << 16) | identify_data[60];
-	if (identify_data[106] & (1 << 14)) {
-		drive_info->sector_size = 2 * 1024; // 4K sector size
+	if (!(identify_data[106] & (1 << 14))) {
+		drive_info->sector_size = 4 * 1024; // 4K sector size
 	} else {
 		drive_info->sector_size = 512; // Default sector size
 	}
