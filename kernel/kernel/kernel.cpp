@@ -47,7 +47,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	auto disks = DiskManager::get().get_disks();
 	for(size_t i = 0; i < disks.size(); i++) {
 		char * name = disks[i].first;
-		printf("New disk: %s\n", name);
+		printf("New disk: %s. Sector size: %d, Sectors: %d\n", name, disks[i].second->get_sector_size(), disks[i].second->get_disk_size());
 	}
 
 	#ifdef DEBUG

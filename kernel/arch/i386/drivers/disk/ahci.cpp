@@ -20,6 +20,7 @@
 #include "../../defs/ahci/port_cmd.hpp"
 
 #include "../../defs/ata/status_flags.hpp"
+#include "../../defs/ata/cmd.hpp"
 
 #include "../../defs/pci/command_reg.hpp"
 #include "../../defs/pci/offsets/offsets.hpp"
@@ -103,15 +104,11 @@ void AHCI::init() {
 			printf("Connected: %s\n", is_drive_connected(currport) ? "yes" : "no");
 			uint8_t identify_buffer[512];
 			DriveInfo dev;
-			if (send_identify_ata(currport, &dev, identify_buffer)) {
-				printf("Port %d: Drive identified\n", i);
-				printf("  Sector size: %d bytes\n", dev.sector_size);
-				printf("  Sector count: %d\n", dev.sector_count);
-				printf("  Total size: %dB\n", dev.sector_count * dev.sector_size);
+			if (!send_identify_ata(currport, &dev, identify_buffer)) {
+				printf("Port %d: IDENTIFY ATA command failed\n", i);
+			} else {
 				size = dev.sector_count;
 				sector_size = dev.sector_size;
-			} else {
-				printf("Port %d: IDENTIFY ATA command failed\n", i);
 			}
 			
 		}
@@ -364,7 +361,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	volatile HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb+HIGHER_HALF_OFFSET);
 	cmdheader += slot;
 	cmdheader->cfl = sizeof(FIS_REG_H2D)/sizeof(uint32_t);	// Command FIS size
-	cmdheader->w = 0;		// Read from device
+	cmdheader->w = is_write ? 1 : 0;		// Whether to read
 	cmdheader->prdtl = (uint16_t)((count-1)>>4) + 1;	// PRDT entries count
 
 	volatile HBA_CMD_TBL *cmdtbl = (HBA_CMD_TBL*)(cmdheader->ctba+HIGHER_HALF_OFFSET);
@@ -391,7 +388,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	cmdfis->fis_type = FIS_TYPE_REG_H2D;
 	cmdfis->featurel = 1 | (1 << 2);
 	cmdfis->c = 1;	// Command
-	cmdfis->command = 0x25;
+	cmdfis->command = is_write ? ATA_CMD_WRITE_DMA_EXT : ATA_CMD_READ_DMA_EXT;
 
 	cmdfis->lba0 = (uint8_t)startl;
 	cmdfis->lba1 = (uint8_t)(startl>>8);
@@ -419,7 +416,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	port->ci = 1<<slot;	// Issue command
 
 	// Wait for completion
-	while (1)
+	/*while (1)
 	{
 		// In some longer duration reads, it may be helpful to spin on the DPS bit 
 		// in the PxIS port field as well (1 << 5)
@@ -437,7 +434,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	{
 		printf("Read disk error\n");
 		return false;
-	}
+	}*/
 
 	return true;
 }

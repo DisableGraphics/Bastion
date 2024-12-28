@@ -8,4 +8,5 @@ struct DiskJob {
 		WAITING
 	} state;
 	uint8_t * buffer;
+	
 };
