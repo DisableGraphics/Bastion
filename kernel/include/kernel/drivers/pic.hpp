@@ -13,6 +13,7 @@ class PIC {
 		/**
 			\brief Get singleton instance
 		 */
+		[[gnu::no_caller_saved_registers]]
 		static PIC &get();
 		/**
 			\brief Initialise the PIC.
@@ -44,6 +45,7 @@ class PIC {
 			\brief Send End Of Interrupt byte (EOI for short).
 			if irq >= 8 it will send also EOI to the slave PIC.
 		 */
+		[[gnu::no_caller_saved_registers]]
 		void send_EOI(uint8_t irq);
 		/**
 			\brief Get IRR (Interrupt Request Register)

@@ -17,7 +17,7 @@ class DiskManager {
 		static DiskManager &get();
 		void init();
 
-		bool enqueue_job(size_t diskid, const DiskJob &job);
+		bool enqueue_job(size_t diskid, volatile DiskJob* job);
 		
 		DiskDriver* get_driver(size_t pos);
 		Vector<Pair<diskname, DiskDriver*>>& get_disks();

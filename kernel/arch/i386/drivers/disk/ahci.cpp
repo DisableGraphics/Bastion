@@ -39,6 +39,7 @@ AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 }
 
 void AHCI::init() {
+	memset(active_jobs, 0, sizeof(active_jobs));
 	PCI &pci = PCI::get();
 	PagingManager& pm = PagingManager::get();
 	// Get the BARs
@@ -239,15 +240,30 @@ void AHCI::stop_cmd(volatile HBA_PORT *port) {
 void AHCI::interrupt_handler(interrupt_frame*) {
 	uint32_t global_is = self->hba->is;  // Read global interrupt status
 	for (int port = 0; port < self->devices.size(); ++port) {
+		volatile HBA_PORT* prt = self->hba->ports+port;
 		if (global_is & (1 << port)) {
 			uint32_t port_is = self->hba->ports[port].is;  // Read port-specific interrupt status
 			// Everything went OK
 			if (port_is & (1 << 0)) {
-				printf("yass\n");
+				for (int slot = 0; slot < 32; ++slot) {
+					if (!(prt->ci & (1 << slot)) && self->active_jobs[slot]) {
+						self->active_jobs[slot]->state = DiskJob::FINISHED;  // Update job state
+						self->active_jobs[slot] = nullptr;  // Clear the slot
+					}
+				}
 			}
 			// Error
 			if (port_is & (1 << 30)) {
-				printf("o no\n");
+				for (int slot = 0; slot < 32; ++slot) {
+					if (!(prt->ci & (1 << slot)) && self->active_jobs[slot]) {
+						self->active_jobs[slot]->state = DiskJob::ERROR;  // Update job state
+						self->active_jobs[slot] = nullptr;  // Clear the slot
+					}
+				}
+
+				// Check and log the error cause from PxTFD
+				uint32_t task_file_data = prt->tfd;
+				printf("Error: %d\n", task_file_data);
 			}
 			self->hba->ports[port].is = port_is;  // Clear port-specific status
 		}
@@ -318,11 +334,11 @@ void AHCI::enable_ahci_mode() {
 	hba->ghc |= 0x80000010;
 }
 
-bool AHCI::enqueue_job(const DiskJob &job) {
-	return dma_transfer(job.write, job.lba, job.sector_count, reinterpret_cast<uint16_t*>(job.buffer));
+bool AHCI::enqueue_job(volatile DiskJob* job) {
+	return dma_transfer(job);
 }
 
-uint64_t AHCI::get_disk_size() const {
+uint64_t AHCI::get_n_sectors() const {
 	return size;
 }
 
@@ -339,13 +355,13 @@ volatile HBA_PORT* AHCI::get_port(uint64_t lba) const {
 	return nullptr;
 }
 
-bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *buf) {
+bool AHCI::dma_transfer(volatile DiskJob* job) {
 	PagingManager &pm = PagingManager::get();
-	volatile HBA_PORT* port = get_port(lba);
+	volatile HBA_PORT* port = get_port(job->lba);
 	if (!port) return false;
 
-	uint32_t startl = lba;
-	uint32_t starth = lba >> 32;
+	uint32_t startl = job->lba;
+	uint32_t starth = job->lba >> 32;
 
 	port->is = (uint32_t) -1;		// Clear pending interrupt bits
 	int spin = 0; // Spin lock timeout counter
@@ -353,16 +369,20 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	if (slot == -1)
 		return false;
 
+	active_jobs[slot] = job;
+
 	volatile HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb+HIGHER_HALF_OFFSET);
 	cmdheader += slot;
 	cmdheader->cfl = sizeof(FIS_REG_H2D)/sizeof(uint32_t);	// Command FIS size
-	cmdheader->w = is_write ? 1 : 0;		// Whether to read
-	cmdheader->prdtl = (uint16_t)((count-1)>>4) + 1;	// PRDT entries count
+	cmdheader->w = job->write ? 1 : 0;		// Whether to read
+	cmdheader->prdtl = (uint16_t)((job->sector_count - 1)>>4) + 1;	// PRDT entries count
 
 	volatile HBA_CMD_TBL *cmdtbl = (HBA_CMD_TBL*)(cmdheader->ctba+HIGHER_HALF_OFFSET);
 	vmemset(cmdtbl, 0, sizeof(HBA_CMD_TBL) +
  		(cmdheader->prdtl-1)*sizeof(HBA_PRDT_ENTRY));
 	int i = 0;
+	uint16_t * buf = reinterpret_cast<uint16_t*>(job->buffer);
+	size_t count = job->sector_count;
 	// 8K bytes (16 sectors) per PRDT
 	for (i = 0; i<cmdheader->prdtl-1; i++)
 	{
@@ -383,7 +403,7 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	cmdfis->fis_type = FIS_TYPE_REG_H2D;
 	cmdfis->featurel = 1 | (1 << 2);
 	cmdfis->c = 1;	// Command
-	cmdfis->command = is_write ? ATA_CMD_WRITE_DMA_EXT : ATA_CMD_READ_DMA_EXT;
+	cmdfis->command = job->write ? ATA_CMD_WRITE_DMA_EXT : ATA_CMD_READ_DMA_EXT;
 
 	cmdfis->lba0 = (uint8_t)startl;
 	cmdfis->lba1 = (uint8_t)(startl>>8);

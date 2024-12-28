@@ -64,7 +64,7 @@ size_t DiskManager::size() const {
 	return disk_controllers.size();
 }
 
-bool DiskManager::enqueue_job(size_t diskid, const DiskJob &job) {
+bool DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 	if(diskid >= disk_controllers.size())
 		return false;
 	

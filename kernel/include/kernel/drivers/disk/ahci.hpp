@@ -24,8 +24,8 @@ class AHCI : public DiskDriver {
 	public:
 		AHCI(const PCI::PCIDevice &device);
 
-		bool enqueue_job(const DiskJob &job) override;
-		uint64_t get_disk_size() const override;
+		bool enqueue_job(volatile DiskJob* job) override;
+		uint64_t get_n_sectors() const override;
 		uint32_t get_sector_size() const override;
 		void init();
 
@@ -51,8 +51,9 @@ class AHCI : public DiskDriver {
 		bool is_drive_connected(volatile HBA_PORT *port);
 		void reset_port(volatile HBA_PORT *port);
 		void start_command_list_processing(volatile HBA_PORT* port);
-		bool dma_transfer(bool is_write, uint64_t lba, uint32_t sector_count, uint16_t *buf);
+		bool dma_transfer(volatile DiskJob* job);
 		int find_cmdslot(volatile HBA_PORT* port);
 
 		size_t size, sector_size;
+		volatile DiskJob* active_jobs[32];
 };

@@ -2,6 +2,7 @@
 #include <kernel/drivers/pic.hpp>
 #include <kernel/assembly/inlineasm.h>
 
+[[gnu::no_caller_saved_registers]]
 PIC &PIC::get() {
 	static PIC instance;
 	return instance;
@@ -88,7 +89,7 @@ uint16_t PIC::get_irr() {
 uint16_t PIC::get_isr() {
 	return get_irq_reg(PIC_READ_ISR);
 }
-
+[[gnu::no_caller_saved_registers]]
 void PIC::send_EOI(uint8_t irq) {
 	if (irq >= 8) {
 		outb(PIC2_COMMAND, PIC_EOI);
