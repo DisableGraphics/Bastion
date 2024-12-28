@@ -19,7 +19,6 @@ echo "Attached loop device: $LOOP_DEVICE"
 echo "Creating MBR partition table on $LOOP_DEVICE"
 sudo parted --script $LOOP_DEVICE mklabel msdos
 sudo parted --script $LOOP_DEVICE mkpart primary fat32 1MiB ${PARTITION_SIZE}MiB
-sudo fatlabel "$PARTITION" "$PART_NAME"
 
 PARTITION="${LOOP_DEVICE}p1"
 if [ ! -e "$PARTITION" ]; then
@@ -29,6 +28,7 @@ if [ ! -e "$PARTITION" ]; then
 fi
 echo "Formatting the partition as FAT32: $PARTITION"
 sudo mkfs.fat -F32 $PARTITION
+sudo fatlabel "$PARTITION" "$PART_NAME"
 
 echo "Mounting partition"
 OUTPUT=$(sudo udisksctl mount -b "$PARTITION")
