@@ -82,9 +82,9 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 
 	c = k.poll_key();
 	if(c) { printf("%c", c); }
-	idt.enable_interrupts();
 
 finish:
+	idt.enable_interrupts();
 	PIC::get().send_EOI(k.irq_line);
 }
 
