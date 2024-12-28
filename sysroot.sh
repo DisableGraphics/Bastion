@@ -4,4 +4,5 @@ mkdir -p sysroot
 mkdir -p sysroot/boot
 mkdir -p sysroot/grub
 cp build/bastion sysroot/boot
+echo "true" > sysroot/boot/is_bastion
 cp grub.cfg sysroot/grub

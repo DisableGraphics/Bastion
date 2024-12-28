@@ -96,16 +96,16 @@ void AHCI::init() {
 			reset_port(currport);
 			start_command_list_processing(currport);
 			port_interrupts(currport);
-			printf("Connected: %s\n", is_drive_connected(currport) ? "yes" : "no");
-			uint8_t identify_buffer[512];
-			DriveInfo dev;
-			if (!send_identify_ata(currport, &dev, identify_buffer)) {
-				printf("Port %d: IDENTIFY ATA command failed\n", i);
-			} else {
-				size = dev.sector_count;
-				sector_size = dev.sector_size;
+			if(is_drive_connected(currport)) {
+				uint8_t identify_buffer[512];
+				DriveInfo dev;
+				if (!send_identify_ata(currport, &dev, identify_buffer)) {
+					printf("Port %d: IDENTIFY ATA command failed\n", i);
+				} else {
+					size = dev.sector_count;
+					sector_size = dev.sector_size;
+				}
 			}
-			
 		}
 	}
 	// Set the global variable so the interrupt handler knows wtf is going on
@@ -171,7 +171,6 @@ AHCI_DEV AHCI::get_device_type(volatile HBA_PORT* port) {
 }
 
 void AHCI::rebase_port(volatile HBA_PORT *port, int portno) {
-	printf("Port %d\n", portno);
 	stop_cmd(port);	// Stop command engine
 
 	// Command list offset: 1K*portno

@@ -1,0 +1,1 @@
+target_sources(kernel_platform_dependent PRIVATE part.cpp partmanager.cpp fat32.cpp)

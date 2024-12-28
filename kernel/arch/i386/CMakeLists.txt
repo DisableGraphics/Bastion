@@ -6,6 +6,7 @@ add_subdirectory(memory)
 add_subdirectory(boot)
 add_subdirectory(assembly)
 add_subdirectory(sync)
+add_subdirectory(fs)
 
 target_compile_options(kernel_platform_dependent PRIVATE -g -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -fno-sized-deallocation -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
 

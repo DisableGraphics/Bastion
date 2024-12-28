@@ -18,6 +18,9 @@
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/disk.hpp>
 
+#include <kernel/fs/partmanager.hpp>
+#include <kernel/fs/fat32.hpp>
+
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif
@@ -53,19 +56,17 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		uint32_t sizemib = sizebytes / ONE_MEG;
 		printf("New disk: %s. Sector size: %d, Sectors: %d, Size: %dMiB\n", name, sector_size, n_sectors, sizemib);
 	}
-
-	uint8_t *buffer = new uint8_t[512];
-	volatile DiskJob *job = new DiskJob(buffer, 0, 1, 0);
-	DiskManager::get().enqueue_job(0, job);
-	size_t i = 0;
-	while(job->state == DiskJob::WAITING)
-		i++;
-	printf("Finish: %d\n", i);
-	for(size_t i = 0; i < 12; i++) {
-		uint8_t p = job->buffer[i];
-		printf("%p ", p);
+	PartitionManager p{0};
+	auto parts = p.get_partitions();
+	for(size_t i = 0; i < parts.size(); i++) {
+		uint64_t sizebytes = parts[i].total_sectors * disks[0].second->get_sector_size();
+		uint32_t sizemb = sizebytes / ONE_MEG;
+		uint32_t system_id = parts[i].system_id;
+		printf("Partition: %d %dMiB, start sector: %d, type: %p\n", i, sizemb, parts[i].lba, system_id);
+		if(system_id == 0xc) {
+			FAT32 fat{p, i};
+		}
 	}
-	
 
 	#ifdef DEBUG
 	test_paging();
