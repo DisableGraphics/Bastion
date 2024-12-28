@@ -15,6 +15,8 @@ class Vector {
 		void pop_back();
 		bool empty() const;
 
+		void erase(size_t pos);
+
 		void reserve(size_t n);
 		
 		T &back();
@@ -47,12 +49,15 @@ void Vector<T>::push_back(const T&elem) {
 
 template <typename T>
 void Vector<T>::pop_back() {
-	T elem = arr[0];
-	for(size_t i = 0; i < size(); i++) {
+	arrsize--;
+}
+
+template <typename T>
+void Vector<T>::erase(size_t pos) {
+	for(size_t i = pos; i < size(); i++) {
 		arr[i] = arr[i+1];
 	}
 	arrsize--;
-	return elem;
 }
 
 template <typename T>

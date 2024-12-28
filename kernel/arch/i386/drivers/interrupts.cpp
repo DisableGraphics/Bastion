@@ -15,28 +15,28 @@ IDT& IDT::get() {
 }
 
 void IDT::set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
-    idt_entry_t* descriptor = &idt[vector];
+	idt_entry_t* descriptor = &idt[vector];
 
-    descriptor->isr_low        = (uint32_t)isr & 0xFFFF;
-    descriptor->kernel_cs      = 0x08; // this value can be whatever offset your kernel code selector is in your GDT
-    descriptor->attributes     = flags;
-    descriptor->isr_high       = (uint32_t)isr >> 16;
-    descriptor->reserved       = 0;
+	descriptor->isr_low = (uint32_t)isr & 0xFFFF;
+	descriptor->kernel_cs = 0x08; // this value can be whatever offset your kernel code selector is in your GDT
+	descriptor->attributes = flags;
+	descriptor->isr_high = (uint32_t)isr >> 16;
+	descriptor->reserved = 0;
 }
 
 void IDT::init() {
-    idtr.base = (uintptr_t)&idt[0];
-    idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
+	idtr.base = (uintptr_t)&idt[0];
+	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
 
 	fill_isr_table();
 
-    for (uint32_t vector = 0; vector < 32; vector++) {
-        set_descriptor(vector, isr_table[vector], 0x8E);
+	for (uint32_t vector = 0; vector < 32; vector++) {
+		set_descriptor(vector, isr_table[vector], 0x8E);
 		//printf("%p ", isr_stub_table[vector]);
-    }
+	}
 
 	set_idtr(idtr);
-    enable_interrupts();
+	enable_interrupts();
 }
 
 void IDT::enable_interrupts() {

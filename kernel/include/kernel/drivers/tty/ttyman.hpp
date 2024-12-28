@@ -27,12 +27,12 @@ class TTYManager {
 			\param data Data to write
 			\param size Size of the data to write
 		 */
-        void write(const char* data, size_t size);
+		void write(const char* data, size_t size);
 		/**
 			\brief Write a null terminated string into the current TTY
 			\param data String to write
 		 */
-        void writestring(const char* data);
+		void writestring(const char* data);
 		/**
 			\brief Change current tty
 			\param tty TTY to change. 

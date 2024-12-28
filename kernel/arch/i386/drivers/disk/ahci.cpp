@@ -30,16 +30,18 @@
 
 uint8_t int_line;
 
+// Global variable to track where is the AHCI driver in memory.
+// interrupt_handler() is a static function so I need this
 AHCI *self;
 
 AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
 	init();
-	//init_standard();
 }
 
 void AHCI::init() {
 	PCI &pci = PCI::get();
 	PagingManager& pm = PagingManager::get();
+	// Get the BARs
 	for(int i = 0; i < 6; i++) {
 		bars[i] = pci.getBAR(device.bus, device.device, device.function, i);
 	}
@@ -51,6 +53,8 @@ void AHCI::init() {
 	command_register |= MEM_SPACE;
 	pci.writeConfigWord(device.bus, device.device, device.function, COMMAND, command_register);
 	
+	// Get the HBA address (in bars[5]) and map all those pages as READ_WRITE and CACHE_DISABLE
+	// Finally, assign the hba to the address
 	uintptr_t ptr = reinterpret_cast<uintptr_t>(bars[5]);
 	uintptr_t region = ptr & 0xFFC00000;
 	if(!pm.page_table_exists(reinterpret_cast<void*>(ptr))) {
@@ -61,41 +65,31 @@ void AHCI::init() {
 	pm.map_page(reinterpret_cast<void*>(ptr), reinterpret_cast<void*>(ptr), CACHE_DISABLE | READ_WRITE);
 	pm.map_page(reinterpret_cast<void*>(ptr+PAGE_SIZE), reinterpret_cast<void*>(ptr+PAGE_SIZE), CACHE_DISABLE | READ_WRITE);
 	hba = reinterpret_cast<volatile HBA_MEM*>(ptr);
-
+	// Allocate a number of pages to put all the data structures the rebasing of ports needs
 	AHCI_BASE = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(76, CACHE_DISABLE | READ_WRITE));
 	
+	// Get all devices and rebase the port of the devices that aren't empty
 	uint32_t pi = hba->pi;
 	for(size_t i = 0; i < 32; i++, pi >>= 1) {
 		if(pi & 1) {
 			AHCI_DEV device = get_device_type(hba->ports + i);
 			if(device != NULLDEV) {
 				rebase_port(&hba->ports[i], i);
-				printf("Setting up %d\n", i);
 			}
 			devices.push_back({i, device});
 		}
 	}
-
+	// Do bios handoff if needed
 	if((hba->bohc & 0x1)) {
 		if(!bios_handoff()) {
-			printf("BIOS is a fucker\nReason: BIOS is selfish, doesn't want to hand off device.");
-		} else {
-			printf("BIOS handoff correct\n");
+			printf("BIOS is selfish, doesn't want to hand off AHCI device.");
 		}
-	} else {
-		printf("No need to hand off from BIOS\n");
 	}
-	/*if(reset_controller()) {
-		printf("AHCI reset successful\n");
-	} else {
-		printf("AHCI reset went wrong\n");
-	}*/
+	// Enable AHCI mode of the driver and setup interrupts
 	enable_ahci_mode();
 	setup_interrupts();
 	
 	for(size_t i = 0; i < devices.size(); i++) {
-		//hba->ghc |= 1;
-		//while(hba->ghc & 1);
 		if(devices[i].second != NULLDEV) {
 			volatile HBA_PORT * currport = &hba->ports[i];
 			reset_port(currport);
@@ -113,7 +107,9 @@ void AHCI::init() {
 			
 		}
 	}
+	// Set the global variable so the interrupt handler knows wtf is going on
 	self = this;
+	// Finally enable interrupts
 	enable_interrupts();
 }
 
@@ -121,12 +117,12 @@ void AHCI::enable_interrupts() {
 	hba->ghc |= (1 << 1);
 }
 
-#define GHC_REG    0x00    // Global Host Control Register offset
-#define PORT_CMD   0x18    // Port Command Register offset
-#define PORT_SCR   0x28    // Port Status/Control Register offset
+#define GHC_REG 0x00 // Global Host Control Register offset
+#define PORT_CMD 0x18 // Port Command Register offset
+#define PORT_SCR 0x28 // Port Status/Control Register offset
 
 // Define the global control register bits
-#define GHC_HRST   (1 << 0)   // Host reset bit
+#define GHC_HRST   (1 << 0) // Host reset bit
 
 // Define the port command register bits
 #define PORT_CMD_ST  (1 << 0)  // Start the port
@@ -192,8 +188,8 @@ void AHCI::rebase_port(volatile HBA_PORT *port, int portno) {
 	vmemset((void*)(port->fb), 0, 256);
 
 	port->serr = 1;   //For each implemented port, clear the PxSERR register, by writing 1 to each mplemented location
-    port->is   = 0;
-    port->ie   = 1;
+	port->is   = 0;
+	port->ie   = 1;
 
 	// Command table offset: 40K + 8K*portno
 	// Command table size = 256*32 = 8K per port
@@ -242,20 +238,23 @@ void AHCI::stop_cmd(volatile HBA_PORT *port) {
 
 void AHCI::interrupt_handler(interrupt_frame*) {
 	uint32_t global_is = self->hba->is;  // Read global interrupt status
-    for (int port = 0; port < self->devices.size(); ++port) {
-        if (global_is & (1 << port)) {
-            uint32_t port_is = self->hba->ports[port].is;  // Read port-specific interrupt status
-            if (port_is & (1 << 0)) {
+	for (int port = 0; port < self->devices.size(); ++port) {
+		if (global_is & (1 << port)) {
+			uint32_t port_is = self->hba->ports[port].is;  // Read port-specific interrupt status
+			// Everything went OK
+			if (port_is & (1 << 0)) {
 				printf("yass\n");
-            }
-            if (port_is & (1 << 30)) {
+			}
+			// Error
+			if (port_is & (1 << 30)) {
 				printf("o no\n");
-            }
-            self->hba->ports[port].is = port_is;  // Clear port-specific status
-        }
-    }
-    self->hba->is = global_is;  
-
+			}
+			self->hba->ports[port].is = port_is;  // Clear port-specific status
+		}
+	}
+	// Clear global interrupt status
+	self->hba->is = global_is;  
+	// Finally send End Of Interrupt
 	PIC::get().send_EOI(int_line);
 }
 
@@ -319,12 +318,8 @@ void AHCI::enable_ahci_mode() {
 	hba->ghc |= 0x80000010;
 }
 
-bool AHCI::read(uint64_t lba, uint32_t sector_count, uint16_t *buf) {
-	return dma_transfer(false, lba, sector_count, buf);
-}
-
-bool AHCI::write(uint64_t lba, uint32_t sector_count, uint16_t* buffer) {
-	return dma_transfer(true, lba, sector_count, buffer);
+bool AHCI::enqueue_job(const DiskJob &job) {
+	return dma_transfer(job.write, job.lba, job.sector_count, reinterpret_cast<uint16_t*>(job.buffer));
 }
 
 uint64_t AHCI::get_disk_size() const {
@@ -414,28 +409,6 @@ bool AHCI::dma_transfer(bool is_write, uint64_t lba, uint32_t count, uint16_t *b
 	}
 
 	port->ci = 1<<slot;	// Issue command
-
-	// Wait for completion
-	/*while (1)
-	{
-		// In some longer duration reads, it may be helpful to spin on the DPS bit 
-		// in the PxIS port field as well (1 << 5)
-		if ((port->ci & (1<<slot)) == 0) 
-			break;
-		if (port->is & HBA_PxIS_TFES)	// Task file error
-		{
-			printf("Read disk error\n");
-			return false;
-		}
-	}
-
-	// Check again
-	if (port->is & HBA_PxIS_TFES)
-	{
-		printf("Read disk error\n");
-		return false;
-	}*/
-
 	return true;
 }
 
@@ -459,7 +432,7 @@ void AHCI::port_interrupts(volatile HBA_PORT *port) {
 bool AHCI::is_drive_connected(volatile HBA_PORT *port) {
 	// Read the SATA Status Register (PxSSTS)
 	uint32_t ssts = port->ssts;
-	uint8_t det = ssts & 0x0F;       // Device Detection bits (0–3)
+	uint8_t det = ssts & 0x0F; // Device Detection bits (0–3)
 	uint8_t ipm = (ssts >> 8) & 0x0F; // Interface Power Management bits (8–11)
 
 	// Check if a device is connected and communicating
@@ -479,8 +452,8 @@ bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uin
 		return false;
 	volatile HBA_CMD_HEADER *cmd_header = (volatile HBA_CMD_HEADER *)((port->clb+HIGHER_HALF_OFFSET) + slot);
 	cmd_header->cfl = sizeof(FIS_REG_H2D) / 4; // Command FIS length in DWORDs
-	cmd_header->w = 0;                         // Write (0 for read)
-	cmd_header->prdtl = 1;                     // 1 PRDT entry
+	cmd_header->w = 0; // Write (0 for read)
+	cmd_header->prdtl = 1; // 1 PRDT entry
 	cmd_header->p = 1;
 
 	// 3. Prepare Command Table
@@ -491,7 +464,7 @@ bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uin
 	cmd_table->prdt_entry[0].dba = (uint32_t)PagingManager::get().get_physaddr(buffer);
 	cmd_table->prdt_entry[0].dbau = 0;
 	cmd_table->prdt_entry[0].dbc = 511; // 512 bytes - 1
-	cmd_table->prdt_entry[0].i = 0;     // Interrupt on completion
+	cmd_table->prdt_entry[0].i = 0; // Interrupt on completion
 
 	// Command FIS
 	volatile FIS_REG_H2D *cmd_fis = (FIS_REG_H2D *)cmd_table->cfis;
@@ -505,27 +478,27 @@ bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uin
 
 	// 5. Wait for completion
 	// Wait for completion
-    while (1)
-    {
-        // In some longer duration reads, it may be helpful to spin on the DPS bit 
-        // in the PxIS port field as well (1 << 5)
-        if ((port->ci & (1<<slot)) == 0) 
-        {
-            break;
-        }
-        if (port->is & HBA_PxIS_TFES)   // Task file error
-        {
-            printf("Read disk error\n");
-            return 0;
-        }
-    }
+	while (1)
+	{
+		// In some longer duration reads, it may be helpful to spin on the DPS bit 
+		// in the PxIS port field as well (1 << 5)
+		if ((port->ci & (1<<slot)) == 0) 
+		{
+			break;
+		}
+		if (port->is & HBA_PxIS_TFES)   // Task file error
+		{
+			printf("Read disk error\n");
+			return 0;
+		}
+	}
 
-    // Check again
-    if (port->is & HBA_PxIS_TFES)
-    {
-        printf("Read disk error\n");
-        return 0;
-    }
+	// Check again
+	if (port->is & HBA_PxIS_TFES)
+	{
+		printf("Read disk error\n");
+		return 0;
+	}
 
 	// 6. Process Response
 	uint16_t *identify_data = (uint16_t *)buffer;

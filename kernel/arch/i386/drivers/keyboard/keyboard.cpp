@@ -43,7 +43,7 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 	
 	k.driver_state = k.get_next_state(recv);
 	switch(k.driver_state) {
-        case NORMAL_KEY_FINISHED:
+		case NORMAL_KEY_FINISHED:
 			k.key_queue.push({
 				k.is_key_released,
 				get_key_normal(recv)
@@ -51,13 +51,13 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 			k.is_key_released = false;
 			k.driver_state = INITIAL;
 			break;
-        case NORMAL_KEY_RELEASED:
+		case NORMAL_KEY_RELEASED:
 			k.is_key_released = true;
 			break;
-        case MEDIA_KEY_RELEASED:
+		case MEDIA_KEY_RELEASED:
 			k.is_key_released = true;
 			break;
-        case MEDIA_KEY_FINISHED:
+		case MEDIA_KEY_FINISHED:
 			k.key_queue.push({
 				k.is_key_released,
 				get_key_media(recv)
@@ -65,9 +65,9 @@ void Keyboard::keyboard_handler(interrupt_frame* a) {
 			k.is_key_released = false;
 			k.driver_state = INITIAL;
 			break;
-        case PRINT_SCREEN_RELEASED:
+		case PRINT_SCREEN_RELEASED:
 			k.is_key_released = true;
-        case PRINT_SCREEN_PRESSED:
+		case PRINT_SCREEN_PRESSED:
 			k.key_queue.push({
 				k.is_key_released,
 				PRINT_SCREEN

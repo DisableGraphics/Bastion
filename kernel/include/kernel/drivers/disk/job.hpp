@@ -7,6 +7,11 @@ struct DiskJob {
 		FINISHED,
 		WAITING
 	} state;
+
+	DiskJob(uint8_t* buffer, uint64_t lba, uint32_t sector_count, bool write);
+
 	uint8_t * buffer;
-	
+	uint64_t lba;
+	uint32_t sector_count;
+	bool write;
 };

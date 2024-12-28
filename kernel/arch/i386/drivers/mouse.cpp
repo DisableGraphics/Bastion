@@ -12,16 +12,16 @@ void Mouse::init() {
 	try_init_wheel();
 	type = PS2Controller::get().get_device_type(port);
 	switch(type) {
-        case PS2Controller::MOUSE:
+		case PS2Controller::MOUSE:
 			nbytes = 3;
 			break;
-        case PS2Controller::MOUSE_SCROLLWHEEL:
+		case PS2Controller::MOUSE_SCROLLWHEEL:
 			nbytes = 4;
 			break;
-        case PS2Controller::MOUSE_5BUTTON:
+		case PS2Controller::MOUSE_5BUTTON:
 			break;
-        default:
-          	return;
+		default:
+		  	return;
 	}
 
 	IDT::get().set_handler(irqline + 0x20, Mouse::mouse_handler);

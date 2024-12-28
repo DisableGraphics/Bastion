@@ -13,16 +13,18 @@
 #endif
 
 typedef struct {
-    uint16_t sector_size;
-    uint64_t sector_count;
+	uint16_t sector_size;
+	uint64_t sector_count;
 } DriveInfo;
 
+/**
+	\brief AHCI (SATA) disk driver
+ */
 class AHCI : public DiskDriver {
 	public:
 		AHCI(const PCI::PCIDevice &device);
 
-		bool read(uint64_t lba, uint32_t sector_count, uint16_t *buf) override;
-		bool write(uint64_t lba, uint32_t sector_count, uint16_t*) override;
+		bool enqueue_job(const DiskJob &job) override;
 		uint64_t get_disk_size() const override;
 		uint32_t get_sector_size() const override;
 		void init();

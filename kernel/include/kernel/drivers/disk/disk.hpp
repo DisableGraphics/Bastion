@@ -1,6 +1,7 @@
 #pragma once
 #include <kernel/datastr/pair.hpp>
 #include <kernel/datastr/vector.hpp>
+#include <kernel/drivers/disk/job.hpp>
 #include <kernel/drivers/disk/disk_driver.hpp>
 
 struct diskname {
@@ -15,6 +16,8 @@ class DiskManager {
 	public:
 		static DiskManager &get();
 		void init();
+
+		bool enqueue_job(size_t diskid, const DiskJob &job);
 		
 		DiskDriver* get_driver(size_t pos);
 		Vector<Pair<diskname, DiskDriver*>>& get_disks();

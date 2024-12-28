@@ -97,63 +97,63 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 }
 
 void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
-    // Total number of pages in the system
-    size_t total_pages = memsize / PAGE_SIZE;
+	// Total number of pages in the system
+	size_t total_pages = memsize / PAGE_SIZE;
 
-    // Iterating through the bitmap to find a range of free pages
-    size_t consecutive_free = 0;
-    size_t start_page = 0;
+	// Iterating through the bitmap to find a range of free pages
+	size_t consecutive_free = 0;
+	size_t start_page = 0;
 
 	constexpr size_t bitmap_size_bits = sizeof(bitmap_t) * BITS_PER_BYTE;
 
-    for (size_t i = 0; i < total_pages; ++i) {
+	for (size_t i = 0; i < total_pages; ++i) {
 		size_t bit_index = i % bitmap_size_bits;
 		size_t byte_index = i / bitmap_size_bits;
-        // Check if the page is free in the bitmap
-        if ((pages_bitmap[byte_index] & (1 << bit_index)) == 0) {
-            if (consecutive_free == 0) {
-                start_page = i;
-            }
-            consecutive_free++;
-            // If we found the required number of pages, break
-            if (consecutive_free == pages) {
-                break;
-            }
-        } else {
-            // Reset if a used page is found
-            consecutive_free = 0;
-        }
-    }
+		// Check if the page is free in the bitmap
+		if ((pages_bitmap[byte_index] & (1 << bit_index)) == 0) {
+			if (consecutive_free == 0) {
+				start_page = i;
+			}
+			consecutive_free++;
+			// If we found the required number of pages, break
+			if (consecutive_free == pages) {
+				break;
+			}
+		} else {
+			// Reset if a used page is found
+			consecutive_free = 0;
+		}
+	}
 
-    // If no suitable range was found, return NULL
-    if (consecutive_free < pages) {
-        return nullptr;
-    }
+	// If no suitable range was found, return NULL
+	if (consecutive_free < pages) {
+		return nullptr;
+	}
 
-    // Calculate the start address of the found pages
-    void *start_addr = reinterpret_cast<void *>((start_page * PAGE_SIZE) + HIGHER_HALF_OFFSET);
+	// Calculate the start address of the found pages
+	void *start_addr = reinterpret_cast<void *>((start_page * PAGE_SIZE) + HIGHER_HALF_OFFSET);
 
-    // Verify the address range does not overlap with used regions
-    for (size_t i = 0; i < ureg_size; ++i) {
-        for (size_t offset = 0; offset < pages; ++offset) {
-            void *current_addr = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(start_addr) + offset * PAGE_SIZE);
-            if (used_regions[i].contains(current_addr)) {
-                // Address range invalid, abort allocation
-                return nullptr;
-            }
-        }
-    }
+	// Verify the address range does not overlap with used regions
+	for (size_t i = 0; i < ureg_size; ++i) {
+		for (size_t offset = 0; offset < pages; ++offset) {
+			void *current_addr = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(start_addr) + offset * PAGE_SIZE);
+			if (used_regions[i].contains(current_addr)) {
+				// Address range invalid, abort allocation
+				return nullptr;
+			}
+		}
+	}
 	PagingManager &pm = PagingManager::get();
-    // Mark the pages as allocated in the bitmap
-    for (size_t i = 0; i < pages; ++i) {
-        size_t page_index = start_page + i;
-        pages_bitmap[page_index / bitmap_size_bits] |= (1 << (page_index % bitmap_size_bits));
+	// Mark the pages as allocated in the bitmap
+	for (size_t i = 0; i < pages; ++i) {
+		size_t page_index = start_page + i;
+		pages_bitmap[page_index / bitmap_size_bits] |= (1 << (page_index % bitmap_size_bits));
 		size_t addr = reinterpret_cast<size_t>(start_addr) + i * PAGE_SIZE;
 		void *current_addr = reinterpret_cast<void *>(addr - HIGHER_HALF_OFFSET);
 		void *virtuaddr = reinterpret_cast<void*>(addr);
 
 		pm.map_page(current_addr, virtuaddr, map_flags);
-    }
+	}
 	return start_addr;
 }
 

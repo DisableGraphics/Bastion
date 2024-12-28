@@ -4,7 +4,7 @@
 #include <string.h>
 
 TTY::TTY() {
-    terminal_row = 0;
+	terminal_row = 0;
 	terminal_column = 0;
 	terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 
@@ -17,7 +17,7 @@ TTY::TTY() {
 }
 
 void TTY::putchar(char c) {
-    unsigned char uc = c;
+	unsigned char uc = c;
 	if(uc == '\b') {
 		handle_backspace();
 	} else if(uc == '\n'){
@@ -36,12 +36,12 @@ void TTY::putchar(char c) {
 }
 
 void TTY::write(const char* data, size_t size) {
-    for (size_t i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++)
 		putchar(data[i]);
 }
 
 void TTY::writestring(const char* data) {
-    write(data, strlen(data));
+	write(data, strlen(data));
 }
 
 void TTY::putentryat(unsigned char c, uint8_t color, size_t x, size_t y) {

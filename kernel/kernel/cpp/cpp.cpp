@@ -1,7 +1,7 @@
 #include <error.h>
 
 extern "C" void __cxa_pure_virtual() {
-    kerror("__cxa_pure_virtual() called", "");
+	kerror("__cxa_pure_virtual() called", "");
 }
 
 namespace __cxxabiv1 

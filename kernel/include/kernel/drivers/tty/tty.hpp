@@ -4,12 +4,12 @@
 
 // TTY
 class TTY {
-    public:
+	public:
 		TTY();
-        void init();
-        void putchar(char c);
-        void write(const char* data, size_t size);
-        void writestring(const char* data);
+		void init();
+		void putchar(char c);
+		void write(const char* data, size_t size);
+		void writestring(const char* data);
 		uint16_t * get_buffer();
 
 		const static size_t VGA_WIDTH = 80;

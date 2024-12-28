@@ -63,3 +63,10 @@ Vector<Pair<diskname, DiskDriver*>>& DiskManager::get_disks() {
 size_t DiskManager::size() const {
 	return disk_controllers.size();
 }
+
+bool DiskManager::enqueue_job(size_t diskid, const DiskJob &job) {
+	if(diskid >= disk_controllers.size())
+		return false;
+	
+	return disk_controllers[diskid].second->enqueue_job(job);
+}

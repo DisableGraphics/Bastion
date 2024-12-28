@@ -4,7 +4,7 @@ extern "C" {
 #endif
 
 typedef struct {
-    void* count; // Opaque pointer to internal semaphore data
+	void* count; // Opaque pointer to internal semaphore data
 } sem_t;
 /**
 	\brief Initialise the semaphore.

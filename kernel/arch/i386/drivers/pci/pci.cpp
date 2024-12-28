@@ -98,8 +98,8 @@ const PCI::PCIDevice* PCI::search_device(size_t dev_class, size_t dev_subclass) 
 }
 
 uint32_t PCI::getBAR(uint8_t bus, uint8_t device, uint8_t function, uint8_t barIndex) {
-    uint8_t offset = 0x10 + (barIndex * 4); // BARs start at 0x10
-    uint32_t lower = readConfigWord(bus, device, function, offset);
+	uint8_t offset = 0x10 + (barIndex * 4); // BARs start at 0x10
+	uint32_t lower = readConfigWord(bus, device, function, offset);
 	uint32_t upper = readConfigWord(bus, device, function, offset + 2);
 	return (upper << 16) | lower; 
 }
@@ -121,21 +121,21 @@ void PCI::addDevice(uint8_t bus, uint8_t device, uint8_t function) {
 	prog_if};
 }
 void PCI::writeConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data) {
-    // Validate offset (must be aligned to 2 bytes)
-    if (offset % 2 != 0) {
-        return;
-    }
+	// Validate offset (must be aligned to 2 bytes)
+	if (offset % 2 != 0) {
+		return;
+	}
 
-    // Calculate the address to write to 0xCF8
-    uint32_t address = (1 << 31) | // Enable bit
-                       (bus << 16) |
-                       (device << 11) |
-                       (function << 8) |
-                       (offset & 0xFC); // Mask lower 2 bits to align
+	// Calculate the address to write to 0xCF8
+	uint32_t address = (1 << 31) | // Enable bit
+					   (bus << 16) |
+					   (device << 11) |
+					   (function << 8) |
+					   (offset & 0xFC); // Mask lower 2 bits to align
 
-    // Write the address to 0xCF8
-    outl(CONFIG_ADDRESS, address);
+	// Write the address to 0xCF8
+	outl(CONFIG_ADDRESS, address);
 
-    // Write the data to 0xCFC (word access)
-    outl(CONFIG_DATA + (offset % 4), data);
+	// Write the data to 0xCFC (word access)
+	outl(CONFIG_DATA + (offset % 4), data);
 }

@@ -34,12 +34,12 @@ UniquePtr<T>::UniquePtr(UniquePtr<T> &&other) {
 
 template<typename T> 
 UniquePtr<T>& UniquePtr<T>::operator=(UniquePtr<T>&& other) {
-    if (this != &other) {
-        delete ptr;        // Clean up existing resource
-        ptr = other.ptr;  // Transfer ownership
-        other.ptr = nullptr; // Null out the source pointer
-    }
-    return *this;
+	if (this != &other) {
+		delete ptr;        // Clean up existing resource
+		ptr = other.ptr;  // Transfer ownership
+		other.ptr = nullptr; // Null out the source pointer
+	}
+	return *this;
 }
 
 template<typename T> 
