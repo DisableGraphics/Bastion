@@ -18,4 +18,5 @@ Guidelines:
 	- Internal Kernel interfaces
 	- Implementation of C libraries and/or C interfaces that requires access to kernel interfaces.
 - Possible use of Zig and/or Rust:
-	- Same as C, except no public facing interfaces. Only the internal implementation.
+	- Same as C, except no public facing interfaces. Only the internal implementation of C functions.
+		(This is only if you have a really good reason to do so.)
