@@ -11,6 +11,14 @@ extern "C" {
 __attribute__((__noreturn__))
 void abort(void);
 
+#define RAND_MAX 32768
+
+int rand(void);
+void srand(unsigned int seed);
+
+// True random number generator (Platform-dependent)
+int trand(void);
+
 #ifdef __cplusplus
 }
 #endif

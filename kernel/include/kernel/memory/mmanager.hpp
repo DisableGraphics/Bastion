@@ -13,9 +13,9 @@ struct used_region {
 	// End of the region
 	void * end;
 	/**
-		\brief Wether the address addr is contained in this used region
-		\param addr The address to check
-		\return true if addr is in this region, false otherwise
+		\brief Wether the address addr is contained in this used region.
+		\param addr The address to check.
+		\return true if addr is in this region, false otherwise.
 	 */
 	bool contains(void *addr) {
 		uintptr_t addr_ptr = reinterpret_cast<uintptr_t>(addr);
@@ -24,9 +24,9 @@ struct used_region {
 };
 
 /**
-	\brief Memory manager for the kernel
-	Implemented as a singleton
-	Is the one that does and keeps track of memory allocations
+	\brief Memory manager for the kernel.
+	Implemented as a singleton.
+	Is the one that does and keeps track of memory allocations.
  */
 class MemoryManager {
 	public:
@@ -45,11 +45,11 @@ class MemoryManager {
 		 */
 		void free_pages(void *start, size_t pages);
 		/**
-			\brief Get used regions
+			\brief Get used regions.
 		 */
 		used_region * get_used_regions();
 		/**
-			\brief Get number of used regions
+			\brief Get number of used regions.
 		 */
 		size_t get_used_regions_size();
 	private:
@@ -61,7 +61,7 @@ class MemoryManager {
 		 */
 		bitmap_t * alloc_bitmap();
 		/**
-			\brief Allocate the page tables vector
+			\brief Allocate the page tables vector.
 		 */
 		void alloc_pagevec();
 		/**
@@ -76,8 +76,8 @@ class MemoryManager {
 		bitmap_t *pages_bitmap = nullptr;
 		/**
 			\brief bitmap_size: size of the bitmap in bytes.
-			bitmap_n: Number of bitmap_t's in the bitmap
-			bitmap_size_pages: size of the bitmap in pages
+			bitmap_n: Number of bitmap_t's in the bitmap.
+			bitmap_size_pages: size of the bitmap in pages.
 		 */
 		size_t bitmap_size = 0;
 		size_t bitmap_n = 0;

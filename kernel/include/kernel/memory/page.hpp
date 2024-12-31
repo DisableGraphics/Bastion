@@ -60,11 +60,11 @@ class PagingManager {
 		 */
 		bool is_mapped(void* addr);
 		/**
-
+			\brief Set position of where the page table vector is in memory
 		 */
 		void set_pagevec(page_t * vec);
 		/**
-		
+			\brief Whether a page table exists for a given address.
 		 */
 		bool page_table_exists(void *addr);
 	private:

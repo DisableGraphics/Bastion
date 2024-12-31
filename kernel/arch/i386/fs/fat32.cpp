@@ -22,7 +22,6 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) {
 		partname[11] = 0;
 		printf("Total sectors: %d. FAT Size: %d. Name: %s\n", total_sectors, fat_size, partname);
 	}
-
 	delete[] buffer;
 	delete job;
 }

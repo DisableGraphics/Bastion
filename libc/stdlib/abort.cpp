@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 __attribute__((__noreturn__))
-void abort(void) {
+extern "C" void abort(void) {
 #if defined(__is_libk)
 	kn::panic("kernel: panic: abort()\n");
 #else

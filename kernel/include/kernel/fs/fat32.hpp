@@ -1,4 +1,5 @@
 #include <kernel/fs/partmanager.hpp>
+#include <kernel/sync/semaphore.hpp>
 
 class FAT32 {
 	public:

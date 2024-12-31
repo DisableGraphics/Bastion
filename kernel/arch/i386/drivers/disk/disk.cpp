@@ -23,13 +23,14 @@ DiskManager &DiskManager::get() {
 }
 
 DiskManager::~DiskManager() {
-	for(size_t i = 0; i < ndevices; i++) {
+	// Free each disk controller
+	for(size_t i = 0; i < disk_controllers.size(); i++) {
 		delete disk_controllers[i].second;
 	}
 }
 
 void DiskManager::init() {
-	ndevices = PCI::get().getDeviceCount();
+	size_t ndevices = PCI::get().getDeviceCount();
 	PCI::PCIDevice const *devices = PCI::get().getDevices();
 	char numberdisk = 'a';
 	for(size_t i = 0; i < ndevices; i++) {

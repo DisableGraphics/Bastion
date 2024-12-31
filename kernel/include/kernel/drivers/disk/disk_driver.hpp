@@ -5,7 +5,13 @@
 
 class DiskDriver {
 	public:
+		/**
+			\brief Disk driver constructor
+		 */
 		DiskDriver(const PCI::PCIDevice &device);
+		/**
+			\brief Destructor
+		 */
 		virtual ~DiskDriver() = default;
 		/**
 			\brief Enqueues disk reading/writing job
@@ -16,10 +22,17 @@ class DiskDriver {
 		 */
 		virtual bool enqueue_job(volatile DiskJob* job) = 0;
 
-		// Get disk size in sectors
+		/** 
+			\brief Get number of sectors of disk
+		 */
 		virtual uint64_t get_n_sectors() const = 0;
+		/**
+			\brief Get sector size of disk
+			\return Sector size or default 512B
+		 */
 		virtual uint32_t get_sector_size() const { return 512; };
 	protected:
+		// PCI device and info
 		PCI::PCIDevice device;
 		uint32_t bars[6];
 		Vector<DiskJob*> jobs;

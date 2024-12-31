@@ -21,6 +21,8 @@
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
 
+#include <stdlib.h>
+
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif

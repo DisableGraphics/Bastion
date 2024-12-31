@@ -14,4 +14,5 @@ isodir
 *.serial
 docs/kernel/*/
 build
+device.map
 *.img

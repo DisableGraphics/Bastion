@@ -246,7 +246,7 @@ void AHCI::interrupt_handler(interrupt_frame*) {
 			if (port_is & (1 << 0)) {
 				for (int slot = 0; slot < 32; ++slot) {
 					if (!(prt->ci & (1 << slot)) && self->active_jobs[slot]) {
-						self->active_jobs[slot]->state = DiskJob::FINISHED;  // Update job state
+						self->active_jobs[slot]->finish();
 						self->active_jobs[slot] = nullptr;  // Clear the slot
 					}
 				}
@@ -255,7 +255,7 @@ void AHCI::interrupt_handler(interrupt_frame*) {
 			if (port_is & (1 << 30)) {
 				for (int slot = 0; slot < 32; ++slot) {
 					if (!(prt->ci & (1 << slot)) && self->active_jobs[slot]) {
-						self->active_jobs[slot]->state = DiskJob::ERROR;  // Update job state
+						self->active_jobs[slot]->error();  // Update job state
 						self->active_jobs[slot] = nullptr;  // Clear the slot
 					}
 				}
