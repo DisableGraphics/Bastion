@@ -23,6 +23,7 @@
 #include <kernel/fs/fat32.hpp>
 
 #include <stdlib.h>
+#include <time.h>
 
 #ifdef DEBUG
 #include <kernel/test.hpp>

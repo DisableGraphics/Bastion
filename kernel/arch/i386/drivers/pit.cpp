@@ -95,13 +95,14 @@ void PIT::set_count(uint16_t count) {
 }
 
 void PIT::pit_handler(interrupt_frame *) {
-	PIT::get().system_timer_fractions += PIT::get().IRQ0_fractions;
-	PIT::get().system_timer_ms += PIT::get().IRQ0_ms;
+	PIT& pit = PIT::get();
+	pit.system_timer_fractions += pit.IRQ0_fractions;
+	pit.system_timer_ms += pit.IRQ0_ms;
 	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
-		if(PIT::get().allocated & (1 << i)) {
-			PIT::get().kernel_countdowns[i] -= PIT::get().IRQ0_ms;
-			if(PIT::get().kernel_countdowns[i] < 0 && PIT::get().callbacks[i] != nullptr) {
-				PIT::get().callbacks[i](PIT::get().callback_args[i]);
+		if(pit.allocated & (1 << i)) {
+			pit.kernel_countdowns[i] -= pit.IRQ0_ms;
+			if(pit.kernel_countdowns[i] < 0 && pit.callbacks[i] != nullptr) {
+				pit.callbacks[i](pit.callback_args[i]);
 			}
 		}
 	}

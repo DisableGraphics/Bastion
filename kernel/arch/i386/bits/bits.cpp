@@ -7,3 +7,7 @@ uint8_t bits::popcount(uint32_t i) {
 	i *= 0x01010101;                        // horizontal sum of bytes
 	return  i >> 24;  
 }
+
+uint32_t bits::bcd2normal(uint32_t bcd) {
+	return ((bcd & 0xF0) >> 1) + ((bcd & 0xF0) >> 3) + (bcd & 0xf);
+}

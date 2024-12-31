@@ -3,13 +3,16 @@
 
 // The following functions define a portable implementation of rand and srand.
 
-static uint32_t next = 1;
+static uint64_t rand_state = 123456789;
 
-extern "C" int rand(void) {  // RAND_MAX assumed to be 32767
-    next = next * 1103515245 + 12345;
-    return (unsigned int) (next / 65536) % RAND_MAX;
+#define RAND_A 6364136223846793005ULL
+#define RAND_C 1ULL
+
+extern "C" int rand() {
+    rand_state = rand_state * RAND_A + RAND_C;
+    return (int)(rand_state >> 32); // Use higher-order bits for better randomness
 }
 
 extern "C" void srand(unsigned int seed) {
-    next = seed;
+    rand_state = seed;
 }

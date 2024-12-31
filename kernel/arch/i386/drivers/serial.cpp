@@ -39,7 +39,8 @@ bool Serial::received() {
 }
 
 char Serial::read() {
-	while(!received());
+	while(!received())
+		;
    	return inb(PORT);
 }
 
