@@ -17,6 +17,8 @@ int rand(void);
 void srand(unsigned int seed);
 
 // True random number generator (Platform-dependent)
+// Returns -1 if a number can't be generated 
+// (i.e lack of HW support)
 int trand(void);
 
 #ifdef __cplusplus

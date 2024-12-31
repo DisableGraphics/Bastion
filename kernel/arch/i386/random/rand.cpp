@@ -25,7 +25,7 @@ void check_available() {
 }
 
 int krand_internal() {
-	int random_value = 0;
+	int random_value = -1;
 	int retries = 100;
 	if(available_rands[0]) {
 		__asm__ (
