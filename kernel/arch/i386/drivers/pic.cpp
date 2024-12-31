@@ -96,3 +96,7 @@ void PIC::send_EOI(uint8_t irq) {
 	}
 	outb(PIC1_COMMAND, PIC_EOI);
 }
+
+uint8_t PIC::get_offset() {
+	return 0x20;
+}

@@ -17,6 +17,7 @@
 #include <multiboot/multiboot.h>
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/disk.hpp>
+#include <kernel/drivers/rtc.hpp>
 
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -43,6 +44,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	IDT::get().init();
 	
 	PIT::get().init(1000);
+	RTC::get().init();
 	PS2Controller::get().init();
 	Keyboard::get().init();
 	Mouse::get().init();

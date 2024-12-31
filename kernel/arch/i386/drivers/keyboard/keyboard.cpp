@@ -24,7 +24,7 @@ void Keyboard::init() {
 		return;
 
 	irq_line = port == 2 ? 12 : 1;
-	IDT::get().set_handler(irq_line + 0x20, Keyboard::keyboard_handler);
+	IDT::get().set_handler(irq_line + PIC::get().get_offset(), Keyboard::keyboard_handler);
 	if(irq_line > 8)
 		PIC::get().IRQ_clear_mask(2); // Slave PIC
 	PIC::get().IRQ_clear_mask(irq_line);

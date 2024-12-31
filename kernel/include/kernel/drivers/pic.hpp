@@ -55,6 +55,10 @@ class PIC {
 			\brief Get ISR (Interrupt Status Register)
 		 */
 		uint16_t get_isr();
+		/**
+			\brief Get PIC mapping offset (0x20)
+		 */
+		uint8_t get_offset();
 	private:
 		/**
 			\brief Get generic IRQ register

@@ -6,7 +6,7 @@
 #include <kernel/drivers/pic.hpp>
 
 void PIT::init(int freq) {
-	IDT::get().set_handler(0x20, pit_handler);
+	IDT::get().set_handler(PIC::get().get_offset() + 0, pit_handler);
 	PIC::get().IRQ_clear_mask(0);
 	
 	uint32_t final_freq, ebx, edx;

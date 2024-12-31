@@ -7,12 +7,10 @@ class NMI {
 			Required for critical sections of code
 			that just can't be interrupted by any means
 		 */
-		void disable();
+		static void disable();
 		/**
 			\brief Enable Non Maskable Interrupts
 		 */
-		void enable();
+		static void enable();
 	private:
 };
-
-extern NMI nmi;

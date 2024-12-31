@@ -325,7 +325,7 @@ void AHCI::setup_interrupts() {
 		printf("Well we cannot interrupt... fuck\n");
 	} else {
 		PIC::get().IRQ_clear_mask(int_line);
-		IDT::get().set_handler(int_line + 0x20, interrupt_handler);
+		IDT::get().set_handler(int_line + PIC::get().get_offset(), interrupt_handler);
 	}
 }
 

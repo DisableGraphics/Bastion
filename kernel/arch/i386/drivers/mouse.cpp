@@ -24,7 +24,7 @@ void Mouse::init() {
 		  	return;
 	}
 
-	IDT::get().set_handler(irqline + 0x20, Mouse::mouse_handler);
+	IDT::get().set_handler(irqline + PIC::get().get_offset(), Mouse::mouse_handler);
 	if(irqline > 8)
 		PIC::get().IRQ_clear_mask(2); // Slave PIC
 	PIC::get().IRQ_clear_mask(irqline);
