@@ -1,30 +1,32 @@
-#include <stdio.h>
+// Other required headers
+// C++ abi
+#include <kernel/cpp/icxxabi.h>
+// Multiboot header
+#include <multiboot/multiboot.h>
 
+// Memory
 #include <kernel/memory/page.hpp>
-#include <kernel/drivers/tty/ttyman.hpp>
 #include <kernel/memory/gdt.hpp>
+#include <kernel/memory/mmanager.hpp>
+// Drivers
+#include <kernel/drivers/tty/ttyman.hpp>
 #include <kernel/drivers/interrupts.hpp>
-#include <kernel/assembly/inlineasm.h>
 #include <kernel/drivers/serial.hpp>
 #include <kernel/drivers/pic.hpp>
 #include <kernel/drivers/pit.hpp>
 #include <kernel/drivers/ps2.hpp>
-#include <kernel/memory/mmanager.hpp>
 #include <kernel/drivers/keyboard/keyboard.hpp>
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
-#include <kernel/cpp/icxxabi.h>
-#include <multiboot/multiboot.h>
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/disk.hpp>
 #include <kernel/drivers/rtc.hpp>
-
+// Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
-
-#include <stdlib.h>
-#include <time.h>
-
+// C Library headers
+#include <stdio.h>
+// Tests
 #ifdef DEBUG
 #include <kernel/test.hpp>
 #endif
