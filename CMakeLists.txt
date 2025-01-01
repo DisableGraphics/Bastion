@@ -30,3 +30,5 @@ target_sources(${EXEC_NAME} PRIVATE
 
 # Specify the linker script
 target_link_options(${EXEC_NAME} PRIVATE -T ${CMAKE_SOURCE_DIR}/kernel/arch/i386/linker.ld)
+
+add_subdirectory(user)
