@@ -66,11 +66,11 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PartitionManager p{0};
 	auto parts = p.get_partitions();
 	for(size_t i = 0; i < parts.size(); i++) {
-		uint64_t sizebytes = parts[i].total_sectors * disks[0].second->get_sector_size();
+		uint64_t sizebytes = parts[i].size * disks[0].second->get_sector_size();
 		uint32_t sizemb = sizebytes / ONE_MEG;
-		uint32_t system_id = parts[i].system_id;
-		printf("Partition: %d %dMiB, start sector: %d, type: %p\n", i, sizemb, parts[i].lba, system_id);
-		if(system_id == 0xc) {
+		uint32_t type = parts[i].type;
+		printf("Partition: %d %dMiB, Type: %p, start_lba: %d\n", i, sizemb, type, parts[i].start_lba);
+		if(type == 0xc) {
 			FAT32 fat{p, i};
 		}
 	}
