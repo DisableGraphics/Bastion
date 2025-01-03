@@ -24,6 +24,8 @@
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
+// Scheduler
+#include <kernel/scheduler/scheduler.hpp>
 // C Library headers
 #include <stdio.h>
 // Tests
@@ -54,6 +56,18 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PCI::get().init();
 	DiskManager::get().init();
 
+	Scheduler::get().create_task([](){
+		while(true) {
+			printf(":");
+		}
+	});
+
+	Scheduler::get().create_task([](){
+		printf("Running secondary task...\n");
+
+
+	});
+
 	auto disks = DiskManager::get().get_disks();
 	for(size_t i = 0; i < disks.size(); i++) {
 		char * name = disks[i].first;
@@ -81,6 +95,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
+
+	Scheduler::get().start();
+
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

@@ -1,0 +1,1 @@
+target_sources(kernel_obj PRIVATE task.cpp scheduler.cpp)

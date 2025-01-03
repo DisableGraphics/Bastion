@@ -73,3 +73,13 @@ bool DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 	
 	return disk_controllers[diskid].second->enqueue_job(job);
 }
+
+void DiskManager::spin_job(size_t diskid, volatile DiskJob* job) {
+	if(diskid >= disk_controllers.size()) {
+		job->state = DiskJob::ERROR;
+		return;
+	}
+	
+	enqueue_job(diskid, job);
+	while(job->state == DiskJob::WAITING);
+}

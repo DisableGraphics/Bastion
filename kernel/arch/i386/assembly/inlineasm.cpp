@@ -132,3 +132,15 @@ void halt(void) {
 void tlb_flush() {
 	__asm__ __volatile__("movl	%cr3,%eax\nmovl	%eax,%cr3");
 }
+
+uint32_t get_eflags() {
+    uint32_t eflags;
+    asm volatile (
+        "pushf\n"           // Push EFLAGS onto the stack
+        "pop %0\n"          // Pop into eflags variable
+        : "=r"(eflags)      // Output operand
+        :
+        : "memory"          // Clobber memory
+    );
+    return eflags;
+}

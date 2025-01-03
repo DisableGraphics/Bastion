@@ -1,0 +1,12 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build and Prepare",
+            "type": "shell",
+            "command": "cmake --build ${workspaceFolder}/build && ${workspaceFolder}/diskimg.sh && ${workspaceFolder}/qemu.sh debug",
+            "problemMatcher": [],
+			"isBackground": true
+        }
+    ]
+}

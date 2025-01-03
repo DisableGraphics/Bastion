@@ -8,6 +8,7 @@ class FAT32 {
 		~FAT32();
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
+		bool load_fat_sector(uint32_t active_cluster);
 		size_t partid;
 		char partname[12];
 		uint8_t fat_boot_buffer[512];
@@ -18,4 +19,6 @@ class FAT32 {
 		uint32_t n_data_sectors;
 		uint32_t total_clusters;
 		uint32_t root_cluster;
+		uint32_t sector_size;
+		PartitionManager &partmanager;
 };

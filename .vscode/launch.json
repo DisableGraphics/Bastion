@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Bastion",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bastion",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+			"MIMode": "gdb",
+			"setupCommands": [
+				{
+					"text": "source ${workspaceFolder}/.gdbinit_vscode"
+				}
+			]/*,
+			"preLaunchTask": "Build and Prepare"*/
+        }
+    ]
+}

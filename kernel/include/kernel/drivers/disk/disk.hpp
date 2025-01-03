@@ -52,6 +52,10 @@ class DiskManager {
 			\brief Get number of disks
 		 */
 		size_t size() const;
+		/**
+			\brief Enqueues job but waits for the job to finish using a spinlock.
+		 */
+		void spin_job(size_t diskid, volatile DiskJob* job);
 	private:
 		DiskManager(){}
 		~DiskManager();
