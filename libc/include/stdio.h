@@ -14,6 +14,7 @@ int serial_printf(const char* __restrict, ...);
 int putchar(int);
 int putchar_serial(int);
 int puts(const char*);
+void clear(void);
 
 #ifdef __cplusplus
 }

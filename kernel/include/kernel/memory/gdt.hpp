@@ -1,10 +1,12 @@
 #pragma once
-#include <stdint.h>
 #ifdef __i386
 #include "../arch/i386/defs/gdt/gdt_entry.h"
 #include "../arch/i386/defs/gdt/gdtr.h"
 #include "../arch/i386/defs/gdt/gdt_size.h"
+#include "../arch/i386/defs/gdt/gdt_bits.hpp"
 #endif
+#include "tss.hpp"
+
 
 /**
 	\brief Global Descriptor Table
@@ -23,26 +25,26 @@ class GDT {
 		void init();
 		/**
 			\brief Encodes a GDT entry descriptor into a physical entry of the GDT
-			\param target Target region of the GDT
+			\param arg Target region of the GDT
 			\param source GDT entry descriptor to be encoded into the GDT
 		 */
-		void encodeEntry(uint8_t *target, GDT_entry source);
+		void encodeEntry(gdt_entry_bits *arg, struct GDT_entry source);
+
+		void set_stack(uint32_t stack);
 	private:
 		/**
 			\brief Load gdt register 
 		 */
 		void load_gdtr(gdtr_t gdtr);
+		void write_tss(gdt_entry_bits *g);
+		tss_entry tss;
 		/**
 			\brief GDT register
 		 */
 		gdtr_t gdtr;
 		/**
-			\brief Task State Segment
-		 */
-		uint8_t tss[TSS_SIZE];
-		/**
 			\brief Global Descriptor Table
 		 */
-		uint8_t gdt[GDT_SIZE];
+		gdt_entry_bits gdt[6];
 		GDT();
 };

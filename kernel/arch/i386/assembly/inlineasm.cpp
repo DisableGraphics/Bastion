@@ -144,3 +144,10 @@ uint32_t get_eflags() {
     );
     return eflags;
 }
+
+uint32_t get_esp() {
+	uint32_t esp;
+	asm volatile("mov %%esp, %0" : "=r"(esp) : : "memory");
+
+	return esp;
+}

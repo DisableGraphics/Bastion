@@ -61,3 +61,10 @@ void TTY::handle_backspace() {
 uint16_t * TTY::get_buffer() {
 	return terminal_buffer;
 }
+
+void TTY::clear() {
+	terminal_row = 0;
+	terminal_column = 0;
+	for(size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
+		putchar(' ');
+}

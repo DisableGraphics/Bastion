@@ -40,6 +40,8 @@ class TTYManager {
 			the last one is selected.
 		 */
 		void set_current_tty(size_t tty);
+
+		void clear();
 	private:
 		/**
 			\brief Copy the buffer of the current tty into

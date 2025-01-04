@@ -37,6 +37,23 @@ void breakpoint() {
 	__asm__ volatile("int3");
 }
 
+extern "C" void jump_usermode(void);
+extern "C" void jump_kernelmode(void);
+extern "C" void test_user_function(void) {
+	//printf("Hola\n");
+	//printf("                                        Hola\n");
+	int i =7;
+	while(true)
+		i++;
+}
+
+extern "C" void test_kernel_function(void) {
+	while(1) {
+		printf(".");
+		PIT::get().sleep(2000);
+	}
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTYManager::get().init();
 	Cursor::get().init();
@@ -63,9 +80,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	});
 
 	Scheduler::get().create_task([](){
-		printf("Running secondary task...\n");
-
-
+		while(true) {
+			printf(",");
+		}
 	});
 
 	auto disks = DiskManager::get().get_disks();
@@ -96,7 +113,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
 
-	Scheduler::get().start();
+	//Scheduler::get().start();
+	//jump_usermode();
+	jump_kernelmode();
 
 	for(;;) {
 		__asm__ __volatile__("hlt");

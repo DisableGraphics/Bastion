@@ -47,6 +47,7 @@ void halt(void);
 void tlb_flush(void);
 
 uint32_t get_eflags();
+uint32_t get_esp();
 
 #ifdef __cplusplus
 }

@@ -1,1 +1,1 @@
-target_sources(kernel_platform_dependent PRIVATE context_switch.S)
+target_sources(kernel_platform_dependent PRIVATE jump_usermode.S jump_kernelmode.S)

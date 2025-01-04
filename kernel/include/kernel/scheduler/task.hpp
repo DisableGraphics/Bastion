@@ -14,4 +14,5 @@ class Task {
 
 	private:
 		static void task_end();
+		static void iret();
 };

@@ -16,6 +16,7 @@
 .section .bootstrap_stack, "aw", @nobits
 stack_bottom:
 .skip 16384 # 16 KiB
+.global stack_top
 stack_top:
 
 # Preallocate pages used for paging. Don't hard-code addresses and assume they

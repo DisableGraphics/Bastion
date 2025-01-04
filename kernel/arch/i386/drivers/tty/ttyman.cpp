@@ -36,3 +36,8 @@ void TTYManager::set_current_tty(size_t tty) {
 	current_tty = tty;
 	display();
 }
+
+void TTYManager::clear() {
+	ttys[current_tty].clear();
+	display();
+}

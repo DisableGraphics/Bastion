@@ -1,5 +1,7 @@
 #include <kernel/scheduler/scheduler.hpp>
 #include <kernel/drivers/pit.hpp>
+#include <kernel/drivers/pic.hpp>
+#include <kernel/assembly/inlineasm.h>
 
 Scheduler::Scheduler() : current_task(0), task_count(0) {
 	timer_handle = PIT::get().alloc_timer();
@@ -19,13 +21,7 @@ void Scheduler::create_task(void (*func)()) {
 void Scheduler::start() {
 	// Schedule the first timer interrupt for preemption
 	do_after(TIME_QUANTUM_MS, [](void *) { preempt(); });
-
-	while (true) {
-		if (tasks[current_task].state == TaskState::FINISHED) {
-			// Idle task logic (can be a low-power mode in an embedded system)
-			idle();
-		}
-	}
+	idle();
 }
 
 #include <stdio.h>
@@ -56,16 +52,16 @@ void Scheduler::do_after(uint32_t millis, void (*fn)(void*)) {
 	pit.timer_callback(timer_handle, millis, fn, NULL);
 }
 
-extern "C" void ctx_swtch(uint32_t **old_sp, uint32_t *new_sp);
-
 void Scheduler::context_switch(uint32_t **old_sp, uint32_t *new_sp) {
+	
 	serial_printf("Changing context: %p %p\n", old_sp, new_sp);
-	ctx_swtch(old_sp, new_sp);
+	//PIC::get().send_EOI(0);
+	//ctx_swtch(old_sp, new_sp);
 }
 
 void Scheduler::idle() {
 	while (true) {
 		// Idle loop (e.g., low-power mode)
-		asm volatile("hlt");
+		halt();
 	}
 }

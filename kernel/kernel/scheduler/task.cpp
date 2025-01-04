@@ -14,7 +14,8 @@ void Task::initialize(void (*entry_point)()) {
 
 	*(--stack_pointer) = reinterpret_cast<uint32_t>(task_end);   // Return address
 	*(--stack_pointer) = reinterpret_cast<uint32_t>(entry_point); // Entry point
-	*(--stack_pointer) = get_eflags();
+	*(--stack_pointer) = reinterpret_cast<uint32_t>(iret);
+ 	*(--stack_pointer) = get_eflags();
 	for (int i = 0; i < 8; i++) { // Push placeholders for general-purpose registers
 		*(--stack_pointer) = 0;
 	}
@@ -22,4 +23,8 @@ void Task::initialize(void (*entry_point)()) {
 
 void Task::task_end() {
 	halt();
+}
+
+void Task::iret() {
+	asm volatile("iret");
 }
