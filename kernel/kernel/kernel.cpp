@@ -21,6 +21,7 @@
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/disk.hpp>
 #include <kernel/drivers/rtc.hpp>
+#include <kernel/assembly/inlineasm.h>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -38,6 +39,12 @@ void breakpoint() {
 }
 
 extern "C" void jump_usermode(void);
+extern "C" void jump_fn(uint32_t **old_esp, 
+		uint32_t *new_esp, 
+		void (*fn)(), 
+		uint8_t code_segment_selector, 
+		uint8_t data_segment_selector, 
+		uint8_t ring);
 extern "C" void jump_kernelmode(void);
 extern "C" void test_user_function(void) {
 	//printf("Hola\n");
@@ -115,7 +122,10 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	//Scheduler::get().start();
 	//jump_usermode();
-	jump_kernelmode();
+	uint32_t *old_esp;
+	uint32_t *new_esp = reinterpret_cast<uint32_t*>(get_esp());
+	void (*fn)(void) = test_kernel_function;
+	jump_fn(&old_esp, new_esp, fn, 1, 2, 0);
 
 	for(;;) {
 		__asm__ __volatile__("hlt");
