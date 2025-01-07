@@ -38,29 +38,6 @@ void breakpoint() {
 	__asm__ volatile("int3");
 }
 
-extern "C" void jump_usermode(void);
-extern "C" void jump_fn(uint32_t **old_esp, 
-		uint32_t *new_esp, 
-		void (*fn)(), 
-		uint8_t code_segment_selector, 
-		uint8_t data_segment_selector, 
-		uint8_t ring);
-extern "C" void jump_kernelmode(void);
-extern "C" void test_user_function(void) {
-	//printf("Hola\n");
-	//printf("                                        Hola\n");
-	int i =7;
-	while(true)
-		i++;
-}
-
-extern "C" void test_kernel_function(void) {
-	while(1) {
-		printf(".");
-		PIT::get().sleep(2000);
-	}
-}
-
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTYManager::get().init();
 	Cursor::get().init();
@@ -89,6 +66,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Scheduler::get().create_task([](){
 		while(true) {
 			printf(",");
+			PIT::get().sleep(2000);
 		}
 	});
 
@@ -120,12 +98,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
 
-	//Scheduler::get().start();
-	//jump_usermode();
-	uint32_t *old_esp;
-	uint32_t *new_esp = reinterpret_cast<uint32_t*>(get_esp());
-	void (*fn)(void) = test_kernel_function;
-	jump_fn(&old_esp, new_esp, fn, 1, 2, 0);
+	Scheduler::get().start();
 
 	for(;;) {
 		__asm__ __volatile__("hlt");

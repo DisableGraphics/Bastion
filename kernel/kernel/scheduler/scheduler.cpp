@@ -3,6 +3,10 @@
 #include <kernel/drivers/pic.hpp>
 #include <kernel/assembly/inlineasm.h>
 
+#ifdef __i386
+#include <../arch/i386/scheduler/interface.hpp>
+#endif
+
 Scheduler::Scheduler() : current_task(0), task_count(0) {
 	timer_handle = PIT::get().alloc_timer();
 }
@@ -42,7 +46,7 @@ void Scheduler::preempt() {
 	if (instance.tasks[next_task].state == TaskState::READY) {
 		instance.current_task = next_task;
 		instance.do_after(TIME_QUANTUM_MS, [](void *) { preempt(); });
-		instance.context_switch(&instance.tasks[previous_task].stack_pointer, instance.tasks[next_task].stack_pointer);
+		instance.context_switch(&instance.tasks[previous_task].stack_pointer, instance.tasks[next_task].stack_pointer, instance.tasks[next_task].entry_point);
 	}
 	printf("Moved to task %d\n", next_task);
 }
@@ -52,11 +56,8 @@ void Scheduler::do_after(uint32_t millis, void (*fn)(void*)) {
 	pit.timer_callback(timer_handle, millis, fn, NULL);
 }
 
-void Scheduler::context_switch(uint32_t **old_sp, uint32_t *new_sp) {
-	
-	serial_printf("Changing context: %p %p\n", old_sp, new_sp);
-	//PIC::get().send_EOI(0);
-	//ctx_swtch(old_sp, new_sp);
+void Scheduler::context_switch(uint32_t **old_sp, uint32_t *new_sp, void (*fn)()) {
+	jump_fn(old_sp, new_sp, fn, 1, 2, 0);
 }
 
 void Scheduler::idle() {

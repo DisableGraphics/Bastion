@@ -15,10 +15,11 @@ jump_fn:
 	mov %eax, (%ecx)                # Store ESP at the address pointed by *old_esp
 
 	# Prepare for the jump to the kernel function
-	push %ebx # Save ebx for calcs
-	mov 20(%esp), %cl               # Load code_segment_selector (4th argument)
-	mov 24(%esp), %dl               # Load data_segment_selector (5th argument)
-	mov 28(%esp), %bl               # Load ring (6th argument)
+	xor %ecx,%ecx					# Clear ECX register
+	mov 16(%esp), %cl               # Load code_segment_selector (4th argument)
+	xor %edx,%edx					# Clear EDX register 
+	mov 20(%esp), %dl               # Load data_segment_selector (5th argument)
+	mov 24(%esp), %bl               # Load ring (6th argument)
 
 	# Calculate selectors with the ring
 	shl $3, %cl                     # Shift code_segment_selector left by 3 (convert to GDT entry)
@@ -34,11 +35,9 @@ jump_fn:
 	mov %ax, %gs                    # Load GS
 
 	# Load new_esp into ESP
-	mov 12(%esp), %ebx               # Load new_esp (2nd argument)
-	mov 16(%esp), %eax              # Load fn (3rd argument) into EAX
-	mov %ebx, %esp                # Set ESP to *new_esp
-
-	pop %ebx # Recover ebx
+	mov 8(%esp), %ebx               # Load new_esp (2nd argument)
+	mov 12(%esp), %eax              # Load fn (3rd argument) into EAX
+	mov %ebx, %esp                # Set ESP to new_esp
 
 	# Set up the stack frame for iret
 	push %edx                       # Push data segment selector (DS) onto the stack

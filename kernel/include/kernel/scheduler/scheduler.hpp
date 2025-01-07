@@ -23,6 +23,6 @@ class Scheduler {
 		Task tasks[MAX_TASKS];
 
 		void do_after(uint32_t millis, void (*fn)(void*));
-		void context_switch(uint32_t **old_sp, uint32_t *new_sp);
+		void context_switch(uint32_t **old_sp, uint32_t *new_sp, void (*fn)());
 		void idle();
 };
