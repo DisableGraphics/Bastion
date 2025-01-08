@@ -98,6 +98,7 @@ void PIT::pit_handler(interrupt_frame *) {
 	PIT& pit = PIT::get();
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
+	PIC::get().send_EOI(0);
 	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
 		if(pit.allocated & (1 << i)) {
 			pit.kernel_countdowns[i] -= pit.IRQ0_ms;
@@ -106,7 +107,7 @@ void PIT::pit_handler(interrupt_frame *) {
 			}
 		}
 	}
-	PIC::get().send_EOI(0);
+	
 }
 
 void PIT::sleep(uint32_t millis) {

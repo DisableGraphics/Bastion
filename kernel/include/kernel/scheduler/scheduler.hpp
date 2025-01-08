@@ -12,8 +12,11 @@ class Scheduler {
 		void create_task(void (*func)());
 
 		void start();
+		void sleep_task(size_t id, uint32_t millis);
+		void sleep_task(uint32_t millis);
 
 		static void preempt();
+		void set_task_state(size_t taskid, TaskState state);
 
 	private:
 		Scheduler();
@@ -22,7 +25,9 @@ class Scheduler {
 		uint32_t timer_handle;
 		Task tasks[MAX_TASKS];
 
-		void do_after(uint32_t millis, void (*fn)(void*));
+		static void task_state_cb(void* args);
+
+		void do_after(uint32_t millis, void (*fn)(void*), void* args = nullptr);
 		void context_switch(uint32_t **old_sp, uint32_t *new_sp, void (*fn)());
 		void idle();
 };

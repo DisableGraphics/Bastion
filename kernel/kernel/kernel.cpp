@@ -57,16 +57,24 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PCI::get().init();
 	DiskManager::get().init();
 
-	Scheduler::get().create_task([](){
+	// Null task
+	Scheduler::get().create_task([]() {
 		while(true) {
-			printf(":");
+			halt();
 		}
 	});
 
 	Scheduler::get().create_task([](){
 		while(true) {
-			printf(",");
-			PIT::get().sleep(2000);
+			printf("1\n");
+			Scheduler::get().sleep_task(1000);
+		}
+	});
+
+	Scheduler::get().create_task([](){
+		while(true) {
+			printf("2\n");
+			Scheduler::get().sleep_task(1000);
 		}
 	});
 
