@@ -9,6 +9,7 @@
 		uint8_t ring);
 */
 jump_fn:
+	cli
 	# Save old ESP to *old_esp
 	mov %esp, %eax                  # Get current ESP into EAX
 	mov 4(%esp), %ecx               # Load *old_esp (1st argument)
@@ -45,6 +46,6 @@ jump_fn:
 	pushf                           # Push EFLAGS onto the stack
 	push %ecx                       # Push code segment selector (CS) onto the stack
 	push %eax                       # Push the function address (fn) onto the stack
-
+	sti
 	# Perform the context switch
 	iret
