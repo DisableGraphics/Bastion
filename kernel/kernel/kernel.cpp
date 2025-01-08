@@ -66,14 +66,14 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	Scheduler::get().create_task([](){
 		while(true) {
-			printf("1\n");
+			printf("1");
 			Scheduler::get().sleep_task(1000);
 		}
 	});
 
 	Scheduler::get().create_task([](){
 		while(true) {
-			printf("2\n");
+			printf("2");
 			Scheduler::get().sleep_task(1000);
 		}
 	});
