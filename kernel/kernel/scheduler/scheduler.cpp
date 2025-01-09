@@ -85,7 +85,7 @@ void Scheduler::do_after(uint32_t millis, void (*fn)(void*), void *args) {
 }
 
 void Scheduler::context_switch(uint32_t **old_sp, uint32_t *new_sp, void (*fn)()) {
-	serial_printf("%p\n", new_sp);
+	serial_printf("Ptr for task: %p\n", new_sp);
 	jump_fn(old_sp, new_sp, fn, 1, 2, 0);
 }
 
