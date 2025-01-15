@@ -82,11 +82,13 @@ void IDT::general_protection_fault_handler(interrupt_frame*, unsigned int ecode)
 
 void IDT::page_fault_handler(interrupt_frame*, unsigned int ecode) {
 	clear();
+	uint32_t faulting_address = read_cr2();
 	const char * prot_type = (ecode & 1) ? "page protection" : "not present";
 	const char * rw = (ecode & 0x2) ? "Write" : "Read";
 	const char * user = (ecode & 0x4) ? "User" : "Kernel";
 	const char * instruction = (ecode & 0x10) ? "Fetch" : "No fetch"; 
 	printf("Page fault: %s %s %s %s\n", prot_type, rw, user, instruction);
+	printf("Tried to access %p, which is not a mapped address\n", faulting_address);
 	IDT::disable_interrupts();
 	halt();
 }

@@ -42,9 +42,10 @@ jump_fn:
 	# Set up the stack frame for iret
 	push %edx                       # Push data segment selector (DS) onto the stack
 	push %esp                       # Push current ESP onto the stack
-	sti
+	
 	pushf                           # Push EFLAGS onto the stack
-	cli
+	or $0x200, (%esp)               # Interrupt flag
+	
 	push %ecx                       # Push code segment selector (CS) onto the stack
 	push %eax                       # Push the function address (fn) onto the stack
 	# Perform the context switch
