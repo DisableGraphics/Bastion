@@ -85,7 +85,7 @@ class PS2Controller {
 		/**
 			\brief Whether this PS/2 Controller has two ports
 		 */
-		bool has_two_channels;
+		bool has_two_channels = false;
 		/**
 			\brief Whether the timeout has expired or not
 		 */
@@ -94,7 +94,7 @@ class PS2Controller {
 		/**
 			\brief Device type
 		 */
-		DeviceType first_port_device, second_port_device;		
+		DeviceType first_port_device = DeviceType::NONE, second_port_device = DeviceType::NONE;		
 		/**
 			\brief Set device type for port port
 		 */

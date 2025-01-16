@@ -57,7 +57,7 @@ char * itoa(unsigned long value, char* str, int base) {
 	return rc;
 }
 
-static int format_print(bool (*print)(const char *, size_t), const char* restrict format, va_list parameters) {
+static int format_print(bool (*print)(const char *, size_t), const char*__restrict format, va_list parameters) {
 
 	int written = 0;
 
@@ -159,7 +159,7 @@ static int format_print(bool (*print)(const char *, size_t), const char* restric
 	return written;
 }
 
-int printf(const char* restrict format, ...) {
+int printf(const char*__restrict format, ...) {
 	va_list args;
 	va_start(args, format);
 	int ret = format_print(print, format, args);

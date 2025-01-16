@@ -19,13 +19,13 @@ class RTC {
 
 		uint64_t total_days = 0;
 
-		uint8_t second;
-		uint8_t minute;
-		uint8_t hour;
-		uint8_t day;
-		uint8_t month;
-		uint32_t year;
-		const uint32_t century = 2000;
+		uint8_t second = 0;
+		uint8_t minute = 0;
+		uint8_t hour = 0;
+		uint8_t day = 0;
+		uint8_t month = 0;
+		uint32_t year = 0;
+		constexpr static uint32_t century = 2000;
 
 		RTC(){};
 };

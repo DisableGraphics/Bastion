@@ -5,9 +5,6 @@
 #include <kernel/bits/bits.hpp>
 #include <kernel/time/time.hpp>
 
-#include <stdio.h>
-
-
 #define CMOS_ADDR 0x70
 #define CMOS_DATA 0x71
 
@@ -61,7 +58,7 @@ void RTC::interrupt_handler(interrupt_frame*) {
 		rtc.hour = ((rtc.hour & 0x0F) + (((rtc.hour & 0x70) / 16) * 10)) | (rtc.hour & 0x80);
 		rtc.day = bits::bcd2normal(rtc.day);
 		rtc.month = bits::bcd2normal(rtc.month);
-		rtc.year = bits::bcd2normal(rtc.year) + rtc.century;
+		rtc.year = bits::bcd2normal(rtc.year) + RTC::century;
 	}
 
 	// 12 hour to 24 hour
@@ -76,7 +73,6 @@ void RTC::interrupt_handler(interrupt_frame*) {
 }
 
 void RTC::compute_days() {
-	const uint16_t days_in_month[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 	total_days = TimeManager::days_until_year(year) + TimeManager::days_in_year_until_month_day(year, month, day);
 }
 

@@ -16,3 +16,4 @@ docs/kernel/*/
 build
 device.map
 *.img
+bastion-cppcheck-build-dir
