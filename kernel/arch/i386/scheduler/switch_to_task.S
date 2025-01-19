@@ -5,6 +5,12 @@
 #WARNING: Caller is expected to disable IRQs before calling, and enable IRQs again after function returns
 .global switch_to_task
 switch_to_task:
+	cmpd [postpone_task_switches_counter],0
+    je .continue
+    movb [task_switches_postponed_flag],1
+    ret
+
+.continue:
 
     #Save previous task's state
 

@@ -2,6 +2,7 @@
 #include <kernel/drivers/pit.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/drivers/interrupts.hpp>
+#include <kernel/scheduler/scheduler.hpp>
 #include "../arch/i386/defs/pic/pic.hpp"
 #include <kernel/drivers/pic.hpp>
 
@@ -107,7 +108,8 @@ void PIT::pit_handler(interrupt_frame *) {
 			}
 		}
 	}
-	
+	Scheduler &sch = Scheduler::get();
+	sch.handle_sleeping_tasks(pit.system_timer_ms * 1000000, pit.IRQ0_ms * 1000000);
 }
 
 void PIT::sleep(uint32_t millis) {

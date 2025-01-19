@@ -70,6 +70,12 @@ void task_3_fn() {
 	}
 }
 
+void idle_task() {
+	while(true) {
+		halt();
+	}
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTYManager::get().init();
 	Cursor::get().init();
@@ -112,7 +118,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Task maintask, task2, task3;
 	maintask.esp = get_esp();
 	maintask.cr3 = read_cr3();
-	Scheduler::get().prepare_task(maintask, reinterpret_cast<void*>(test_kernel_task));
 
 	void * teststack = kcalloc(16384, 1);
 	task2.esp = reinterpret_cast<uint32_t>(teststack);
@@ -134,7 +139,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
-	test_kernel_task();
+	Scheduler::get().schedule();
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

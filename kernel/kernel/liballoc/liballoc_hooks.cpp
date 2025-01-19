@@ -14,11 +14,11 @@ int liballoc_unlock() {
 	return 0;
 }
 
-void *liballoc_alloc(size_t pages) {
+void *liballoc_alloc(int pages) {
 	return MemoryManager::get().alloc_pages(pages);
 }
 
-int liballoc_free(void* start, size_t pages) {
+int liballoc_free(void* start, int pages) {
 	MemoryManager::get().free_pages(start, pages);
 	return 0;
 }

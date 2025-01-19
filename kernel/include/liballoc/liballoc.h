@@ -1,22 +1,8 @@
-#ifndef _LIBALLOC_H
-#define _LIBALLOC_H
-
-
-
-// If we are told to not define our own size_t, then we
-// skip the define.
-#ifndef _ALLOC_SKIP_DEFINE
-
-#ifndef _HAVE_SIZE_T
-#define _HAVE_SIZE_T
-typedef	unsigned int	size_t;
-#endif
-
+#pragma once
+#include <stddef.h>
 
 #ifndef	NULL
 #define NULL		0
-#endif
-
 #endif
 
 #define PREFIX(func)		k ## func
@@ -94,8 +80,6 @@ void      PREFIX(free)(void *);					//< The standard function.
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
 
 
