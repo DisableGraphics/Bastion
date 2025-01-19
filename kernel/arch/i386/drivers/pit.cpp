@@ -158,3 +158,7 @@ void PIT::dealloc_timer(uint32_t handle) {
 	if(handle == UINT32_MAX) return;
 	allocated &= (UINT32_MAX & ~(1 << handle));
 }
+
+uint32_t PIT::millis_accum() {
+	return system_timer_ms;
+}

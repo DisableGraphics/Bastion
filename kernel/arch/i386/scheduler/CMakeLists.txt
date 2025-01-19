@@ -1,1 +1,1 @@
-target_sources(kernel_platform_dependent PRIVATE jump_fn.S)
+target_sources(kernel_platform_dependent PRIVATE jump_fn.S switch_to_task.S)

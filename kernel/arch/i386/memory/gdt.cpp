@@ -4,6 +4,8 @@
 #include <string.h>
 #include <kernel/assembly/inlineasm.h>
 
+tss_entry tss;
+
 extern "C" void reloadSegments();
 
 GDT::GDT() {

@@ -26,6 +26,7 @@
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
 // Scheduler
+#include <../arch/i386/scheduler/interface.hpp>
 #include <kernel/scheduler/scheduler.hpp>
 // C Library headers
 #include <stdio.h>
@@ -36,6 +37,37 @@
 
 void breakpoint() {
 	__asm__ volatile("int3");
+}
+
+void test_kernel_task() {
+	for(;;) {
+		Scheduler::get().unlock();
+		printf("a");
+        Scheduler::get().lock();
+        Scheduler::get().schedule();
+    }
+
+}
+
+void task_2_fn() {
+	while(true) {
+		Scheduler::get().unlock();
+		printf("b");
+		Scheduler::get().block_task(TaskState::PAUSED);
+		Scheduler::get().lock();
+        Scheduler::get().schedule();
+	}
+}
+
+void task_3_fn() {
+	while(true) {
+		Scheduler::get().unlock();
+		printf("c");
+		Scheduler::get().sleep(120);
+		
+		Scheduler::get().lock();
+        Scheduler::get().schedule();
+	}
 }
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
@@ -57,27 +89,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PCI::get().init();
 	DiskManager::get().init();
 
-	// Null task
-	Scheduler::get().create_task([]() {
-		while(true) {
-			halt();
-		}
-	});
-
-	Scheduler::get().create_task([](){
-		while(true) {
-			printf("1");
-			Scheduler::get().sleep_task(1000);
-		}
-	});
-
-	Scheduler::get().create_task([](){
-		while(true) {
-			printf("2");
-			Scheduler::get().sleep_task(1000);
-		}
-	});
-
 	auto disks = DiskManager::get().get_disks();
 	for(size_t i = 0; i < disks.size(); i++) {
 		char * name = disks[i].first;
@@ -98,6 +109,24 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
+	Task maintask, task2, task3;
+	maintask.esp = get_esp();
+	maintask.cr3 = read_cr3();
+	Scheduler::get().prepare_task(maintask, reinterpret_cast<void*>(test_kernel_task));
+
+	void * teststack = kcalloc(16384, 1);
+	task2.esp = reinterpret_cast<uint32_t>(teststack);
+	task2.cr3 = read_cr3();
+	Scheduler::get().prepare_task(task2, reinterpret_cast<void*>(task_2_fn));
+
+	void * teststack2 = kcalloc(16384, 1);
+	task3.esp = reinterpret_cast<uint32_t>(teststack2);
+	task3.cr3 = read_cr3();
+	Scheduler::get().prepare_task(task3, reinterpret_cast<void*>(task_3_fn));
+
+	Scheduler::get().set_first_task(&maintask);
+	Scheduler::get().append_task(&task2);
+	Scheduler::get().append_task(&task3);
 
 	#ifdef DEBUG
 	test_paging();
@@ -105,9 +134,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
-
-	Scheduler::get().start();
-
+	test_kernel_task();
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

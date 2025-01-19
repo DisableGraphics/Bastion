@@ -25,6 +25,12 @@ class PIT {
 		 */
 		void init(int freq);
 		/**
+			\brief Get elapsed milliseconds.
+
+			Not the millis since boot, but the millis since PIT was initialised.
+		 */
+		uint32_t millis_accum();
+		/**
 			\brief Read the PIT count
 		 */
 		uint16_t read_count();

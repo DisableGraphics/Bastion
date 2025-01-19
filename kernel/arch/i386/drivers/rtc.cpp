@@ -39,7 +39,6 @@ uint8_t RTC::get_register(int reg) {
 }
 
 void RTC::interrupt_handler(interrupt_frame*) {
-	IDT::disable_interrupts();
 	RTC& rtc = RTC::get();
 	rtc.read_register_c();
 
@@ -69,7 +68,6 @@ void RTC::interrupt_handler(interrupt_frame*) {
 	TimeManager::get().set_time(rtc.get_timestamp());
 
 	PIC::get().send_EOI(8);
-	IDT::enable_interrupts();
 }
 
 void RTC::compute_days() {

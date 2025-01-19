@@ -37,7 +37,7 @@ class GDT {
 		 */
 		void load_gdtr(gdtr_t gdtr);
 		void write_tss(gdt_entry_bits *g);
-		tss_entry tss;
+		
 		/**
 			\brief GDT register
 		 */

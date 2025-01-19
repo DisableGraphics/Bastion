@@ -3,98 +3,106 @@
 #include <kernel/drivers/pic.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/cpp/icxxabi.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef __i386
 #include <../arch/i386/scheduler/interface.hpp>
 #endif
 
-Scheduler::Scheduler() : current_task(0), task_count(0) {
-	timer_handle = PIT::get().alloc_timer();
-}
+Task * current_task_TCB;
 
 Scheduler& Scheduler::get() {
 	static Scheduler instance;
 	return instance;
 }
 
-void Scheduler::create_task(void (*func)()) {
-	if (task_count < MAX_TASKS) {
-		tasks[task_count++].initialize(func);
+void Scheduler::set_first_task(Task* task) {
+	current_task_TCB = task;
+	first_ready_to_run_task = task;
+	last_ready_to_run_task = task;
+	printf("%p %p\n", first_ready_to_run_task, last_ready_to_run_task);
+}
+
+void Scheduler::append_task(Task* task) {
+	last_ready_to_run_task->next_task = task;
+	last_ready_to_run_task = last_ready_to_run_task->next_task;
+	printf("%p %p\n", first_ready_to_run_task, last_ready_to_run_task);
+}
+
+void Scheduler::prepare_task(Task &task, void* eip) {
+    uint32_t * stack = reinterpret_cast<uint32_t*>(task.esp);
+    stack[-1] = reinterpret_cast<uint32_t>(eip);
+    task.esp -= 5 * sizeof(uint32_t);
+	task.esp0 = task.esp;
+	task.state = TaskState::READY;
+}
+
+void Scheduler::lock() {
+	#ifndef SMP
+	lockn++;
+	IDT::disable_interrupts();
+	#endif
+}
+
+void Scheduler::unlock() {
+	#ifndef SMP
+	if(lockn > 0)
+		lockn--;
+	if(lockn == 0) {
+		IDT::enable_interrupts();
 	}
+	#endif
 }
 
-struct args {
-	uint32_t handle;
-	size_t id;
-};
-
-void Scheduler::sleep_task(size_t id, uint32_t millis) {
-	tasks[id].state = TaskState::WAITING;
-	auto &pit = PIT::get();
-	auto hnd = pit.alloc_timer();
-
-	struct args * ach = new struct args;
-	ach->handle = hnd;
-	ach->id = id;
-
-	pit.timer_callback(hnd, millis, task_state_cb, reinterpret_cast<void*>(ach));
+void Scheduler::schedule() {
+	if(first_ready_to_run_task != nullptr) {
+        Task * task = first_ready_to_run_task;
+        first_ready_to_run_task = task->next_task;
+        switch_to_task(task);
+    }
 }
 
-void Scheduler::sleep_task(uint32_t millis) {
-	sleep_task(current_task, millis);
+void Scheduler::block_task(TaskState state) {
+	lock();
+    current_task_TCB->state = state;
+    schedule();
+    unlock();
 }
 
-void Scheduler::start() {
-	// Schedule the first timer interrupt for preemption
-	do_after(TIME_QUANTUM_MS, [](void *) { preempt(); });
+void Scheduler::unblock_task(Task * task) {
+	lock();
+    if(first_ready_to_run_task == nullptr) {
+        // Only one task was running before, so pre-empt
+        switch_to_task(task);
+    } else {
+        // There's at least one task on the "ready to run" queue already, so don't pre-empt
+        last_ready_to_run_task->next_task = task;
+        last_ready_to_run_task = task;
+    }
+    unlock();
 }
 
-#include <stdio.h>
+void Scheduler::sleep(uint32_t millis) {
+	uint32_t thandle = PIT::get().alloc_timer();
+	serial_printf("hey\n");
+	uint32_t *args = reinterpret_cast<uint32_t*>(kcalloc(2, sizeof(uint32_t)));
+	serial_printf("hey hey %p\n", args);
+	PIT::get().timer_callback(thandle, millis, [](void* args) {
+		serial_printf("hey hey hey hey\n");
+		Scheduler::get().lock();
+		
+		uint32_t *arg = reinterpret_cast<uint32_t*>(args);
+		auto thandle = arg[0];
+		Task * task = reinterpret_cast<Task*>(arg[1]);
 
-void Scheduler::preempt() {
-	Scheduler &instance = Scheduler::get();
-	// Perform a context switch to the next READY task
-	size_t previous_task = instance.current_task;
-	size_t next_task = (instance.current_task + 1) % instance.task_count;
+		Scheduler::get().unblock_task(task);
 
-	for (size_t i = 0; i < instance.task_count; i++) {
-		if (instance.tasks[next_task].state == TaskState::READY) {
-			serial_printf("Selected %d\n", next_task);
-			break;
-		}
-		next_task = (next_task + 1) % instance.task_count;
-	}
-	if (instance.tasks[next_task].state == TaskState::READY) {
-		instance.current_task = next_task;
-		instance.do_after(TIME_QUANTUM_MS, [](void *) { preempt(); });
-		instance.context_switch(&instance.tasks[previous_task].stack_pointer, instance.tasks[next_task].stack_pointer, instance.tasks[next_task].entry_point);
-	}
-}
-
-void Scheduler::task_state_cb(void* args) {
-	Scheduler &instance = Scheduler::get();
-	struct args* task = reinterpret_cast<struct args*>(args);
-	PIT::get().dealloc_timer(task->handle);
-	instance.tasks[task->id].state = TaskState::READY;
-	delete task;
-}
-
-void Scheduler::do_after(uint32_t millis, void (*fn)(void*), void *args) {
-	auto &pit = PIT::get();
-	pit.timer_callback(timer_handle, millis, fn, args);
-}
-
-void Scheduler::context_switch(uint32_t **old_sp, uint32_t *new_sp, void (*fn)()) {
-	serial_printf("Ptr for task: %p\n", new_sp);
-	jump_fn(old_sp, new_sp, fn, 1, 2, 0);
-}
-
-void Scheduler::idle() {
-	while (true) {
-		halt();
-	}
-}
-
-void Scheduler::set_task_state(size_t taskid, TaskState state) {
-	tasks[taskid].state = state;
+		delete[] arg;
+		
+		PIT::get().clear_callback(thandle);
+		Scheduler::get().unlock();
+	}, reinterpret_cast<void*>(args));
+	serial_printf("hey hey hey\n");
+	block_task(TaskState::WAITING);
 }
