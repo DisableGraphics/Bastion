@@ -133,7 +133,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
 	Scheduler::get().schedule();
-	Scheduler::get().unlock();
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}
