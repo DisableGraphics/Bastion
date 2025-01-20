@@ -3,6 +3,7 @@
 #   void switch_to_task(thread_control_block *next_thread);
 #
 #WARNING: Caller is expected to disable IRQs before calling, and enable IRQs again after function returns
+.global task_startup
 .global switch_to_task
 switch_to_task:
 	cmpd [postpone_task_switches_counter],0
@@ -48,5 +49,7 @@ switch_to_task:
     pop edi
     pop esi
     pop ebx
+
+	call task_startup
 
     ret                           #Load next task's EIP from its kernel stack

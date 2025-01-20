@@ -1,12 +1,13 @@
 {
     "version": "2.0.0",
     "tasks": [
-        {
-            "label": "Build and Prepare",
-            "type": "shell",
-            "command": "cmake --build ${workspaceFolder}/build && ${workspaceFolder}/diskimg.sh && ${workspaceFolder}/qemu.sh debug",
-            "problemMatcher": [],
-			"isBackground": true
-        }
+		{
+			"label": "Launch QEMU",
+			"type": "shell",
+			"linux": {
+				"command": "cmake --build build && ./diskimg.sh && qemu-system-i386 -serial file:bastion.serial -m 344M -drive id=disk,file=disk.img,if=none -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0 -s -S -daemonize"
+			}
+		}
+		
     ]
 }

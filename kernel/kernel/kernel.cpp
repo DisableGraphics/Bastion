@@ -41,36 +41,24 @@ void breakpoint() {
 
 void test_kernel_task() {
 	for(;;) {
-		Scheduler::get().unlock();
 		printf("a");
-        Scheduler::get().lock();
-        Scheduler::get().schedule();
     }
 
 }
 
 void task_2_fn() {
 	while(true) {
-		Scheduler::get().unlock();
 		printf("b");
-		Scheduler::get().block_task(TaskState::PAUSED);
-		Scheduler::get().lock();
-        Scheduler::get().schedule();
 	}
 }
 
 void task_3_fn() {
 	while(true) {
-		Scheduler::get().unlock();
 		printf("c");
-		Scheduler::get().sleep(120);
-		
-		Scheduler::get().lock();
-        Scheduler::get().schedule();
 	}
 }
 
-void idle_task() {
+void idle_task_fn() {
 	while(true) {
 		halt();
 	}
@@ -115,7 +103,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
-	Task maintask, task2, task3;
+	Task maintask, task2, task3, idle_task;
 	maintask.esp = get_esp();
 	maintask.cr3 = read_cr3();
 
@@ -129,7 +117,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	task3.cr3 = read_cr3();
 	Scheduler::get().prepare_task(task3, reinterpret_cast<void*>(task_3_fn));
 
-	Scheduler::get().set_first_task(&maintask);
+	void * idle_stack = kcalloc(8192, 1);
+	idle_task.esp = reinterpret_cast<uint32_t>(idle_stack);
+	idle_task.cr3 = read_cr3();
+	Scheduler::get().prepare_task(idle_task, reinterpret_cast<void*>(idle_task_fn));
+
+	Scheduler::get().set_first_task(&idle_task);
 	Scheduler::get().append_task(&task2);
 	Scheduler::get().append_task(&task3);
 
@@ -140,6 +133,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
 	Scheduler::get().schedule();
+	Scheduler::get().unlock();
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

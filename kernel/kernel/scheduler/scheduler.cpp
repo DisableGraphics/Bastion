@@ -16,6 +16,10 @@ Task * current_task_TCB;
 int postpone_task_switches_counter = 0;
 bool task_switches_postponed_flag = false;
 
+extern "C" void task_startup(void) {
+	Scheduler::get().unlock();
+}
+
 Scheduler& Scheduler::get() {
 	static Scheduler instance;
 	return instance;
@@ -32,6 +36,7 @@ void Scheduler::set_first_task(Task* task) {
 void Scheduler::append_task(Task* task) {
 	last_ready_to_run_task->next_task = task;
 	last_ready_to_run_task = last_ready_to_run_task->next_task;
+	last_ready_to_run_task->next_task = first_ready_to_run_task;
 	printf("%p %p\n", first_ready_to_run_task, last_ready_to_run_task);
 }
 

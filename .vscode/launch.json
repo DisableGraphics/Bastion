@@ -2,19 +2,40 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Bastion",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/bastion",
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
+			"name": "Launch with GDB",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceRoot}/build/bastion",
+			"cwd": "${workspaceRoot}",
+			"args": [],
+			"targetArchitecture": "x86",
 			"MIMode": "gdb",
+			"miDebuggerPath": "/usr/bin/gdb",
+			"miDebuggerArgs": "",
+			"customLaunchSetupCommands": [
+				{
+					"text": "target remote localhost:1234",
+					"description": "Connect to QEMU remote debugger"
+				}
+			],
 			"setupCommands": [
 				{
-					"text": "source ${workspaceFolder}/.gdbinit_vscode"
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				},
+				{
+					"text": "file ${workspaceFolder}/build/bastion",
+					"description": "Load binary."
+				},
+				{
+					"text": "break isr_handler",
+					"description": "Break on exception handler."
 				}
-			]/*,
-			"preLaunchTask": "Build and Prepare"*/
-        }
+				
+			],
+			"preLaunchTask": "Launch QEMU"
+		}
+		
     ]
 }
