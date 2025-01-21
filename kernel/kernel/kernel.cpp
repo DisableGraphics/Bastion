@@ -49,12 +49,14 @@ void test_kernel_task() {
 void task_2_fn() {
 	while(true) {
 		printf("b");
+		//Scheduler::get().sleep(50);
 	}
 }
 
 void task_3_fn() {
 	while(true) {
 		printf("c");
+		Scheduler::get().sleep(50);
 	}
 }
 

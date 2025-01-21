@@ -5,6 +5,7 @@
 #include <kernel/cpp/icxxabi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <kernel/kernel/log.hpp>
 
 #ifdef __i386
 #include <../arch/i386/scheduler/interface.hpp>
@@ -36,7 +37,7 @@ void Scheduler::set_first_task(Task* task) {
 void Scheduler::append_task(Task* task) {
 	last_ready_to_run_task->next_task = task;
 	last_ready_to_run_task = last_ready_to_run_task->next_task;
-	last_ready_to_run_task->next_task = first_ready_to_run_task;
+	last_ready_to_run_task->next_task = first_ready_to_run_task->next_task;
 	printf("%p %p\n", first_ready_to_run_task, last_ready_to_run_task);
 }
 
@@ -96,7 +97,7 @@ void Scheduler::schedule() {
                 // No other options - the idle task is the only task that can be given CPU time
             }
         }
-		printf("Switching to task %p\n", task);
+		log::log(log::INFO, "Switching to task %p\n", task);
         switch_to_task_wrapper(task);
     }
 
@@ -118,6 +119,7 @@ void Scheduler::unblock_task(Task* task) {
         // There's at least one task on the "ready to run" queue already, so don't pre-empt
         last_ready_to_run_task->next_task = task;
         last_ready_to_run_task = task;
+		task->next_task = first_ready_to_run_task->next_task;
     }
     unlock();
 }
