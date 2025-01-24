@@ -18,7 +18,6 @@ struct Task {
 	void (*fn)(void*);
 
 	Task(void (*fn)(void*), void* args);
-	Task(void (*fn)(void*), void* args, uint32_t stack_pointer);
 	Task(const Task&);
 	Task(Task&&);
 
