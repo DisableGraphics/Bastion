@@ -1,9 +1,6 @@
 #pragma once
 enum class TaskState {
-    READY,
+	CREATED,
 	RUNNING,
-	PAUSED,
-	SLEEPING,
-	WAITING,
-    FINISHED
+	WAITING
 };

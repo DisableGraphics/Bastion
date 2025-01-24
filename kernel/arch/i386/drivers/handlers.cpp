@@ -80,7 +80,11 @@ void IDT::general_protection_fault_handler(interrupt_frame*, unsigned int ecode)
 	halt();
 }
 
-void IDT::page_fault_handler(interrupt_frame*, unsigned int ecode) {
+void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
+	uint32_t eip;
+	uint32_t* ife = reinterpret_cast<uint32_t*>(ifr);
+	eip = ife[-2];
+
 	clear();
 	uint32_t faulting_address = read_cr2();
 	const char * prot_type = (ecode & 1) ? "page protection" : "not present";
@@ -89,6 +93,8 @@ void IDT::page_fault_handler(interrupt_frame*, unsigned int ecode) {
 	const char * instruction = (ecode & 0x10) ? "Fetch" : "No fetch"; 
 	printf("Page fault: %s %s %s %s\n", prot_type, rw, user, instruction);
 	printf("Tried to access %p, which is not a mapped address\n", faulting_address);
+	printf("Instruction pointer: %p\n", eip);
+
 	IDT::disable_interrupts();
 	halt();
 }

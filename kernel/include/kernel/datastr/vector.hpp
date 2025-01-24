@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <kernel/kernel/utility.hpp>
+#include <string.h>
 
 template <typename T>
 class Vector {
@@ -54,9 +55,8 @@ void Vector<T>::pop_back() {
 
 template <typename T>
 void Vector<T>::erase(size_t pos) {
-	for(size_t i = pos; i < size(); i++) {
-		arr[i] = arr[i+1];
-	}
+	T elem = arr[pos];
+	memmove(arr + pos, arr + pos + 1, (arrsize - pos - 1) * sizeof(T));
 	arrsize--;
 }
 

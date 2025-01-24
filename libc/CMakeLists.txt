@@ -9,6 +9,8 @@ add_subdirectory(string)
 add_subdirectory(stdlib)
 add_subdirectory(time)
 
+add_subdirectory(arch)
+
 # Include libc headers
 target_include_directories(libc_obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

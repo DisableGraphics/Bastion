@@ -109,7 +109,7 @@ void PIT::pit_handler(interrupt_frame *) {
 		}
 	}
 	Scheduler &sch = Scheduler::get();
-	sch.handle_sleeping_tasks(pit.system_timer_ms * 1000000, pit.IRQ0_ms * 1000000);
+	sch.preemptive_scheduling(pit.IRQ0_ms);
 }
 
 void PIT::sleep(uint32_t millis) {

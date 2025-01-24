@@ -39,30 +39,19 @@ void breakpoint() {
 	__asm__ volatile("int3");
 }
 
-void test_kernel_task() {
+void test1fn(void*) {
 	for(;;) {
 		printf("a");
-    }
-
+		//Scheduler::get().yield();
+		//Scheduler::get().schedule();
+	}
 }
 
-void task_2_fn() {
-	while(true) {
+void test2fn(void*) {
+	for(;;) {
 		printf("b");
-		//Scheduler::get().sleep(50);
-	}
-}
-
-void task_3_fn() {
-	while(true) {
-		printf("c");
-		Scheduler::get().sleep(50);
-	}
-}
-
-void idle_task_fn() {
-	while(true) {
-		halt();
+		//Scheduler::get().yield();
+		//Scheduler::get().schedule();
 	}
 }
 
@@ -105,28 +94,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
-	Task maintask, task2, task3, idle_task;
-	maintask.esp = get_esp();
-	maintask.cr3 = read_cr3();
-
-	void * teststack = kcalloc(16384, 1);
-	task2.esp = reinterpret_cast<uint32_t>(teststack);
-	task2.cr3 = read_cr3();
-	Scheduler::get().prepare_task(task2, reinterpret_cast<void*>(task_2_fn));
-
-	void * teststack2 = kcalloc(16384, 1);
-	task3.esp = reinterpret_cast<uint32_t>(teststack2);
-	task3.cr3 = read_cr3();
-	Scheduler::get().prepare_task(task3, reinterpret_cast<void*>(task_3_fn));
-
-	void * idle_stack = kcalloc(8192, 1);
-	idle_task.esp = reinterpret_cast<uint32_t>(idle_stack);
-	idle_task.cr3 = read_cr3();
-	Scheduler::get().prepare_task(idle_task, reinterpret_cast<void*>(idle_task_fn));
-
-	Scheduler::get().set_first_task(&idle_task);
-	Scheduler::get().append_task(&task2);
-	Scheduler::get().append_task(&task3);
+	Task task1{test1fn, nullptr}, 
+		task2{test2fn, nullptr};
 
 	#ifdef DEBUG
 	test_paging();
@@ -134,7 +103,10 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
+	Scheduler::get().append_task(&task1);
+	Scheduler::get().append_task(&task2);
 	Scheduler::get().schedule();
+	test2fn(NULL);
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}
