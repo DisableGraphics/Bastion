@@ -17,7 +17,7 @@ Task::Task(void (*fn)(void*), void* args) : fn(fn) {
 	memset(stack_bottom, 0, KERNEL_STACK_SIZE);
 
 	// 4 registers + function + finish function + arguments
-	// 7 32bit elements (32 Bytes)
+	// 7 4-byte elements
 	void** stack = reinterpret_cast<void**>(esp);
 	stack = stack - 8;
 	stack[5] = reinterpret_cast<void*>(fn);
