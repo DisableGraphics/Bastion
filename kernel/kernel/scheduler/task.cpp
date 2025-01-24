@@ -6,8 +6,9 @@
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
 
+static int idn = 0;
+
 Task::Task(void (*fn)(void*), void* args) : fn(fn) {
-	status = TaskState::CREATED;
 	stack_bottom = kcalloc(KERNEL_STACK_SIZE, 1);
 	// Reserve space for registers + other things
 	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(stack_bottom) + KERNEL_STACK_SIZE);
@@ -25,9 +26,17 @@ Task::Task(void (*fn)(void*), void* args) : fn(fn) {
 	esp = reinterpret_cast<uint32_t>(stack);
 	esp0 = esp;
 	cr3 = read_cr3();
+	this->id = idn++;
 	log(INFO, "ESP: %p", esp);
 	for(size_t i = 0; i < 8; i++)
 		log(INFO, "%d: %p", i, *(reinterpret_cast<void**>(esp)+i));
+}
+
+Task::Task(void (*fn)(void*), void* args, uint32_t stack_pointer) : fn(fn) {
+	esp = esp0 = stack_pointer;
+	cr3 = read_cr3();
+	log(INFO, "Task created with existing stack: %p", esp);
+	this->id = idn++;
 }
 
 Task::Task(Task&& other) {
@@ -40,7 +49,7 @@ Task::Task(const Task& other) {
 }
 
 Task::~Task() {
-	log(INFO, "Task destroyed: %p %p", stack_bottom, esp);
+	log(INFO, "Task destroyed: %p %p", stack_bottom, esp0);
 	kfree(stack_bottom);
 }
 

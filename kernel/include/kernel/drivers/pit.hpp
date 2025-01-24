@@ -84,7 +84,7 @@ class PIT {
 			\brief IRQ0_fractions = How many fractions of milliseconds have elapsed between interrupts
 			\brief IRQ0_ms = How many milliseconds have elapsed between interrupts
 		 */
-		uint32_t IRQ0_fractions = 0, IRQ0_ms = 0;
+		volatile uint32_t IRQ0_fractions = 0, IRQ0_ms = 0;
 		/**
 			\brief IRQ0_frecuency = Frecuency of the timer in hertz
 		 */

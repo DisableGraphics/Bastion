@@ -28,6 +28,7 @@ void PIT::init(int freq) {
 		final_freq = 3579545;
 		edx = 0;
 		final_freq /= freq; // eax = 3579545 / frequency, edx = remainder
+		edx = 3579545 % freq;
 		if ((3579545 % freq) > (3579545 / 2)) {
 			final_freq++; // Round up if remainder > half
 		}
@@ -64,6 +65,7 @@ void PIT::init(int freq) {
 	outb(0x40, (PIT_reload_value >> 8) & 0xFF); // Send high byte
 
 	IDT::get().enable_interrupts();
+	Scheduler::get().set_clock_tick(IRQ0_ms);
 }
 
 PIT &PIT::get() {
@@ -95,8 +97,11 @@ void PIT::set_count(uint16_t count) {
 	IDT::get().enable_interrupts();
 }
 
+#include <stdio.h>
+
 void PIT::pit_handler(interrupt_frame *) {
 	PIT& pit = PIT::get();
+	uint32_t ms = pit.IRQ0_ms;
 	pit.system_timer_fractions += pit.IRQ0_fractions;
 	pit.system_timer_ms += pit.IRQ0_ms;
 	PIC::get().send_EOI(0);
@@ -109,7 +114,8 @@ void PIT::pit_handler(interrupt_frame *) {
 		}
 	}
 	Scheduler &sch = Scheduler::get();
-	sch.preemptive_scheduling(pit.IRQ0_ms);
+	sch.handle_sleeping_tasks();
+	sch.preemptive_scheduling();
 }
 
 void PIT::sleep(uint32_t millis) {

@@ -10,7 +10,7 @@ add_subdirectory(fs)
 add_subdirectory(random)
 add_subdirectory(scheduler)
 
-target_compile_options(kernel_platform_dependent PRIVATE -g -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -fno-sized-deallocation -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
+target_compile_options(kernel_platform_dependent PRIVATE -O2 -g -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -fno-sized-deallocation -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
 
 target_include_directories(kernel_platform_dependent PUBLIC ${CMAKE_SOURCE_DIR}/kernel/include/)
 target_include_directories(kernel_platform_dependent PUBLIC ${CMAKE_SOURCE_DIR}/libc/include/)

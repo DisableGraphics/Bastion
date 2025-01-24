@@ -6,18 +6,27 @@
 class Scheduler {
 	public:
 		static Scheduler &get();
+		void run();
 		void append_task(Task* task);
 		void schedule();
+		void sleep(unsigned millis);
 
-		void preemptive_scheduling(int ellapsed_ms);
+		void handle_sleeping_tasks();
+		void preemptive_scheduling();
+
+		void set_clock_tick(int ms);
+
+		void lock();
+		void unlock();
 	private:
-		Scheduler(){};
+		Scheduler();
 		Vector<Task*> tasks;
+		Task* idle_task;
 		Task** current_task;
 		size_t choose_task();
 
 		int time_slice = TIME_QUANTUM_MS;
-
-		bool first_time = true;
-		void *ksptr;
+		int nlock = 0;
+		volatile bool init = false;
+		int ms_clock_tick = 0;
 };

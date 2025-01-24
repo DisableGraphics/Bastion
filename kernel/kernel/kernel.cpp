@@ -42,18 +42,40 @@ void breakpoint() {
 void test1fn(void*) {
 	for(;;) {
 		printf("a");
-		//Scheduler::get().yield();
-		//Scheduler::get().schedule();
 	}
 }
 
 void test2fn(void*) {
 	for(;;) {
 		printf("b");
+	}
+}
+
+void test3fn(void*) {
+	for(;;) {
+		printf("c");
+	}
+}
+
+
+void test4fn(void*) {
+	for(;;) {
+		printf("d");
+	}
+}
+
+/*void test5fn(void*) {
+	for(;;) {
+		printf("e");
 		//Scheduler::get().yield();
 		//Scheduler::get().schedule();
 	}
+}*/
+
+void idle(void*) {
+	for(;;) halt();
 }
+
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTYManager::get().init();
@@ -94,8 +116,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
+	Task idleTask{idle, nullptr, get_esp()};
 	Task task1{test1fn, nullptr}, 
-		task2{test2fn, nullptr};
+		task2{test2fn, nullptr}, 
+		task3{test3fn, nullptr}, 
+		task4{test4fn, nullptr}/*,
+		task5{test4fn, nullptr}*/;
 
 	#ifdef DEBUG
 	test_paging();
@@ -103,10 +129,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
+	Scheduler::get().append_task(&idleTask);
 	Scheduler::get().append_task(&task1);
 	Scheduler::get().append_task(&task2);
-	Scheduler::get().schedule();
-	test2fn(NULL);
+	Scheduler::get().append_task(&task3);
+	Scheduler::get().append_task(&task4);
+	//Scheduler::get().append_task(&task5);
+	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}
