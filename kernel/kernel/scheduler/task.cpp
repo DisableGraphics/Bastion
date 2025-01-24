@@ -33,10 +33,13 @@ Task::Task(void (*fn)(void*), void* args) : fn(fn) {
 }
 
 Task::Task(void (*fn)(void*), void* args, uint32_t stack_pointer) : fn(fn) {
-	esp = esp0 = stack_pointer;
+	esp = stack_pointer;
 	cr3 = read_cr3();
-	log(INFO, "Task created with existing stack: %p", esp);
+	esp0 = esp;
 	this->id = idn++;
+	log(INFO, "ESP: %p", esp);
+	for(size_t i = 0; i < 32; i++)
+		log(INFO, "%d: %p", i, *(reinterpret_cast<void**>(esp)+i));
 }
 
 Task::Task(Task&& other) {

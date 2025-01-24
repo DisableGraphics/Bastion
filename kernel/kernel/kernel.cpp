@@ -42,18 +42,21 @@ void breakpoint() {
 void test1fn(void*) {
 	for(;;) {
 		printf("a");
+		Scheduler::get().sleep(120);
 	}
 }
 
 void test2fn(void*) {
 	for(;;) {
 		printf("b");
+		Scheduler::get().sleep(120);
 	}
 }
 
 void test3fn(void*) {
 	for(;;) {
 		printf("c");
+		Scheduler::get().sleep(120);
 	}
 }
 
@@ -61,16 +64,15 @@ void test3fn(void*) {
 void test4fn(void*) {
 	for(;;) {
 		printf("d");
+		Scheduler::get().sleep(120);
 	}
 }
 
-/*void test5fn(void*) {
+void test5fn(void*) {
 	for(;;) {
 		printf("e");
-		//Scheduler::get().yield();
-		//Scheduler::get().schedule();
 	}
-}*/
+}
 
 void idle(void*) {
 	for(;;) halt();
@@ -116,12 +118,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
-	Task idleTask{idle, nullptr, get_esp()};
+	Task idleTask{idle, nullptr};
 	Task task1{test1fn, nullptr}, 
 		task2{test2fn, nullptr}, 
 		task3{test3fn, nullptr}, 
-		task4{test4fn, nullptr}/*,
-		task5{test4fn, nullptr}*/;
+		task4{test4fn, nullptr},
+		task5{test5fn, nullptr};
 
 	#ifdef DEBUG
 	test_paging();
