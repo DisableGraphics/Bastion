@@ -1,1 +1,1 @@
-target_sources(kernel_obj PRIVATE task.cpp scheduler.cpp semaphore.cpp)
+target_sources(kernel_obj PRIVATE task.cpp scheduler.cpp semaphore.cpp mutex.cpp)
