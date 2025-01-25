@@ -11,6 +11,7 @@ class Scheduler {
 		void schedule();
 		void sleep(unsigned millis);
 		void block_task(TaskState reason);
+		void terminate();
 
 		void handle_sleeping_tasks();
 		void preemptive_scheduling();

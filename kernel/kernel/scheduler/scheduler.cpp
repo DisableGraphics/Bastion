@@ -75,6 +75,13 @@ void Scheduler::handle_sleeping_tasks() {
 				tasks[i]->status = TaskState::RUNNING;
 			}
 		}
+
+		if(tasks[i]->status == TaskState::TERMINATED) {
+			log(INFO, "Task %d terminated", tasks[i]->id);
+			Task* task = tasks[i];
+			tasks.erase(i);
+			delete task;
+		}
 	}
 }
 
@@ -109,5 +116,11 @@ void Scheduler::set_clock_tick(int ms) {
 
 void Scheduler::block_task(TaskState reason) {
 	(*current_task)->status = reason;
+	schedule();
+}
+
+void Scheduler::terminate() {
+	log(INFO, "Task %d requested termination", (*current_task)->id);
+	(*current_task)->status = TaskState::TERMINATED;
 	schedule();
 }

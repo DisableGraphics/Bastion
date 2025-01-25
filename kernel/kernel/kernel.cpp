@@ -70,10 +70,8 @@ void test4fn(void*) {
 }
 
 void test5fn(void*) {
-	for(;;) {
-		printf("e");
-		Scheduler::get().sleep(120);
-	}
+	printf("e");
+	Scheduler::get().sleep(120);
 }
 
 void idle(void*) {
@@ -120,12 +118,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
-	Task idleTask{idle, nullptr};
-	Task task1{test1fn, nullptr}, 
-		task2{test2fn, nullptr}, 
-		task3{test3fn, nullptr}, 
-		task4{test4fn, nullptr},
-		task5{test5fn, nullptr};
+	Task *idleTask = new Task{idle, nullptr};
+	Task *task1 = new Task{test1fn, nullptr}, 
+		*task2 = new Task{test2fn, nullptr}, 
+		*task3 = new Task{test3fn, nullptr}, 
+		*task4 = new Task{test4fn, nullptr},
+		*task5 = new Task{test5fn, nullptr};
 
 	#ifdef DEBUG
 	test_paging();
@@ -133,12 +131,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
-	Scheduler::get().append_task(&idleTask);
-	Scheduler::get().append_task(&task1);
-	Scheduler::get().append_task(&task2);
-	Scheduler::get().append_task(&task3);
-	Scheduler::get().append_task(&task4);
-	Scheduler::get().append_task(&task5);
+	Scheduler::get().append_task(idleTask);
+	Scheduler::get().append_task(task1);
+	Scheduler::get().append_task(task2);
+	Scheduler::get().append_task(task3);
+	Scheduler::get().append_task(task4);
+	Scheduler::get().append_task(task5);
 	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");

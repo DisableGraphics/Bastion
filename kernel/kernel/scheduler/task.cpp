@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
+#include <kernel/scheduler/scheduler.hpp>
 
 static int idn = 0;
 
@@ -52,6 +53,6 @@ Task& Task::operator=(const Task& other) {
 }
 
 void Task::finish() {
-	printf("Task finished\n");
-	for(;;) halt();
+	log(INFO, "Task::finish() called");
+	Scheduler::get().terminate();
 }
