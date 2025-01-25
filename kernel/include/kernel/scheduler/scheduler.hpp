@@ -1,6 +1,6 @@
 #pragma once
 #include <kernel/scheduler/task.hpp>
-#include <kernel/datastr/cqueue.hpp>
+#include <kernel/datastr/vector.hpp>
 #define TIME_QUANTUM_MS 20
 
 class Scheduler {
@@ -10,7 +10,8 @@ class Scheduler {
 		void append_task(Task* task);
 		void schedule();
 		void sleep(unsigned millis);
-		void block_task(TaskState reason);
+		void block(TaskState reason);
+		void unblock(Task* task);
 		void terminate();
 
 		void handle_sleeping_tasks();
@@ -23,12 +24,11 @@ class Scheduler {
 	private:
 		Scheduler();
 		Vector<Task*> tasks;
-		Task* idle_task;
 		Task** current_task;
 		size_t choose_task();
 
 		int time_slice = TIME_QUANTUM_MS;
 		int nlock = 0;
-		volatile bool init = false;
+		bool init = false;
 		int ms_clock_tick = 0;
 };

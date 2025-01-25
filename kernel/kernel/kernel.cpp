@@ -43,7 +43,7 @@ void test1fn(void*) {
 	for(;;) {
 		printf("a");
 		Scheduler::get().sleep(120);
-		Scheduler::get().block_task(TaskState::WAITING);
+		Scheduler::get().block(TaskState::WAITING);
 	}
 }
 
@@ -62,9 +62,10 @@ void test3fn(void*) {
 }
 
 
-void test4fn(void*) {
+void test4fn(void* task1) {
 	for(;;) {
 		printf("d");
+		Scheduler::get().unblock(reinterpret_cast<Task*>(task1));
 		Scheduler::get().sleep(120);
 	}
 }
@@ -122,7 +123,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Task *task1 = new Task{test1fn, nullptr}, 
 		*task2 = new Task{test2fn, nullptr}, 
 		*task3 = new Task{test3fn, nullptr}, 
-		*task4 = new Task{test4fn, nullptr},
+		*task4 = new Task{test4fn, task1},
 		*task5 = new Task{test5fn, nullptr};
 
 	#ifdef DEBUG

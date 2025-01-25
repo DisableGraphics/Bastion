@@ -114,9 +114,14 @@ void Scheduler::set_clock_tick(int ms) {
 	ms_clock_tick = ms;
 }
 
-void Scheduler::block_task(TaskState reason) {
+void Scheduler::block(TaskState reason) {
 	(*current_task)->status = reason;
 	schedule();
+}
+
+void Scheduler::unblock(Task* task) {
+	log(INFO, "Task %d has been unlocked", task->id);
+	task->status = TaskState::RUNNING;
 }
 
 void Scheduler::terminate() {
