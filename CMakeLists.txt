@@ -5,14 +5,14 @@ set(EXEC_NAME bastion)
 
 enable_language(ASM)
 
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_ASM_FLAGS "-g")
-set(CMAKE_C_FLAGS "-g -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
-set(CMAKE_CXX_FLAGS "-g -O2 -ffreestanding -nostdlib -lgcc")
+set(CMAKE_C_FLAGS "-g -Ofast -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
+set(CMAKE_CXX_FLAGS "-g -Ofast -ffreestanding -nostdlib -lgcc")
 
 # Add subdirectories for kernel and libc
 add_subdirectory(kernel)
