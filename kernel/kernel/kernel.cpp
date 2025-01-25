@@ -43,6 +43,7 @@ void test1fn(void*) {
 	for(;;) {
 		printf("a");
 		Scheduler::get().sleep(120);
+		Scheduler::get().block_task(TaskState::WAITING);
 	}
 }
 
@@ -71,6 +72,7 @@ void test4fn(void*) {
 void test5fn(void*) {
 	for(;;) {
 		printf("e");
+		Scheduler::get().sleep(120);
 	}
 }
 
@@ -136,7 +138,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Scheduler::get().append_task(&task2);
 	Scheduler::get().append_task(&task3);
 	Scheduler::get().append_task(&task4);
-	//Scheduler::get().append_task(&task5);
+	Scheduler::get().append_task(&task5);
 	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");

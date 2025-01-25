@@ -97,8 +97,6 @@ void PIT::set_count(uint16_t count) {
 	IDT::get().enable_interrupts();
 }
 
-#include <stdio.h>
-
 void PIT::pit_handler(interrupt_frame *) {
 	PIT& pit = PIT::get();
 	uint32_t ms = pit.IRQ0_ms;

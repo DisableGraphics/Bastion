@@ -106,3 +106,8 @@ void Scheduler::unlock() {
 void Scheduler::set_clock_tick(int ms) {
 	ms_clock_tick = ms;
 }
+
+void Scheduler::block_task(TaskState reason) {
+	(*current_task)->status = reason;
+	schedule();
+}

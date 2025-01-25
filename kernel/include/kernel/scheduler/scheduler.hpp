@@ -10,6 +10,7 @@ class Scheduler {
 		void append_task(Task* task);
 		void schedule();
 		void sleep(unsigned millis);
+		void block_task(TaskState reason);
 
 		void handle_sleeping_tasks();
 		void preemptive_scheduling();
