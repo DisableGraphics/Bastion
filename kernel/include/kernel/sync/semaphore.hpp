@@ -2,17 +2,17 @@
 /**
 	\brief Semaphore syncronisation primitive
  */
-class Semaphore {
+class SpinSemaphore {
 	public:
 		/**
 			\brief Initialise semaphore to count.
 		 */
-		Semaphore(int count);
+		SpinSemaphore(int count);
 		/**
 			\brief Destructor for the semaphore.
 			Frees resources automatically.
 		 */
-		~Semaphore();
+		~SpinSemaphore();
 		/**
 			\brief Await for semaphore.
 		 */
@@ -23,5 +23,5 @@ class Semaphore {
 		void signal();
 	private:
 		// Internal semaphore
-		sem_t sem;
+		spin_sem_t sem;
 };

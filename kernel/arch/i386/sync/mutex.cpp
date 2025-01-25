@@ -1,6 +1,6 @@
 #include <kernel/sync/mutex.hpp>
 
-void Mutex::lock() {
+void SpinMutex::lock() {
 	uint32_t expected = MUTEX_UNLOCK;
 	while (true) {
 		asm volatile (
@@ -15,7 +15,7 @@ void Mutex::lock() {
 	}
 }
 
-void Mutex::unlock() {
+void SpinMutex::unlock() {
 	uint32_t dummy = MUTEX_UNLOCK;
 	asm volatile (
 		"xchg %0, %1"

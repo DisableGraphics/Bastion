@@ -129,3 +129,7 @@ void Scheduler::terminate() {
 	(*current_task)->status = TaskState::TERMINATED;
 	schedule();
 }
+
+Task* Scheduler::get_current_task() {
+	return *current_task;
+}

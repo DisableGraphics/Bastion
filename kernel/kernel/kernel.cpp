@@ -28,6 +28,7 @@
 // Scheduler
 #include <../arch/i386/scheduler/interface.hpp>
 #include <kernel/scheduler/scheduler.hpp>
+#include <kernel/scheduler/semaphore.hpp>
 // C Library headers
 #include <stdio.h>
 // Tests
@@ -39,6 +40,8 @@ void breakpoint() {
 	__asm__ volatile("int3");
 }
 
+int comp = 0;
+
 void test1fn(void*) {
 	for(;;) {
 		printf("a");
@@ -47,16 +50,22 @@ void test1fn(void*) {
 	}
 }
 
-void test2fn(void*) {
+void test2fn(void* sm) {
+	Semaphore* sem = reinterpret_cast<Semaphore*>(sm);
 	for(;;) {
-		printf("b");
+		sem->acquire();
+		comp--;
+		printf("b%d", comp);
 		Scheduler::get().sleep(120);
 	}
 }
 
-void test3fn(void*) {
+void test3fn(void* sm) {
+	Semaphore* sem = reinterpret_cast<Semaphore*>(sm);
 	for(;;) {
-		printf("c");
+		comp++;
+		printf("c%d", comp);
+		sem->release();
 		Scheduler::get().sleep(120);
 	}
 }
@@ -119,10 +128,11 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
+	Semaphore sm1{1, 1};
 	Task *idleTask = new Task{idle, nullptr};
 	Task *task1 = new Task{test1fn, nullptr}, 
-		*task2 = new Task{test2fn, nullptr}, 
-		*task3 = new Task{test3fn, nullptr}, 
+		*task2 = new Task{test2fn, &sm1}, 
+		*task3 = new Task{test3fn, &sm1}, 
 		*task4 = new Task{test4fn, task1},
 		*task5 = new Task{test5fn, nullptr};
 

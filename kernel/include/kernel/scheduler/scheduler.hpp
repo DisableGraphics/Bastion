@@ -14,6 +14,8 @@ class Scheduler {
 		void unblock(Task* task);
 		void terminate();
 
+		Task* get_current_task();
+
 		void handle_sleeping_tasks();
 		void preemptive_scheduling();
 

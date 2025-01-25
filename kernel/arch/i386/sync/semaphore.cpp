@@ -1,17 +1,17 @@
 #include <kernel/sync/semaphore.hpp>
 
-Semaphore::Semaphore(int count) {
+SpinSemaphore::SpinSemaphore(int count) {
 	semaphore_init(&sem, count);
 }
 
-Semaphore::~Semaphore() {
+SpinSemaphore::~SpinSemaphore() {
 	semaphore_destroy(&sem);
 }
 
-void Semaphore::await() {
+void SpinSemaphore::await() {
 	semaphore_wait(&sem);
 }
 
-void Semaphore::signal() {
+void SpinSemaphore::signal() {
 	semaphore_signal(&sem);
 }

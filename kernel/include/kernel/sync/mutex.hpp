@@ -5,12 +5,12 @@ constexpr uint32_t MUTEX_LOCK = 1;
 /**
 	\brief Mutex syncronisation primitive
  */
-class Mutex {
+class SpinMutex {
 	public:
 		/**
 			\brief Constructor. Mutex is unlocked
 		 */
-		Mutex() : lock_var(MUTEX_UNLOCK) {}
+		SpinMutex() : lock_var(MUTEX_UNLOCK) {}
 		/**
 			\brief Lock mutex.
 		 */

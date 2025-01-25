@@ -7,7 +7,7 @@ typedef struct {
 	atomic_int count;
 } InternalSemaphore;
 
-void semaphore_init(sem_t* sem, int initial_count) {
+void semaphore_init(spin_sem_t* sem, int initial_count) {
 	InternalSemaphore* internal = (InternalSemaphore*)kmalloc(sizeof(InternalSemaphore));
 	if (!internal) {
 		// Handle allocation failure
@@ -17,14 +17,14 @@ void semaphore_init(sem_t* sem, int initial_count) {
 	sem->count = internal;
 }
 
-void semaphore_destroy(sem_t* sem) {
+void semaphore_destroy(spin_sem_t* sem) {
 	if (sem->count) {
 		kfree(sem->count);
 		sem->count = NULL;
 	}
 }
 
-void semaphore_wait(sem_t* sem) {
+void semaphore_wait(spin_sem_t* sem) {
 	InternalSemaphore* internal = (InternalSemaphore*)sem->count;
 	int expected;
 	do {
@@ -34,7 +34,7 @@ void semaphore_wait(sem_t* sem) {
 	} while (!atomic_compare_exchange_weak(&internal->count, &expected, expected - 1));
 }
 
-void semaphore_signal(sem_t* sem) {
+void semaphore_signal(spin_sem_t* sem) {
 	InternalSemaphore* internal = (InternalSemaphore*)sem->count;
 	atomic_fetch_add(&internal->count, 1);
 }

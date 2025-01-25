@@ -2,7 +2,7 @@
 #include <kernel/memory/mmanager.hpp>
 #include <kernel/sync/mutex.hpp>
 
-Mutex mtx;
+SpinMutex mtx;
 
 int liballoc_lock() {
 	mtx.lock();
