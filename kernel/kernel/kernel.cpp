@@ -63,9 +63,10 @@ void test2fn(void* sm) {
 void test3fn(void* sm) {
 	Semaphore* sem = reinterpret_cast<Semaphore*>(sm);
 	for(;;) {
-		comp++;
+		comp += 3;
 		printf("c%d", comp);
-		sem->release();
+		if(comp % 5 == 0)
+			sem->release();
 		Scheduler::get().sleep(120);
 	}
 }
