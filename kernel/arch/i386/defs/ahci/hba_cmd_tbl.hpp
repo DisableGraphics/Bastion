@@ -1,7 +1,9 @@
 #pragma once
 #include <stdint.h>
 #include "hba_prdt_entry.hpp"
-
+/**
+	\brief Command table for HBA
+ */
 typedef struct tagHBA_CMD_TBL
 {
 	// 0x00

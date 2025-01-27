@@ -28,7 +28,8 @@
 // Scheduler
 #include <../arch/i386/scheduler/interface.hpp>
 #include <kernel/scheduler/scheduler.hpp>
-#include <kernel/scheduler/semaphore.hpp>
+// Synchronization
+#include <kernel/sync/semaphore.hpp>
 // C Library headers
 #include <stdio.h>
 // Tests

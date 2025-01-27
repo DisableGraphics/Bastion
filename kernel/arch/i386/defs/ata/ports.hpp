@@ -1,4 +1,5 @@
-// I/O Ports for the Primary ATA Controller
+#pragma once
+/// I/O Ports for the Primary ATA Controller
 #define ATA_PRIMARY_IO 0x1F0
 #define ATA_PRIMARY_CONTROL 0x3F6
 #define ATA_DATA_REG (ATA_PRIMARY_IO + 0) // Data register (16-bit)

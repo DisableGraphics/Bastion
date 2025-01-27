@@ -1,5 +1,4 @@
 #include <kernel/fs/partmanager.hpp>
-#include <kernel/sync/semaphore.hpp>
 #include "../arch/i386/defs/fs/fat32/bs.hpp"
 
 class FAT32 {

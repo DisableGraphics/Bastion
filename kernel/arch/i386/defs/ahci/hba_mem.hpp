@@ -1,6 +1,10 @@
 #pragma once
 #include <stdint.h>
 #include "hba_port.hpp"
+
+/**
+	\brief HBA memory register
+ */
 typedef volatile struct tagHBA_MEM
 {
 	// 0x00 - 0x2B, Generic Host Control

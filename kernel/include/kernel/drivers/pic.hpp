@@ -17,8 +17,8 @@ class PIC {
 		static PIC &get();
 		/**
 			\brief Initialise the PIC.
-			Remap the PIC to a more manageable position in the IDT
-			and disable all lines. 
+			Remaps the PIC to a more manageable position in the IDT
+			and disables all lines.
 		 */
 		void init();
 		/**

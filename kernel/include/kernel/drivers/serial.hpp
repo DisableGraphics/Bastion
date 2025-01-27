@@ -15,11 +15,11 @@ class Serial {
 		 */
 		void init();
 		/**
-			\brief Wether the serial is faulty or not.
+			\brief Whether the serial is faulty or not.
 
-			If this returns true you *really* shouldn't use the serial.
-			Unless you don't care your data is sent to the shadow.
-			realm or corrupted
+			\warning If this returns true you *really* shouldn't use the serial.
+			Unless you don't care your data is sent to the shadow
+			realm or corrupted.
 		 */
 		bool is_faulty();
 		/**
@@ -29,7 +29,7 @@ class Serial {
 		/**
 			\brief Read a character from serial.
 
-			This operation blocks the thread of execution 
+			\note This operation blocks the thread of execution 
 			until it receives all the data.
 		 */
 		char read();
@@ -40,14 +40,14 @@ class Serial {
 		/**
 			\brief Write a byte to the serial.
 			
-			This operation blocks the calling thread of execution.
+			\note This operation blocks the calling thread of execution.
 		 */
 		void write(char a);
 		/**
 			\brief Write an array of bytes to the serial.
 
-			This operation blocks the calling thread of execution.
-			Depending on the size of the array this will take an eternity,
+			\note This operation blocks the calling thread of execution.
+			\warning Depending on the size of the array this will take an eternity,
 			so use this sporadically at best.
 		 */
 		void print(const char *str);

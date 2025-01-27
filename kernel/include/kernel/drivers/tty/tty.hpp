@@ -2,7 +2,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// TTY
+/**
+	\brief TTY class.
+	\details The TTY holds a buffer that contains all the characters written to it.
+	The TTY manager is the one that does the work to display them.
+ */
 class TTY {
 	public:
 		TTY();

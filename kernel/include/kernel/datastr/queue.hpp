@@ -1,13 +1,34 @@
 #pragma once
 #include <stddef.h>
-
+/**
+	\brief Queue that uses a fixed size array.
+ */
 template <typename T, size_t N>
 class StaticQueue {
 	public:
+		/**
+			\brief Constructor
+		 */
 		StaticQueue(){};
+		/**
+			\brief Add an element to the queue
+			\warning It won't push anything into the queue if the array is full
+			\param elem element to add to the queue
+		 */
 		void push(const T &elem);
+		/**
+			\brief pops an element off the queue and returns it.
+			\return The popped element from the queue
+		 */
 		T pop();
+		/**
+			\brief Returns the first element in the queue
+			\return The first element
+		 */
 		T peek();
+		/**
+			\brief Size of the queue
+		*/
 		inline size_t size() { return int_size; };
 	private:
 		size_t int_size = 0;

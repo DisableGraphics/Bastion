@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/**
+	\brief FIS for data
+ */
 typedef struct tagFIS_DATA
 {
 	// DWORD 0

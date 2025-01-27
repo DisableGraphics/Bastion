@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/datastr/queue.hpp>
-#include <kernel/sync/mutex.hpp>
 #include <kernel/drivers/keyboard/key_event.hpp>
 /**
 	\brief Keyboard controller.

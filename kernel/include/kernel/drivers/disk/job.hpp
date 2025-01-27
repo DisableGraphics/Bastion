@@ -46,7 +46,7 @@ struct DiskJob {
 	/**
 		\brief Finishes job.
 
-		Sets the state to FINISHED
+		\details Sets the state to FINISHED
 		and executes on_finish if on_finish isn't nullptr
 	 */
 	void finish() volatile {
@@ -58,7 +58,7 @@ struct DiskJob {
 	/**
 		\brief Error action.
 
-		Sets the state to ERROR
+		\details Sets the state to ERROR
 		and executes on_error if on_error isn't nullptr
 	 */
 	void error() volatile {

@@ -10,12 +10,12 @@
 static int idn = 0;
 
 Task::Task(void (*fn)(void*), void* args) : fn(fn) {
-	stack_bottom = kcalloc(KERNEL_STACK_SIZE, 1);
+	stack_top = kcalloc(KERNEL_STACK_SIZE, 1);
 	// Reserve space for registers + other things
-	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(stack_bottom) + KERNEL_STACK_SIZE);
-	log(INFO, "Task created: %p %p", stack_bottom, esp);
+	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(stack_top) + KERNEL_STACK_SIZE);
+	log(INFO, "Task created: %p %p", stack_top, esp);
 
-	memset(stack_bottom, 0, KERNEL_STACK_SIZE);
+	memset(stack_top, 0, KERNEL_STACK_SIZE);
 
 	// 4 registers + function + finish function + arguments
 	// 7 4-byte elements
@@ -35,21 +35,18 @@ Task::Task(void (*fn)(void*), void* args) : fn(fn) {
 
 Task::Task(Task&& other) {
 	memcpy(this, &other, sizeof(Task));
-	other.stack_bottom = nullptr;
+	other.stack_top = nullptr;
 }
 
-Task::Task(const Task& other) {
+Task& Task::operator=(Task&& other) {
 	memcpy(this, &other, sizeof(Task));
+	other.stack_top = nullptr;
+	return *this;
 }
 
 Task::~Task() {
-	log(INFO, "Task destroyed: %p %p", stack_bottom, esp0);
-	kfree(stack_bottom);
-}
-
-Task& Task::operator=(const Task& other) {
-	memcpy(this, &other, sizeof(Task));
-	return *this;
+	log(INFO, "Task destroyed: %p %p", stack_top, esp0);
+	kfree(stack_top);
 }
 
 void Task::finish() {

@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/**
+	\brief DMA setup for a FIS in AHCI
+ */
 typedef struct tagFIS_DMA_SETUP
 {
 	// DWORD 0

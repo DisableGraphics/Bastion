@@ -1,4 +1,4 @@
-#include <kernel/scheduler/semaphore.hpp>
+#include <kernel/sync/semaphore.hpp>
 #include <kernel/scheduler/scheduler.hpp>
 
 Semaphore::Semaphore(int max_count, int current_count) : max_count(max_count), current_count(current_count) {

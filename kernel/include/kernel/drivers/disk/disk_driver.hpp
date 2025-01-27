@@ -2,13 +2,15 @@
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/disk/job.hpp>
 #include <kernel/datastr/vector.hpp>
-
+/**
+	\brief Base class of a generic disk driver. This is only an interface.
+ */
 class DiskDriver {
 	public:
 		/**
 			\brief Disk driver constructor
 		 */
-		DiskDriver(const PCI::PCIDevice &device);
+		DiskDriver();
 		/**
 			\brief Destructor
 		 */
@@ -32,8 +34,6 @@ class DiskDriver {
 		 */
 		virtual uint32_t get_sector_size() const { return 512; };
 	protected:
-		// PCI device and info
-		PCI::PCIDevice device;
-		uint32_t bars[6];
+		// Pending disk jobs
 		Vector<DiskJob*> jobs;
 };

@@ -1,5 +1,10 @@
 #pragma once
-
+/**
+	\brief Static class that controls whether
+	Non-Maskable Interrupts are active or not.
+	\note Necessary for the RTC (Real Time Clock)
+	to be seup properly.
+ */
 class NMI {
 	public:
 		/**

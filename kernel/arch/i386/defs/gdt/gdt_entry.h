@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
-
+/**
+	\brief GDT entry
+ */
 struct GDT_entry {
 	uint32_t limit;
 	uint32_t base;

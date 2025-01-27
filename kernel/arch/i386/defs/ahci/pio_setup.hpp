@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/**
+	\brief PIO setup register
+ */
 typedef struct tagFIS_PIO_SETUP
 {
 	// DWORD 0

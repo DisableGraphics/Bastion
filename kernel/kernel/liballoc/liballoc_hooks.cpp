@@ -1,8 +1,8 @@
 #include <liballoc/liballoc.h>
 #include <kernel/memory/mmanager.hpp>
-#include <kernel/sync/mutex.hpp>
+#include <kernel/sync/spinlock.hpp>
 
-SpinMutex mtx;
+SpinLock mtx;
 
 int liballoc_lock() {
 	mtx.lock();

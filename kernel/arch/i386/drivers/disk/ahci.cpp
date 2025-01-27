@@ -8,6 +8,7 @@
 #include <kernel/kernel/panic.hpp>
 #include <kernel/drivers/disk/disk.hpp>
 #include <string.h>
+#include <kernel/kernel/log.hpp>
 
 #include "../../defs/ahci/dev_type.hpp"
 #include "../../defs/ahci/port_const.hpp"
@@ -34,7 +35,7 @@ uint8_t int_line;
 // interrupt_handler() is a static function so I need this
 AHCI *self;
 
-AHCI::AHCI(const PCI::PCIDevice &device) : DiskDriver(device) {
+AHCI::AHCI(const PCI::PCIDevice &device) : device(device) {
 	init();
 }
 
@@ -262,7 +263,7 @@ void AHCI::interrupt_handler(interrupt_frame*) {
 
 				// Check and log the error cause from PxTFD
 				uint32_t task_file_data = prt->tfd;
-				printf("Error: %d\n", task_file_data);
+				log(ERROR, "Disk error with code %d", task_file_data);
 			}
 			self->hba->ports[port].is = port_is;  // Clear port-specific status
 		}
@@ -322,7 +323,7 @@ bool AHCI::reset_controller() {
 void AHCI::setup_interrupts() {
 	int_line = PCI::get().readConfigWord(device.bus, device.device, device.function, INTERRUPT_LINE);
 	if(int_line == 0xFF) {
-		printf("Well we cannot interrupt... fuck\n");
+		log(ERROR, "AHCI PCI device can't interrupt");
 	} else {
 		PIC::get().IRQ_clear_mask(int_line);
 		IDT::get().set_handler(int_line + PIC::get().get_offset(), interrupt_handler);
@@ -423,7 +424,7 @@ bool AHCI::dma_transfer(volatile DiskJob* job) {
 	}
 	if (spin == 1000000)
 	{
-		printf("Port is hung\n");
+		log(ERROR, "Port is hung when trying to do DMA transfer");
 		return false;
 	}
 
@@ -439,7 +440,7 @@ int AHCI::find_cmdslot(volatile HBA_PORT* port)
 		if ((slots&1) == 0)
 			return i;
 	}
-	printf("Cannot find free command list entry\n");
+	log(ERROR, "Cannot find free command list entry for port %p", port);
 	return -1;
 }
 
@@ -507,7 +508,7 @@ bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uin
 		}
 		if (port->is & HBA_PxIS_TFES)   // Task file error
 		{
-			printf("Read disk error\n");
+			log(ERROR, "Read disk error: port->is & HBA_PxIS_TFES (Task file error) is active");
 			return 0;
 		}
 	}
@@ -515,7 +516,7 @@ bool AHCI::send_identify_ata(volatile HBA_PORT *port, DriveInfo *drive_info, uin
 	// Check again
 	if (port->is & HBA_PxIS_TFES)
 	{
-		printf("Read disk error\n");
+		log(ERROR, "Read disk error: port->is & HBA_PxIS_TFES (Task file error) is active. This error has ocurred after the completion loop");
 		return 0;
 	}
 

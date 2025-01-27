@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/**
+	\brief Command header for AHCI devices
+ */
 typedef struct tagHBA_CMD_HEADER
 {
 	// DW0

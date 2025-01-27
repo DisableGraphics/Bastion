@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/**
+	\brief FIS for transfers between host and device
+ */
 typedef struct tagFIS_REG_H2D
 {
 	// DWORD 0

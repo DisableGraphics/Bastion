@@ -1,5 +1,9 @@
 #pragma once
 #include <stdint.h>
+
+/**
+	\brief FIS from device to host
+ */
 typedef struct tagFIS_REG_D2H
 {
 	// DWORD 0

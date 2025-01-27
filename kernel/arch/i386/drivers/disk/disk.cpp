@@ -1,21 +1,13 @@
 #include <kernel/drivers/disk/disk.hpp>
 #include <kernel/drivers/disk/ahci.hpp>
 #include <kernel/drivers/pci/pci.hpp>
+#include <kernel/kernel/log.hpp>
 #include <stdio.h>
 #include <string.h>
 
 #include "../../defs/pci/class_codes.hpp"
 #include "../../defs/pci/subclasses/storage.hpp"
 #include "../../defs/pci/prog_if/sata_progif.hpp"
-
-diskname::diskname(const char *type, char number) {
-	memcpy(this->type, type, sizeof(this->type));
-	this->number = number;
-}
-
-diskname::operator char *() {
-	return reinterpret_cast<char*>(this);
-}
 
 DiskManager &DiskManager::get() {
 	static DiskManager instance;
@@ -46,7 +38,7 @@ void DiskManager::init() {
 					}
 					break;
 				default:
-					printf("Disk type not supported: %d\n", devices[i].subclass_code);
+					log(INFO, "Disk type not supported: %d\n", devices[i].subclass_code);
 					break;
 			}
 		}

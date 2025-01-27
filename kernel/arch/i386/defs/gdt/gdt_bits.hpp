@@ -1,3 +1,6 @@
+/**
+	\brief GDT entry + all its bits
+ */
 struct [[gnu::packed]] gdt_entry_bits {
 	unsigned int limit_low              : 16;
 	unsigned int base_low               : 24;

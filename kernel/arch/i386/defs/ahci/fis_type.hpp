@@ -1,4 +1,8 @@
 #pragma once
+
+/**
+	\brief Enum that contains all the types of AHCI FIS
+ */
 typedef enum
 {
 	FIS_TYPE_REG_H2D	= 0x27,	// Register FIS - host to device

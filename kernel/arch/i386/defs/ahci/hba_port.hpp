@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/**
+	\brief HBA port register
+ */
 typedef struct tagHBA_PORT
 {
 	uint32_t clb;		// 0x00, command list base address, 1K-byte aligned

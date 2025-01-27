@@ -3,15 +3,7 @@
 #include <kernel/datastr/vector.hpp>
 #include <kernel/drivers/disk/job.hpp>
 #include <kernel/drivers/disk/disk_driver.hpp>
-
-struct diskname {
-	diskname(const char *type, char number);
-	operator char*();
-	char type[4];
-	char number;
-	char zero = '\0';
-};
-
+#include <kernel/drivers/disk/diskname.hpp>
 /**
 	\brief Disk manager.
 	Implemented as a singleton.

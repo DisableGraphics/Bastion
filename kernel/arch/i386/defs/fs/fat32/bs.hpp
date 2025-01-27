@@ -1,3 +1,6 @@
+/**
+	\brief FAT boot sector
+ */
 typedef struct fat_BS
 {
 	unsigned char 		bootjmp[3];
@@ -20,6 +23,9 @@ typedef struct fat_BS
 	
 }__attribute__((packed)) fat_BS_t;
 
+/**
+	\brief FAT32 extended boot sector
+ */
 typedef struct fat_extBS_32
 {
 	//extended fat32 stuff

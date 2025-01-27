@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
-
+/**
+	\brief HBA PRDT entry in memory
+ */
 typedef struct tagHBA_PRDT_ENTRY
 {
 	uint32_t dba;		// Data base address

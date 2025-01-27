@@ -1,4 +1,4 @@
-#include <kernel/scheduler/mutex.hpp>
+#include <kernel/sync/mutex.hpp>
 #include <kernel/scheduler/scheduler.hpp>
 
 Mutex::Mutex() : locked(false) {
