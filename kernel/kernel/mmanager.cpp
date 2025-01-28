@@ -65,8 +65,8 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 			reinterpret_cast<size_t>(used_regions[i].end) - 
 			reinterpret_cast<size_t>(used_regions[i].begin));
 	}
-	log(INFO, "Total memory: %d B (%d KiB) (%d MiB)\n", memsize, memsize / ONE_KILO, memsize / ONE_MEG);
-	log(INFO, "Available memory: %d B (%d KiB) (%d MiB)\n", real_memsize, real_memsize / ONE_KILO, real_memsize / ONE_MEG);
+	log(INFO, "Total memory: %d B (%d KiB) (%d MiB)", memsize, memsize / ONE_KILO, memsize / ONE_MEG);
+	log(INFO, "Available memory: %d B (%d KiB) (%d MiB)", real_memsize, real_memsize / ONE_KILO, real_memsize / ONE_MEG);
 	alloc_pagevec();
 	//PagingManager::get().heap_ready();
 }

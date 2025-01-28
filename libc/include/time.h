@@ -7,6 +7,7 @@ extern "C" {
 typedef int64_t time_t;
 
 time_t time(time_t* tloc);
+time_t seconds_since_boot();
 
 #ifdef __cplusplus
 }

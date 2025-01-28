@@ -221,8 +221,8 @@ PS2Controller::DeviceType PS2Controller::get_device_type(int port) {
 						break;
 				}
 			} else if(response == 0x00 || response == 0x03 || response == 0x05) {
-				log(INFO, "Mouse");
-				device_type =  static_cast<PS2Controller::DeviceType>(response);
+				log(INFO, "Mouse connected to port %d", port);
+				device_type = static_cast<PS2Controller::DeviceType>(response);
 			} else {
 				log(INFO, "Unknown or broken. Received code: %p", response);
 				device_type = NONE;

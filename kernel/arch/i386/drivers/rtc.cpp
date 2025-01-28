@@ -66,6 +66,7 @@ void RTC::interrupt_handler(interrupt_frame*) {
 	}
 
 	TimeManager::get().set_time(rtc.get_timestamp());
+	TimeManager::get().next_second();
 
 	PIC::get().send_EOI(8);
 }

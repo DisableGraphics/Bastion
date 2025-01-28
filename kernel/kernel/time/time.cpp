@@ -38,3 +38,10 @@ uint32_t TimeManager::days_in_year_until_month_day(uint32_t year, uint8_t month,
     return days;
 }
 
+void TimeManager::next_second() {
+	seconds_since_boot++;
+}
+
+time_t TimeManager::get_seconds_since_boot() {
+	return seconds_since_boot;
+}

@@ -20,6 +20,14 @@ class TimeManager {
 		 */
 		time_t get_time();
 		/**
+			\brief Advance one second the internal timer
+		 */
+		void next_second();
+		/**
+			\brief Get seconds since the OS has booted
+		 */
+		time_t get_seconds_since_boot();
+		/**
 			\brief Whether year is a leap year.
 			\param year Year
 		 */
@@ -38,5 +46,6 @@ class TimeManager {
 		static uint32_t days_in_year_until_month_day(uint32_t year, uint8_t month, uint8_t day);
 	private:
 		time_t current_time = 0;
+		time_t seconds_since_boot = 0;
 		TimeManager(){}
 };
