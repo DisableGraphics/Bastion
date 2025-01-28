@@ -37,54 +37,6 @@
 #include <kernel/test.hpp>
 #endif
 
-void breakpoint() {
-	__asm__ volatile("int3");
-}
-
-int comp = 0;
-
-void test1fn(void*) {
-	for(;;) {
-		printf("a");
-		Scheduler::get().sleep(120);
-		Scheduler::get().block(TaskState::WAITING);
-	}
-}
-
-void test2fn(void* sm) {
-	Semaphore* sem = reinterpret_cast<Semaphore*>(sm);
-	for(;;) {
-		sem->acquire();
-		comp--;
-		printf("b%d", comp);
-		Scheduler::get().sleep(120);
-	}
-}
-
-void test3fn(void* sm) {
-	Semaphore* sem = reinterpret_cast<Semaphore*>(sm);
-	for(;;) {
-		comp += 3;
-		printf("c%d", comp);
-		if(comp % 5 == 0)
-			sem->release();
-		Scheduler::get().sleep(120);
-	}
-}
-
-
-void test4fn(void* task1) {
-	for(;;) {
-		printf("d");
-		Scheduler::get().unblock(reinterpret_cast<Task*>(task1));
-		Scheduler::get().sleep(120);
-	}
-}
-
-void test5fn(void*) {
-	printf("e");
-	Scheduler::get().sleep(120);
-}
 
 void idle(void*) {
 	for(;;) halt();
@@ -130,13 +82,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}
-	Semaphore sm1{1, 1};
 	Task *idleTask = new Task{idle, nullptr};
-	Task *task1 = new Task{test1fn, nullptr}, 
-		*task2 = new Task{test2fn, &sm1}, 
-		*task3 = new Task{test3fn, &sm1}, 
-		*task4 = new Task{test4fn, task1},
-		*task5 = new Task{test5fn, nullptr};
 
 	#ifdef DEBUG
 	test_paging();
@@ -145,11 +91,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	printf("Initializing booting sequence\n");
 	printf("Finished booting. Giving control to the init process.\n");
 	Scheduler::get().append_task(idleTask);
-	Scheduler::get().append_task(task1);
-	Scheduler::get().append_task(task2);
-	Scheduler::get().append_task(task3);
-	Scheduler::get().append_task(task4);
-	Scheduler::get().append_task(task5);
+
 	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");
