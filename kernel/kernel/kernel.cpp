@@ -22,6 +22,7 @@
 #include <kernel/drivers/disk/disk.hpp>
 #include <kernel/drivers/rtc.hpp>
 #include <kernel/assembly/inlineasm.h>
+#include <kernel/kernel/log.hpp>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -69,7 +70,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		uint32_t n_sectors = disks[i].second->get_n_sectors();
 		uint64_t sizebytes = sector_size * n_sectors;
 		uint32_t sizemib = sizebytes / ONE_MEG;
-		printf("New disk: %s. Sector size: %d, Sectors: %d, Size: %dMiB\n", name, sector_size, n_sectors, sizemib);
+		log(INFO, "New disk: %s. Sector size: %d, Sectors: %d, Size: %dMiB\n", name, sector_size, n_sectors, sizemib);
 	}
 	PartitionManager p{0};
 	auto parts = p.get_partitions();
@@ -77,7 +78,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		uint64_t sizebytes = parts[i].size * disks[0].second->get_sector_size();
 		uint32_t sizemb = sizebytes / ONE_MEG;
 		uint32_t type = parts[i].type;
-		printf("Partition: %d %dMiB, Type: %p, start_lba: %d\n", i, sizemb, type, parts[i].start_lba);
+		log(INFO, "Partition: %d %dMiB, Type: %p, start_lba: %d\n", i, sizemb, type, parts[i].start_lba);
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 		}
@@ -88,8 +89,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	test_paging();
 	#endif
 	
-	printf("Initializing booting sequence\n");
-	printf("Finished booting. Giving control to the init process.\n");
 	Scheduler::get().append_task(idleTask);
 
 	Scheduler::get().run();

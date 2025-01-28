@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <kernel/kernel/const.hpp>
 
 enum LOG_LEVEL {
 	INFO,
@@ -10,5 +11,5 @@ enum LOG_LEVEL {
 const char *loglevel_to_str(LOG_LEVEL);
 
 //void log(LOG_LEVEL, const char* __restrict, ...);
-#define log(log_level, ...)  { serial_printf("[%s]: ", loglevel_to_str(log_level)); serial_printf(__VA_ARGS__); serial_printf("\n"); }
+#define log(log_level, ...)  { serial_printf("[%s]: (@ %s:%d) ", loglevel_to_str(log_level), __FILE_NAME__, __LINE__); serial_printf(__VA_ARGS__); serial_printf("\n"); }
 

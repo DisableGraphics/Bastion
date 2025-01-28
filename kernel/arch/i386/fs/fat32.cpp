@@ -2,6 +2,7 @@
 #include <kernel/drivers/disk/disk.hpp>
 #include <stdio.h>
 #include <string.h>
+#include <kernel/kernel/log.hpp>
 
 FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partmanager) {
 	this->partid = partid;
@@ -24,13 +25,13 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		n_data_sectors = total_sectors - (fat_boot->reserved_sector_count + (fat_boot->table_count * fat_size));
 		total_clusters = n_data_sectors / fat_boot->sectors_per_cluster;
 		root_cluster = fat_boot_ext_32->root_cluster;
-		printf("Total sectors: %d. FAT Size: %d. Cluster size: %d. Name: %s\n", total_sectors, fat_size, fat_boot->sectors_per_cluster, partname);
-		printf("Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d\n", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
+		log(INFO,"Total sectors: %d. FAT Size: %d. Cluster size: %d. Name: %s", total_sectors, fat_size, fat_boot->sectors_per_cluster, partname);
+		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
 	}
 	if(load_fat_sector(2)) {
-		printf("Loaded sector 2 from fat correctly\n");
+		log(INFO,"Loaded sector 2 from fat correctly");
 	} else {
-		printf("Could not load sector 2 from fat\n");
+		log(INFO,"Could not load sector 2 from fat");
 	}
 }
 
@@ -50,11 +51,11 @@ bool FAT32::load_fat_sector(uint32_t active_cluster) {
 		uint32_t table_value = *(uint32_t*)&fat_buffer[ent_offset];
 		table_value &= 0x0FFFFFFF;
 		if(table_value >= 0x0FFFFFF8) {
-			printf("Chain finished\n");
+			log(INFO,"Chain finished");
 		} else if(table_value == 0x0FFFFFF7) {
-			printf("Bad sector\n");
+			log(INFO,"Bad sector");
 		} else {
-			printf("Next cluster: %p\n", table_value);
+			log(INFO,"Next cluster: %p", table_value);
 		}
 		return true;
 	}

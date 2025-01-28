@@ -4,6 +4,7 @@
 #include <kernel/kernel/panic.hpp>
 #include <kernel/drivers/pit.hpp>
 #include <stdio.h>
+#include <kernel/kernel/log.hpp>
 
 #include "../defs/ps2/registers.h"
 #include "../defs/ps2/commands.h"
@@ -144,7 +145,7 @@ void PS2Controller::reset_and_detect_devices() {
 			}
 		}
 		if(timeout_expired) {
-			printf("No device connected to port %d of PS/2 controller\n", port);
+			log(INFO, "No device connected to port %d of PS/2 controller", port);
 		} else {
 			// Send reset command to the first port
 			outb(DATA_PORT, RESET_DEVICE);
@@ -154,11 +155,11 @@ void PS2Controller::reset_and_detect_devices() {
 				if(response == 0xFA || response == 0xAA) {
 					set_device_type(port, get_device_type(port));
 				} else { 
-					printf("Device in port %d of PS/2 controller is broken\n", port);
+					log(INFO, "Device in port %d of PS/2 controller is broken", port);
 					set_device_type(port, NONE);
 				}
 			} else { 
-				printf("Device in port %d of PS/2 controller is broken\n", port);
+				log(INFO, "Device in port %d of PS/2 controller is broken", port);
 				set_device_type(port, NONE);
 			}
 		}
@@ -185,7 +186,7 @@ PS2Controller::DeviceType PS2Controller::get_device_type(int port) {
 			while(inb(DATA_PORT) != 0xFA);
 			response = inb(DATA_PORT);
 			if(response == 0xAB || response == 0xAC) {
-				printf("Keyboard\n");
+				log(INFO, "Keyboard connected to PS/2 port %d", port);
 				uint8_t response_first = response;
 				response = inb(DATA_PORT);
 				switch(response) {
@@ -215,15 +216,15 @@ PS2Controller::DeviceType PS2Controller::get_device_type(int port) {
 						device_type = NCD_SUN_KEYBOARD;
 						break;
 					default:
-						printf("wat: got %d\n", response);
+						log(INFO, "wat: got %d", response);
 						device_type = NONE;
 						break;
 				}
 			} else if(response == 0x00 || response == 0x03 || response == 0x05) {
-				printf("Mouse\n");
+				log(INFO, "Mouse");
 				device_type =  static_cast<PS2Controller::DeviceType>(response);
 			} else {
-				printf("Unknown or broken. Received code: %p\n", response);
+				log(INFO, "Unknown or broken. Received code: %p", response);
 				device_type = NONE;
 			}
 			// Enable scanning again
