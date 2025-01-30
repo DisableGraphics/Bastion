@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <string.h>
 /**
 	\brief Queue that uses a fixed size array.
  */
@@ -9,7 +10,12 @@ class StaticQueue {
 		/**
 			\brief Constructor
 		 */
-		StaticQueue(){};
+		StaticQueue() {
+			// Init to 0
+			// Just in case it is a stack variable
+			// and the stack contains detritus
+			memset(arr, 0, N);
+		};
 		/**
 			\brief Add an element to the queue
 			\warning It won't push anything into the queue if the array is full
