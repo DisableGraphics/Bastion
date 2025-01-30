@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #ifdef __i386
 #include "../arch/i386/defs/idt/idt_entry.h"
 #include "../arch/i386/defs/idt/idtr.h"
@@ -216,5 +217,9 @@ class IDT {
 		[[gnu::interrupt]] // 30
 		static void security_exception_handler(interrupt_frame*, unsigned int);
 
-		IDT(){}
+		IDT() { 
+			memset(isr_table, 0, sizeof(isr_table));
+			memset(idt, 0, sizeof(idt));
+			idtr = {0,0};
+		}
 };

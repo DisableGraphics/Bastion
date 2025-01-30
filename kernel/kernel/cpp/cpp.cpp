@@ -1,7 +1,7 @@
-#include <error.h>
+#include <kernel/kernel/panic.hpp>
 
 extern "C" void __cxa_pure_virtual() {
-	kerror("__cxa_pure_virtual() called", "");
+	kn::panic("__cxa_pure_virtual() called");
 }
 
 namespace __cxxabiv1 

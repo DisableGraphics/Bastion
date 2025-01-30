@@ -1,15 +1,19 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
+/**
+	\brief PCI Driver.
+	\details Implemented as a singleton.
+ */
 class PCI {
 	public:
+
 		static PCI& get();
 
-		// Initialize PCI subsystem
 		void init();
 
-		// Structure to hold device information
 		struct PCIDevice {
 			uint8_t bus;
 			uint8_t device;
@@ -33,8 +37,7 @@ class PCI {
 		void writeConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data);
 		uint16_t readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
 	private:
-		// Private constructor
-		PCI() {}
+		PCI() { memset(devices, 0, MAX_DEVICES*sizeof(PCIDevice));}
 
 		void checkBus(uint8_t bus);
 		void checkDevice(uint8_t bus, uint8_t device);
@@ -49,8 +52,7 @@ class PCI {
 		uint8_t getProgIF(uint8_t bus, uint8_t device, uint8_t function);
 
 		void addDevice(uint8_t bus, uint8_t device, uint8_t function);
-		// Fixed-size array to store devices
-		static constexpr size_t MAX_DEVICES = 256; // Arbitrary limit, can adjust as needed
+		static constexpr size_t MAX_DEVICES = 256;
 		PCIDevice devices[MAX_DEVICES];
 		size_t deviceCount = 0;
 };

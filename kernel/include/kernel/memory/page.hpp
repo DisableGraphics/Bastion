@@ -69,9 +69,9 @@ class PagingManager {
 		bool page_table_exists(void *addr);
 	private:
 		// Kernel page directory
-		page_t *page_directory;
+		page_t *page_directory = nullptr;
 		// Kernel page table 1
-		page_t *page_table_1;
+		page_t *page_table_1 = nullptr;
 		// Kernel page table 2
 		// This table is the "heap" of the kernel since gcc is putting
 		// cursed shit after the end of the kernel and I can't know where the
@@ -82,8 +82,8 @@ class PagingManager {
 		[[gnu::aligned(PAGE_SIZE)]] page_t page_table_2[1024];
 
 		// Page table vector
-		page_t *pt_vector;
+		page_t *pt_vector = nullptr;
 
-		PagingManager(){}
+		PagingManager(){ memset(page_table_2, 0, sizeof(page_table_2)); }
 };
 extern uint32_t endkernel;

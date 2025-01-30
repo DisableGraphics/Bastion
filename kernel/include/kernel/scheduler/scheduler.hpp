@@ -87,7 +87,7 @@ class Scheduler {
 		// Tasks queue
 		Vector<Task*> tasks;
 		// Current task running. Double pointer, changes when calling switch_task
-		Task** current_task;
+		Task** current_task = nullptr;
 		/**
 			\brief Choose available task
 			\return -1 if no task is available, position in the tasks queue otherwise

@@ -46,7 +46,7 @@ class Mouse {
 		/**
 			\brief Current mouse event being processed
 		 */
-		MouseEvent cur_mouse_event;
+		MouseEvent cur_mouse_event = {0,0,0,0};
 		/**
 			\brief Mouse events queue
 		 */
@@ -56,13 +56,13 @@ class Mouse {
 		// Try to initialise the scrollwheel
 		void try_init_wheel();
 		// Port of the mouse
-		size_t port;
+		size_t port = 0;
 		// Interrupt Request Line
-		size_t irqline;
+		size_t irqline = 0;
 		// Number of bytes per packet
-		size_t nbytes;
+		size_t nbytes = 0;
 		// Type of mouse
-		PS2Controller::DeviceType type;
+		PS2Controller::DeviceType type = PS2Controller::DeviceType::NONE;
 		// Whether the mouse is being initialised
 		// and so we should ignore any interrupts
 		bool initialising = true;
@@ -72,6 +72,6 @@ class Mouse {
 			SECOND_BYTE,
 			THIRD_BYTE,
 			FOURTH_BYTE
-		} state;
+		} state = FIRST_BYTE;
 		Mouse(){};
 };

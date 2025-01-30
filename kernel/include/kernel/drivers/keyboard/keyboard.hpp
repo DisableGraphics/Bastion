@@ -79,9 +79,9 @@ class Keyboard {
 		StaticQueue<KEY_EVENT, 128> key_queue;
 		// PS2 Controller port and IRQ line assignated to the
 		// keyboard
-		int port, irq_line;
+		int port = 0, irq_line = 0;
 		// State of the driver. 
-		STATE driver_state;
+		STATE driver_state = INITIAL;
 		// State flags
 		bool is_key_released = false;
 

@@ -14,7 +14,7 @@ class StaticQueue {
 			// Init to 0
 			// Just in case it is a stack variable
 			// and the stack contains detritus
-			memset(arr, 0, N);
+			memset(arr, 0, N*sizeof(T));
 		};
 		/**
 			\brief Add an element to the queue

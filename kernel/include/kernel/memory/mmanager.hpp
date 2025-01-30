@@ -89,5 +89,7 @@ class MemoryManager {
 		used_region used_regions[32];
 		size_t ureg_size = 0;
 		
-		MemoryManager() {};
+		MemoryManager() {
+			memset(used_regions, 0, sizeof(used_regions));
+		};
 };

@@ -1,6 +1,7 @@
 #pragma once
 #include <kernel/drivers/interrupts.hpp>
 #include <stdint.h>
+#include <string.h>
 #ifdef __i386
 #include "../arch/i386/defs/pit/pit.hpp"
 #endif
@@ -9,7 +10,7 @@
 constexpr uint32_t K_N_COUNTDOWNS = 32;
 /**
 	\brief Programmable Interrupt Timer driver
-	Done as a singleton
+	Implemented as a singleton
 
 	Not a high resolution timer.
 */
@@ -112,5 +113,9 @@ class PIT {
 		/**
 			\brief Constructor
 		 */
-		PIT(){}
+		PIT() {
+			vmemset(kernel_countdowns, 0, sizeof(kernel_countdowns));
+			memset(callback_args, 0, sizeof(kernel_countdowns));
+			memset(callbacks, 0, sizeof(kernel_countdowns));
+		}
 };
