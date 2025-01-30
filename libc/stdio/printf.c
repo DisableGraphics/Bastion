@@ -130,7 +130,7 @@ static int format_print(bool (*print)(const char *, size_t), const char*__restri
 				return -1;
 			written += len;
 
-		} else if(*format == 'p') {
+		} else if(*format == 'p' || *format == 'x') {
 			format++;
 			long i = (long)va_arg(parameters, void *);
 			char buf[32];
