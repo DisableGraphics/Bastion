@@ -19,10 +19,11 @@
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/drivers/pci/pci.hpp>
-#include <kernel/drivers/disk/disk.hpp>
 #include <kernel/drivers/rtc.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/kernel/log.hpp>
+// HAL
+#include <kernel/hal/managers/diskmanager.hpp>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -61,12 +62,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Keyboard::get().init();
 	Mouse::get().init();
 	PCI::get().init();
-	DiskManager::get().init();
+	hal::DiskManager::get().init();
 
 	Task *idleTask = new Task{idle, nullptr};
 	Scheduler::get().append_task(idleTask);
 
-	auto disks = DiskManager::get().get_disks();
+	auto disks = hal::DiskManager::get().get_disks();
 	for(size_t i = 0; i < disks.size(); i++) {
 		char * name = disks[i].first;
 		uint32_t sector_size = disks[i].second->get_sector_size();

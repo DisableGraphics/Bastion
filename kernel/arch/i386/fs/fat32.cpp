@@ -1,5 +1,5 @@
 #include <kernel/fs/fat32.hpp>
-#include <kernel/drivers/disk/disk.hpp>
+#include <kernel/hal/managers/diskmanager.hpp>
 #include <stdio.h>
 #include <string.h>
 #include <kernel/kernel/log.hpp>
@@ -7,13 +7,13 @@
 FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partmanager) {
 	this->partid = partid;
 
-	sector_size = DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
+	sector_size = hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
 	
 	auto lba = partmanager.get_lba(partid, 0);
-	volatile DiskJob job = DiskJob(fat_boot_buffer, lba, 1, false);
-	DiskManager::get().spin_job(partmanager.get_disk_id(), &job);
+	volatile hal::DiskJob job{fat_boot_buffer, lba, 1, false};
+	hal::DiskManager::get().spin_job(partmanager.get_disk_id(), &job);
 	fat_boot = reinterpret_cast<fat_BS_t*>(fat_boot_buffer);
-	if(job.state == DiskJob::FINISHED) {
+	if(job.state == hal::DiskJob::FINISHED) {
 		fat_extBS_32_t *fat_boot_ext_32 = reinterpret_cast<fat_extBS_32_t*>(&fat_boot->extended_section);
 		total_sectors = (fat_boot->total_sectors_16 == 0)? fat_boot->total_sectors_32 : fat_boot->total_sectors_16;
 		fat_size = (fat_boot->table_size_16 == 0)? fat_boot_ext_32->table_size_32 : fat_boot->table_size_16;
@@ -45,9 +45,9 @@ bool FAT32::load_fat_sector(uint32_t active_cluster) {
 	unsigned int ent_offset = fat_offset % sector_size;
 	uint8_t fat_buffer[sector_size];
 	auto lba = partmanager.get_lba(partid, fat_sector);
-	volatile DiskJob job{fat_buffer, lba, 1, false};
-	DiskManager::get().spin_job(partmanager.get_disk_id(), &job);
-	if(job.state == DiskJob::FINISHED) {
+	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
+	hal::DiskManager::get().spin_job(partmanager.get_disk_id(), &job);
+	if(job.state == hal::DiskJob::FINISHED) {
 		uint32_t table_value = *(uint32_t*)&fat_buffer[ent_offset];
 		table_value &= 0x0FFFFFFF;
 		if(table_value >= 0x0FFFFFF8) {

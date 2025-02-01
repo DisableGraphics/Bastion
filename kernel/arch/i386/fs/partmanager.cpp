@@ -1,6 +1,6 @@
 #include <kernel/fs/partmanager.hpp>
-#include <kernel/drivers/disk/job.hpp>
-#include <kernel/drivers/disk/disk.hpp>
+#include <kernel/hal/job/diskjob.hpp>
+#include <kernel/hal/managers/diskmanager.hpp>
 
 #include <kernel/kernel/panic.hpp>
 #include <string.h>
@@ -22,13 +22,13 @@ class [[gnu::packed]] MBR_Partition {
 PartitionManager::PartitionManager(size_t disk_id) {
 	this->disk_id = disk_id;
 
-	uint8_t buffer[DiskManager::get().get_driver(disk_id)->get_sector_size()];
+	uint8_t buffer[hal::DiskManager::get().get_driver(disk_id)->get_sector_size()];
 	memset(buffer, 0, sizeof(buffer));
-	volatile DiskJob job = DiskJob(buffer, 0, 1, 0);
-	DiskManager::get().enqueue_job(0, &job);
-	while(job.state == DiskJob::WAITING)
+	volatile hal::DiskJob job{buffer, 0, 1, 0};
+	hal::DiskManager::get().enqueue_job(0, &job);
+	while(job.state == hal::DiskJob::WAITING)
 		;
-	if(job.state == DiskJob::ERROR) {
+	if(job.state == hal::DiskJob::ERROR) {
 		kn::panic("Error while loading partition table from disk\n");
 	}
 	for(size_t i = 0; i < 4; i++) {

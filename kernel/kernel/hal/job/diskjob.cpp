@@ -1,6 +1,6 @@
-#include <kernel/drivers/disk/job.hpp>
+#include <kernel/hal/job/diskjob.hpp>
 
-DiskJob::DiskJob(uint8_t* buffer, uint64_t lba, uint32_t sector_count, bool write, 
+hal::DiskJob::DiskJob(uint8_t* buffer, uint64_t lba, uint32_t sector_count, bool write, 
 	void (*on_finish)(volatile void*), volatile void* on_finish_args, 
 	void (*on_error)(volatile void*), volatile void* on_error_args) {
 	this->buffer = buffer;
@@ -14,4 +14,18 @@ DiskJob::DiskJob(uint8_t* buffer, uint64_t lba, uint32_t sector_count, bool writ
 
 	this->on_finish_args = on_finish_args;
 	this->on_error_args = on_error_args;
+}
+
+void hal::DiskJob::finish() volatile {
+	state = FINISHED;
+	if(on_finish) {
+		on_finish(on_finish_args);
+	}
+}
+
+void hal::DiskJob::error() volatile {
+	state = ERROR;
+	if(on_error) {
+		on_error(on_error_args);
+	}
 }

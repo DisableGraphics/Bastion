@@ -1,27 +1,27 @@
-#include <kernel/drivers/disk/disk.hpp>
+#include <kernel/hal/managers/diskmanager.hpp>
 #include <kernel/drivers/disk/ahci.hpp>
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/kernel/log.hpp>
 #include <stdio.h>
 #include <string.h>
 
-#include "../../defs/pci/class_codes.hpp"
-#include "../../defs/pci/subclasses/storage.hpp"
-#include "../../defs/pci/prog_if/sata_progif.hpp"
+#include "../arch/i386/defs/pci/class_codes.hpp"
+#include "../arch/i386/defs/pci/subclasses/storage.hpp"
+#include "../arch/i386/defs/pci/prog_if/sata_progif.hpp"
 
-DiskManager &DiskManager::get() {
+hal::DiskManager &hal::DiskManager::get() {
 	static DiskManager instance;
 	return instance;
 }
 
-DiskManager::~DiskManager() {
+hal::DiskManager::~DiskManager() {
 	// Free each disk controller
 	for(size_t i = 0; i < disk_controllers.size(); i++) {
 		delete disk_controllers[i].second;
 	}
 }
 
-void DiskManager::init() {
+void hal::DiskManager::init() {
 	size_t ndevices = PCI::get().getDeviceCount();
 	PCI::PCIDevice const *devices = PCI::get().getDevices();
 	char numberdisk = 'a';
@@ -45,19 +45,19 @@ void DiskManager::init() {
 	}
 }
 
-DiskDriver* DiskManager::get_driver(size_t pos) {
+hal::Disk* hal::DiskManager::get_driver(size_t pos) {
 	return disk_controllers[pos].second;
 }
 
-Vector<Pair<diskname, DiskDriver*>>& DiskManager::get_disks() {
+Vector<Pair<diskname, hal::Disk*>>& hal::DiskManager::get_disks() {
 	return disk_controllers;
 }
 
-size_t DiskManager::size() const {
+size_t hal::DiskManager::size() const {
 	return disk_controllers.size();
 }
 
-bool DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
+bool hal::DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 	if(diskid >= disk_controllers.size()) {
 		job->state = DiskJob::ERROR;
 		return false;
@@ -66,7 +66,7 @@ bool DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 	return disk_controllers[diskid].second->enqueue_job(job);
 }
 
-void DiskManager::spin_job(size_t diskid, volatile DiskJob* job) {
+void hal::DiskManager::spin_job(size_t diskid, volatile DiskJob* job) {
 	if(diskid >= disk_controllers.size()) {
 		job->state = DiskJob::ERROR;
 		return;

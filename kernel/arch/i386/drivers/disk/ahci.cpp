@@ -6,7 +6,6 @@
 #include <kernel/drivers/pic.hpp>
 #include <kernel/drivers/pit.hpp>
 #include <kernel/kernel/panic.hpp>
-#include <kernel/drivers/disk/disk.hpp>
 #include <string.h>
 #include <kernel/kernel/log.hpp>
 
@@ -334,7 +333,7 @@ void AHCI::enable_ahci_mode() {
 	hba->ghc |= 0x80000010;
 }
 
-bool AHCI::enqueue_job(volatile DiskJob* job) {
+bool AHCI::enqueue_job(volatile hal::DiskJob* job) {
 	return dma_transfer(job);
 }
 
@@ -355,7 +354,7 @@ volatile HBA_PORT* AHCI::get_port(uint64_t lba) const {
 	return nullptr;
 }
 
-bool AHCI::dma_transfer(volatile DiskJob* job) {
+bool AHCI::dma_transfer(volatile hal::DiskJob* job) {
 	PagingManager &pm = PagingManager::get();
 	volatile HBA_PORT* port = get_port(job->lba);
 	if (!port) return false;

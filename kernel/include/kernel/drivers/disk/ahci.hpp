@@ -1,6 +1,6 @@
 #pragma once
 #include "kernel/drivers/interrupts.hpp"
-#include <kernel/drivers/disk/disk_driver.hpp>
+#include <kernel/hal/drvbase/disk.hpp>
 #include <kernel/datastr/vector.hpp>
 #include <kernel/datastr/pair.hpp>
 
@@ -23,12 +23,12 @@ typedef struct {
 /**
 	\brief AHCI (SATA) disk driver
  */
-class AHCI : public DiskDriver {
+class AHCI : public hal::Disk {
 	public:
 		AHCI(const PCI::PCIDevice &device);
 
 		// Enqueue job for disk
-		bool enqueue_job(volatile DiskJob* job) override;
+		bool enqueue_job(volatile hal::DiskJob* job) override;
 		// Get how many sectors are in the disk
 		uint64_t get_n_sectors() const override;
 		// Get sector size of the disk
@@ -70,7 +70,7 @@ class AHCI : public DiskDriver {
 		// Start command list processing
 		void start_command_list_processing(volatile HBA_PORT* port);
 		// Do a dma transfer to/from the disk for a job
-		bool dma_transfer(volatile DiskJob* job);
+		bool dma_transfer(volatile hal::DiskJob* job);
 		// Find free command slot for port
 		int find_cmdslot(volatile HBA_PORT* port);
 
@@ -81,7 +81,7 @@ class AHCI : public DiskDriver {
 		// HBA structure of the driver
 		volatile HBA_MEM* hba;
 		size_t size, sector_size;
-		volatile DiskJob* active_jobs[32];
+		volatile hal::DiskJob* active_jobs[32];
 		// PCI device and info
 		PCI::PCIDevice device;
 		uint32_t bars[6];
