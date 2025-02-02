@@ -83,12 +83,8 @@ class IDT {
 		idt_entry_t idt[IDT_MAX_DESCRIPTORS];
 		/**
 			\brief ISR temporary table.
-			The trick here is that it is aligned to a 4-byte boundary
-			and so the processor doesn't have a brain fart when trying to
-			call the interrupt handler.
 			Note that this structure is only for the exception handlers.
 		 */
-		[[gnu::aligned(0x4)]]
 		void * isr_table[32];
 		/**
 			\brief IDT register

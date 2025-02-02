@@ -57,12 +57,14 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PIC pic;
 	IDT::get().init();	
 	hal::IRQControllerManager::get().init();
-	
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
 	pit.init();
 	pit.start(1);
+
+	Task *idleTask = new Task{idle, nullptr};
+	Scheduler::get().append_task(idleTask);
 	
 	/*PIT::get().init(1000);
 	RTC::get().init();
@@ -75,8 +77,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	/*PCI::get().init();
 	hal::DiskManager::get().init();
 
-	Task *idleTask = new Task{idle, nullptr};
-	Scheduler::get().append_task(idleTask);
+	
 
 	auto disks = hal::DiskManager::get().get_disks();
 	for(size_t i = 0; i < disks.size(); i++) {
@@ -98,13 +99,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			FAT32 fat{p, i};
 		}
 	}*/
-	
 
-	/*#ifdef DEBUG
-	test_paging();
-	#endif
-
-	Scheduler::get().run();*/
+	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

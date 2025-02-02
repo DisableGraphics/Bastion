@@ -57,13 +57,11 @@ idtr_t IDT::get_idtr() {
 }
 
 void IDT::set_handler(uint8_t vector, void (*fn)(interrupt_frame*)) {
-	isr_table[vector] = reinterpret_cast<void*>(fn);
-	set_descriptor(vector, isr_table[vector], 0x8E);
+	set_descriptor(vector, reinterpret_cast<void*>(fn), 0x8E);
 }
 
 void IDT::set_handler(uint8_t vector, void (*fn)(interrupt_frame*, uint32_t ecode)) {
-	isr_table[vector] = reinterpret_cast<void*>(fn);
-	set_descriptor(vector, isr_table[vector], 0x8E);
+	set_descriptor(vector, reinterpret_cast<void*>(fn), 0x8E);
 }
 
 void IDT::fill_isr_table() {
