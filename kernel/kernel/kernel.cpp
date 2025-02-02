@@ -55,13 +55,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	GDT::get().init();
 	
 	IDT::get().init();	
-	hal::IRQControllerManager::get().init();
-	PIC pic;
+	//hal::IRQControllerManager::get().init();
+	/*PIC pic;
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
 	pit.init();
-	pit.start(1);
+	pit.start(1);*/
 	
 	/*PIT::get().init(1000);
 	RTC::get().init();
@@ -71,7 +71,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	PCI::get().init();
 	*/
 
-	PCI::get().init();
+	/*PCI::get().init();
 	hal::DiskManager::get().init();
 
 	Task *idleTask = new Task{idle, nullptr};
@@ -96,7 +96,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 		}
-	}
+	}*/
 	
 
 	#ifdef DEBUG
