@@ -1,6 +1,11 @@
 #include <kernel/hal/managers/irqcmanager.hpp>
+#include <kernel/kernel/log.hpp>
 
 hal::IRQControllerManager::IRQControllerManager() {
+	
+}
+
+void hal::IRQControllerManager::init() {
 	isr_setup();
 }
 
@@ -31,6 +36,7 @@ void hal::IRQControllerManager::disable_irq(size_t irqline) {
 void hal::IRQControllerManager::set_irq_for_controller(hal::IRQController* controller, size_t irqline) {
 	if(irqline < MAX_IRQS)
 		irq_lines[irqline] = controller;
+	log(INFO, "Controller %p to irq line %d", controller, irqline);
 }
 
 hal::IRQController* hal::IRQControllerManager::find_controller(size_t irqline) {

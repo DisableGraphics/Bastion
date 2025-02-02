@@ -54,9 +54,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Serial::get().init();
 	GDT::get().init();
 	
-	IDT::get().init();
+	IDT::get().init();	
+	hal::IRQControllerManager::get().init();
 	PIC pic;
-	
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;

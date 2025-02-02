@@ -2,6 +2,7 @@
 #include <kernel/drivers/pic.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/hal/managers/irqcmanager.hpp>
+#include <kernel/kernel/log.hpp>
 
 PIC::PIC() {
 	init();
@@ -12,6 +13,9 @@ void PIC::init() {
 	disable();
 	// PIC has 16 lines
 	irq_lines.reserve(16);
+	for(size_t i = 0; i < 16; i++) {
+		irq_lines.push_back({});
+	}
 }
 
 void PIC::remap(int offset1, int offset2) {
@@ -132,6 +136,7 @@ size_t PIC::get_default_irq(hal::Device dev) {
 }
 
 void PIC::register_driver(hal::Driver* driver, size_t irqline) {
+	log(INFO, "Driver at %p to line %d", driver, irqline);
 	if(irqline < 16) {
 		irq_lines[irqline].push_back(driver);
 	}

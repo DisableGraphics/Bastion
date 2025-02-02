@@ -5,6 +5,7 @@ namespace hal {
 	class IRQControllerManager final {
 		public:
 			static IRQControllerManager& get();
+			void init();
 			void register_controller(IRQController* controller);
 			void register_driver(hal::Driver* device, size_t irqline);
 			void enable_irq(size_t irqline);
