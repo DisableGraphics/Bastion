@@ -54,14 +54,15 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Serial::get().init();
 	GDT::get().init();
 	
+	PIC pic;
 	IDT::get().init();	
-	//hal::IRQControllerManager::get().init();
-	/*PIC pic;
+	hal::IRQControllerManager::get().init();
+	
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
 	pit.init();
-	pit.start(1);*/
+	pit.start(1);
 	
 	/*PIT::get().init(1000);
 	RTC::get().init();
@@ -99,11 +100,11 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	}*/
 	
 
-	#ifdef DEBUG
+	/*#ifdef DEBUG
 	test_paging();
 	#endif
 
-	Scheduler::get().run();
+	Scheduler::get().run();*/
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}
