@@ -39,7 +39,6 @@ void IDT::device_not_available_handler(interrupt_frame*) {
 }
 
 void IDT::double_fault_handler(interrupt_frame*) {
-	clear();
 	printf("Double fault\n");
 	IDT::disable_interrupts();
 	halt();
