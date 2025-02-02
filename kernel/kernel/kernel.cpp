@@ -60,7 +60,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
-	pic.register_driver(&pit, pit.get_irqline());
+	pit.init();
 	pit.start(1);
 	
 	/*PIT::get().init(1000);
