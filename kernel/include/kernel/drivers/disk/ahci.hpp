@@ -34,13 +34,12 @@ class AHCI : public hal::Disk {
 		// Get sector size of the disk
 		uint32_t get_sector_size() const override;
 		// Initialise
-		void init();
+		void init() override;
 		// Enable AHCI DMA interrupts
 		void enable_interrupts();
 	private:
 		// Interrupt handler for DMA
-		[[gnu::interrupt]]
-		static void interrupt_handler(interrupt_frame*);
+		void handle_interrupt() override;
 		// Handoff device from BIOS
 		bool bios_handoff();
 		// Reset AHCI controller

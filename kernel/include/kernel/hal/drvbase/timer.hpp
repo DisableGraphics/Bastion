@@ -10,11 +10,6 @@ namespace hal {
 		public:
 			~Timer() = default;
 			/**
-				\brief Initialise the timer.
-				\details Sets up the hardware timer.
-			 */
-			virtual void init() = 0;
-			/**
 				\brief Starts the timer with a period of interval_ms.
 				\param interval_ms Number of milliseconds between ticks.
 			 */
@@ -24,11 +19,10 @@ namespace hal {
 			 */
 			virtual void stop() = 0;
 			/**
-				\brief Sets the callback function to run when the timer ticks.
+				\brief Get ellapsed time in milliseconds
 			 */
-			void set_callback(void (*callback)());
+			virtual size_t ellapsed() = 0;
 		protected:
-			/// Callback function that runs when the timer interrupts
-			void (*callback)() = nullptr;
+
 	};
 }

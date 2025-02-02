@@ -3,19 +3,35 @@
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/scheduler/scheduler.hpp>
+#include <kernel/hal/managers/irqcmanager.hpp>
 #include "../arch/i386/defs/pic/pic.hpp"
 #include <kernel/drivers/pic.hpp>
 
-void PIT::init(int freq) {
-	IDT::get().set_handler(PIC::get().get_offset() + 0, pit_handler);
-	PIC::get().IRQ_clear_mask(0);
-	
-	uint32_t final_freq, ebx, edx;
+PIT::PIT() {
 
+}
+
+PIT::~PIT() {
+
+}
+
+void PIT::init() {
 	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
 		callbacks[i] = nullptr;
 		callback_args[i] = nullptr;
 	}
+}
+
+void PIT::stop() {
+	// Does a trick in which it reprograms the PIT to have 0 frequency in the one-shot mode
+	outb(0x43, 0x30);
+	outb(0x40, 0x00);
+	outb(0x40, 0x00);
+}
+
+void PIT::start(uint32_t interval_ms) {
+	int freq = 1000 / interval_ms;
+	uint32_t final_freq, ebx, edx;
 
 	// Do some checking and determine the reload value
 	final_freq = 0x10000; // Slowest possible frequency (65536)
@@ -66,11 +82,7 @@ void PIT::init(int freq) {
 
 	IDT::get().enable_interrupts();
 	Scheduler::get().set_clock_tick(IRQ0_ms);
-}
-
-PIT &PIT::get() {
-	static PIT instance;
-	return instance;
+	basic_setup(hal::PIT);
 }
 
 uint16_t PIT::read_count() {
@@ -97,17 +109,20 @@ void PIT::set_count(uint16_t count) {
 	IDT::get().enable_interrupts();
 }
 
-void PIT::pit_handler(interrupt_frame *) {
-	PIT& pit = PIT::get();
-	uint32_t ms = pit.IRQ0_ms;
-	pit.system_timer_fractions += pit.IRQ0_fractions;
-	pit.system_timer_ms += pit.IRQ0_ms;
-	PIC::get().send_EOI(0);
+size_t PIT::ellapsed() {
+	return system_timer_ms;
+}
+
+void PIT::handle_interrupt() {
+	uint32_t ms = IRQ0_ms;
+	system_timer_fractions += IRQ0_fractions;
+	system_timer_ms += IRQ0_ms;
+	hal::IRQControllerManager::get().eoi(irqline);
 	for(uint32_t i = 0; i < K_N_COUNTDOWNS; i++) {
-		if(pit.allocated & (1 << i)) {
-			pit.kernel_countdowns[i] -= pit.IRQ0_ms;
-			if(pit.kernel_countdowns[i] < 0 && pit.callbacks[i] != nullptr) {
-				pit.callbacks[i](pit.callback_args[i]);
+		if(allocated & (1 << i)) {
+			kernel_countdowns[i] -= IRQ0_ms;
+			if(kernel_countdowns[i] < 0 && callbacks[i] != nullptr) {
+				callbacks[i](callback_args[i]);
 			}
 		}
 	}

@@ -2,21 +2,25 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/datastr/queue.hpp>
 #include <kernel/drivers/keyboard/key_event.hpp>
+
+#include <kernel/hal/drvbase/keyboard.hpp>
 /**
 	\brief Keyboard controller.
 	Implemented as a singleton.
  */
-class Keyboard {
+class PS2Keyboard : public hal::KeyboardDriver {
 	public:
 		/**
 			\brief Get singleton instance
 		 */
-		static Keyboard& get();
+		static PS2Keyboard& get();
 		/**
 			\brief Initialise keyboard controller.
 
 		 */
-		void init();
+		void init() override;
+
+		void handle_interrupt() override;
 	private:
 		enum STATE {
 			INITIAL,
@@ -34,11 +38,6 @@ class Keyboard {
 			PRINT_SCREEN_RELEASED
 		};
 
-		/**
-			\brief Interrupt handler for keypresses.
-		 */
-		[[gnu::interrupt]]
-		static void keyboard_handler(interrupt_frame * a);
 		/**
 			\brief Gets key value from scancode. 
 			Used for the states from the automaton:
@@ -79,7 +78,7 @@ class Keyboard {
 		StaticQueue<KEY_EVENT, 128> key_queue;
 		// PS2 Controller port and IRQ line assignated to the
 		// keyboard
-		int port = 0, irq_line = 0;
+		int port = 0;
 		// State of the driver. 
 		STATE driver_state = INITIAL;
 		// State flags
@@ -93,5 +92,5 @@ class Keyboard {
 		// Is num lock on
 		bool num_lock_active = false;
 
-		Keyboard(){}
+		PS2Keyboard(){}
 };

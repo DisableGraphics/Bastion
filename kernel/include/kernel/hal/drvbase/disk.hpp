@@ -1,4 +1,5 @@
 #pragma once
+#include <kernel/hal/drvbase/driver.hpp>
 #include <kernel/drivers/pci/pci.hpp>
 #include <kernel/hal/job/diskjob.hpp>
 #include <kernel/datastr/vector.hpp>
@@ -7,7 +8,7 @@ namespace hal {
 		\brief Base class of a disk driver.
 		\details All disk drivers must implement this interface.
 	*/
-	class Disk {
+	class Disk : public Driver {
 		public:
 			/**
 				\brief Destructor

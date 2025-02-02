@@ -1,6 +1,7 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/datastr/queue.hpp>
 #include <kernel/drivers/ps2.hpp>
+#include <kernel/hal/drvbase/mouse.hpp>
 #include <stdint.h>
 /**
 	\brief Which button has been clicked
@@ -27,22 +28,15 @@ struct MouseEvent {
 	\brief PS/2 mouse driver.
 	Implemented as a singleton.
  */
-class Mouse {
+class PS2Mouse : public hal::Mouse {
 	public:
-		/**
-			\brief Get singleton instance
-		 */
-		static Mouse& get();
+
 		/**
 			\brief Initialise mouse
 		 */
-		void init();
+		void init() override;
+		void handle_interrupt() override;
 	private:
-		/**
-			\brief Mouse interrupt handler
-		 */
-		[[gnu::interrupt]]
-		static void mouse_handler(interrupt_frame*);
 		/**
 			\brief Current mouse event being processed
 		 */
@@ -73,5 +67,5 @@ class Mouse {
 			THIRD_BYTE,
 			FOURTH_BYTE
 		} state = FIRST_BYTE;
-		Mouse(){};
+		PS2Mouse(){};
 };

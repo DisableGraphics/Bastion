@@ -1,21 +1,18 @@
 #include <kernel/drivers/interrupts.hpp>
+#include <kernel/hal/drvbase/timer.hpp>
 
 /**
 	\brief Real time clock driver.
 	Implemented as a singleton.
  */
-class RTC {
+class RTC final : public hal::Timer {
 	public:
-		/**
-			\brief Get singleton instance
-		 */
-		[[gnu::no_caller_saved_registers]]
-		static RTC &get();
 		/**
 			\brief Initialises the Real Time Clock
 			so it interrupts each second.
 		 */
 		void init();
+		void handle_interrupt() override;
 	private:
 		/**
 			\brief Reads register C.
@@ -25,12 +22,6 @@ class RTC {
 		 */
 		[[gnu::no_caller_saved_registers]]
 		uint8_t read_register_c();
-		/**
-			\brief Interrupt handler for the Real Time Clock.
-			\details It sets the time in TimeManager to the current time.
-		 */
-		[[gnu::interrupt]]
-		static void interrupt_handler(interrupt_frame*);
 		/**
 			\brief Returns the value of register reg
 			\param reg The register to read the value of

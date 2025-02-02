@@ -24,6 +24,7 @@
 #include <kernel/kernel/log.hpp>
 // HAL
 #include <kernel/hal/managers/diskmanager.hpp>
+#include <kernel/hal/managers/irqcmanager.hpp>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -53,14 +54,23 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Serial::get().init();
 	GDT::get().init();
 	
-	PIC::get().init();
 	IDT::get().init();
+	PIC pic;
 	
-	PIT::get().init(1000);
+	hal::IRQControllerManager::get().register_controller(&pic);
+
+	PIT pit;
+	pic.register_driver(&pit, pit.get_irqline());
+	pit.start(1);
+	
+	/*PIT::get().init(1000);
 	RTC::get().init();
 	PS2Controller::get().init();
-	Keyboard::get().init();
-	Mouse::get().init();
+	PS2Keyboard::get().init();
+	PS2Mouse::get().init();
+	PCI::get().init();
+	*/
+
 	PCI::get().init();
 	hal::DiskManager::get().init();
 

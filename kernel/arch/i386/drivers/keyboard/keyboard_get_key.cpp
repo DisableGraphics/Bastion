@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <kernel/drivers/keyboard/keyboard.hpp>
 
-KEY Keyboard::get_key_normal(uint8_t code) {
+KEY PS2Keyboard::get_key_normal(uint8_t code) {
 	switch(code) {
 		case 0x01:
 			return F9;
@@ -181,7 +181,7 @@ KEY Keyboard::get_key_normal(uint8_t code) {
 	return NONE;
 }
 
-KEY Keyboard::get_key_media(uint8_t code) {
+KEY PS2Keyboard::get_key_media(uint8_t code) {
 	switch(code) {
 		case 0x10:
 			return WWW_SEARCH;

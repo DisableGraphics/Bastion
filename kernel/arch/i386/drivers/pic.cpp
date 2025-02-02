@@ -1,16 +1,17 @@
 #include <stdint.h>
 #include <kernel/drivers/pic.hpp>
 #include <kernel/assembly/inlineasm.h>
+#include <kernel/hal/managers/irqcmanager.hpp>
 
-[[gnu::no_caller_saved_registers]]
-PIC &PIC::get() {
-	static PIC instance;
-	return instance;
+PIC::PIC() {
+	init();
 }
 
 void PIC::init() {
 	remap(0x20, 0x28);
-	disable_irqs();
+	disable();
+	// PIC has 16 lines
+	irq_lines.reserve(16);
 }
 
 void PIC::remap(int offset1, int offset2) {
@@ -41,12 +42,12 @@ void PIC::remap(int offset1, int offset2) {
 	outb(PIC2_DATA, a2);
 }
 
-void PIC::disable_irqs() {
+void PIC::disable() {
 	outb(PIC1_DATA, 0xff);
 	outb(PIC2_DATA, 0xff);
 }
 
-void PIC::IRQ_set_mask(uint8_t IRQline) {
+void PIC::disable_irq(size_t IRQline) {
 	uint16_t port;
 	uint8_t value;
 
@@ -60,7 +61,7 @@ void PIC::IRQ_set_mask(uint8_t IRQline) {
 	outb(port, value);
 }
 
-void PIC::IRQ_clear_mask(uint8_t IRQline) {
+void PIC::enable_irq(size_t IRQline) {
 	uint16_t port;
 	uint8_t value;
 
@@ -69,9 +70,14 @@ void PIC::IRQ_clear_mask(uint8_t IRQline) {
 	} else {
 		port = PIC2_DATA;
 		IRQline -= 8;
+		enable_irq(2);
 	}
 	value = inb(port) & ~(1 << IRQline);
 	outb(port, value);
+}
+
+void PIC::ack(size_t irqline) {
+	// Does nothing, since acknowledgement is not something in the PIC world
 }
 
 uint16_t PIC::get_irq_reg(int ocw3) {
@@ -89,8 +95,8 @@ uint16_t PIC::get_irr() {
 uint16_t PIC::get_isr() {
 	return get_irq_reg(PIC_READ_ISR);
 }
-[[gnu::no_caller_saved_registers]]
-void PIC::send_EOI(uint8_t irq) {
+
+void PIC::eoi(size_t irq) {
 	if (irq >= 8) {
 		outb(PIC2_COMMAND, PIC_EOI);
 	}
@@ -99,4 +105,55 @@ void PIC::send_EOI(uint8_t irq) {
 
 uint8_t PIC::get_offset() {
 	return 0x20;
+}
+
+size_t PIC::get_default_irq(hal::Device dev) {
+	switch(dev) {
+		case hal::PIT:
+			hal::IRQControllerManager::get().set_irq_for_controller(this, 0);
+			return 0;
+		case hal::RTC:
+			hal::IRQControllerManager::get().set_irq_for_controller(this, 8);
+			return 8;
+		case hal::KEYBOARD:
+			hal::IRQControllerManager::get().set_irq_for_controller(this, 1);
+			return 1;
+		case hal::MOUSE:
+			hal::IRQControllerManager::get().set_irq_for_controller(this, 12);
+			return 12;
+		case hal::STORAGE:
+			return -1;
+		case hal::NETWORK:
+			return -1;
+		case hal::SCREEN:
+			return -1;
+	}
+	return -1;
+}
+
+void PIC::register_driver(hal::Driver* driver, size_t irqline) {
+	if(irqline < 16) {
+		irq_lines[irqline].push_back(driver);
+	}
+}
+
+size_t PIC::assign_irq(hal::Driver* device) {
+	static size_t last_irq = -1;
+	// Mandatorily reserved IRQs for the OS to work properly
+	// PIT, Keyboard, RTC & mouse in that order
+	const static size_t reserved_irqs[] = {0,1,8,12};
+	last_irq++;
+	switch (last_irq) {
+		case 0:
+		case 1:
+			last_irq = 2;
+			break;
+		case 8:
+			last_irq = 9;
+			break;
+		case 12:
+			last_irq = 13;
+			break;
+	}
+	return last_irq;
 }

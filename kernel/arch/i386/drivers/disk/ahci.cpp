@@ -8,6 +8,7 @@
 #include <kernel/kernel/panic.hpp>
 #include <string.h>
 #include <kernel/kernel/log.hpp>
+#include <kernel/hal/managers/irqcmanager.hpp>
 
 #include "../../defs/ahci/dev_type.hpp"
 #include "../../defs/ahci/port_const.hpp"
@@ -28,12 +29,8 @@
 
 #define HBA_PxIS_TFES (1 << 30)
 
-uint8_t int_line;
-
 // Global variable to track where is the AHCI driver in memory.
 // interrupt_handler() is a static function so I need this
-AHCI *self;
-
 AHCI::AHCI(const PCI::PCIDevice &device) : device(device) {
 	init();
 }
@@ -108,8 +105,6 @@ void AHCI::init() {
 			}
 		}
 	}
-	// Set the global variable so the interrupt handler knows wtf is going on
-	self = this;
 	// Finally enable interrupts
 	enable_interrupts();
 }
@@ -236,27 +231,27 @@ void AHCI::stop_cmd(volatile HBA_PORT *port) {
 	}
 }
 
-void AHCI::interrupt_handler(interrupt_frame*) {
-	uint32_t global_is = self->hba->is;  // Read global interrupt status
-	for (int port = 0; port < self->devices.size(); ++port) {
-		volatile HBA_PORT* prt = self->hba->ports+port;
+void AHCI::handle_interrupt() {
+	uint32_t global_is = hba->is;  // Read global interrupt status
+	for (int port = 0; port < devices.size(); ++port) {
+		volatile HBA_PORT* prt = hba->ports+port;
 		if (global_is & (1 << port)) {
-			uint32_t port_is = self->hba->ports[port].is;  // Read port-specific interrupt status
+			uint32_t port_is = hba->ports[port].is;  // Read port-specific interrupt status
 			// Everything went OK
 			if (port_is & (1 << 0)) {
 				for (int slot = 0; slot < 32; ++slot) {
-					if (!(prt->ci & (1 << slot)) && self->active_jobs[slot]) {
-						self->active_jobs[slot]->finish();
-						self->active_jobs[slot] = nullptr;  // Clear the slot
+					if (!(prt->ci & (1 << slot)) && active_jobs[slot]) {
+						active_jobs[slot]->finish();
+						active_jobs[slot] = nullptr;  // Clear the slot
 					}
 				}
 			}
 			// Error
 			if (port_is & (1 << 30)) {
 				for (int slot = 0; slot < 32; ++slot) {
-					if (!(prt->ci & (1 << slot)) && self->active_jobs[slot]) {
-						self->active_jobs[slot]->error();  // Update job state
-						self->active_jobs[slot] = nullptr;  // Clear the slot
+					if (!(prt->ci & (1 << slot)) && active_jobs[slot]) {
+						active_jobs[slot]->error();  // Update job state
+						active_jobs[slot] = nullptr;  // Clear the slot
 					}
 				}
 
@@ -264,13 +259,12 @@ void AHCI::interrupt_handler(interrupt_frame*) {
 				uint32_t task_file_data = prt->tfd;
 				log(ERROR, "Disk error with code %d", task_file_data);
 			}
-			self->hba->ports[port].is = port_is;  // Clear port-specific status
+			hba->ports[port].is = port_is;  // Clear port-specific status
 		}
 	}
 	// Clear global interrupt status
-	self->hba->is = global_is;  
+	hba->is = global_is;  
 	// Finally send End Of Interrupt
-	PIC::get().send_EOI(int_line);
 }
 
 bool AHCI::bios_handoff() {
@@ -320,12 +314,14 @@ bool AHCI::reset_controller() {
 }
 
 void AHCI::setup_interrupts() {
-	int_line = PCI::get().readConfigWord(device.bus, device.device, device.function, INTERRUPT_LINE);
-	if(int_line == 0xFF) {
+	//irqline = PCI::get().readConfigWord(device.bus, device.device, device.function, INTERRUPT_LINE);
+	irqline = hal::IRQControllerManager::get().assign_irq(this);
+	PCI::get().writeConfigWord(device.bus, device.device, device.function, INTERRUPT_LINE, irqline);
+	if(irqline == 0xFF) {
 		log(ERROR, "AHCI PCI device can't interrupt");
 	} else {
-		PIC::get().IRQ_clear_mask(int_line);
-		IDT::get().set_handler(int_line + PIC::get().get_offset(), interrupt_handler);
+		hal::IRQControllerManager::get().enable_irq(irqline);
+		hal::IRQControllerManager::get().register_driver(this, irqline);
 	}
 }
 

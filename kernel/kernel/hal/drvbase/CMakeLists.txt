@@ -1,1 +1,1 @@
-target_sources(kernel_obj PRIVATE timer.cpp disk.cpp driver.cpp)
+target_sources(kernel_obj PRIVATE timer.cpp disk.cpp driver.cpp irqc.cpp)

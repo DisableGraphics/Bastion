@@ -9,6 +9,7 @@ add_subdirectory(sync)
 add_subdirectory(fs)
 add_subdirectory(random)
 add_subdirectory(scheduler)
+add_subdirectory(hal)
 
 target_compile_options(kernel_platform_dependent PRIVATE -O2 -g -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -fno-sized-deallocation -ffreestanding -nostdlib -mgeneral-regs-only -lgcc)
 

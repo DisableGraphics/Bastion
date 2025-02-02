@@ -132,15 +132,13 @@ void PS2Controller::enable_devices() {
 }
 
 void PS2Controller::reset_and_detect_devices() {
-	PIT &pit = PIT::get();
+	
 	uint32_t handle;
 	for(int i = 0; i < (has_two_channels ? 2 : 1); i++) {
 		int port = i+1;
-		handle = pit.timer_callback(UINT32_MAX, 2000, PS2Controller::on_timeout_expire, reinterpret_cast<void*>(handle));
 		while(!timeout_expired) {
 			uint8_t status_register = inb(STATUS_REGISTER);
 			if(!(status_register & (1 << 1))) {
-				pit.clear_callback(handle);
 				break;
 			}
 		}
@@ -167,9 +165,7 @@ void PS2Controller::reset_and_detect_devices() {
 }
 
 void PS2Controller::on_timeout_expire(void* arg) {
-	uint32_t handle = reinterpret_cast<uint32_t>(arg);
-	PS2Controller::get().timeout_expired = true;
-	PIT::get().clear_callback(handle);
+
 }
 
 PS2Controller::DeviceType PS2Controller::get_device_type(int port) {

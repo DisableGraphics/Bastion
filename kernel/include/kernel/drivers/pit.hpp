@@ -2,6 +2,7 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <stdint.h>
 #include <string.h>
+#include <kernel/hal/drvbase/timer.hpp>
 #ifdef __i386
 #include "../arch/i386/defs/pit/pit.hpp"
 #endif
@@ -14,17 +15,14 @@ constexpr uint32_t K_N_COUNTDOWNS = 32;
 
 	Not a high resolution timer.
 */
-class PIT {
+class PIT final : public hal::Timer {
 	public:
-		/**
-			\brief obtain the PIT intance
-		 */
-		static PIT &get();
-		/**
-			\brief Initialise timer
-			\param freq Frequency of the timer in Hertz (Hz)
-		 */
-		void init(int freq);
+		PIT();
+		virtual ~PIT();
+		void init() override;
+		void start(uint32_t ms) override;
+		void stop() override;
+		size_t ellapsed() override;
 		/**
 			\brief Get elapsed milliseconds.
 
@@ -69,13 +67,14 @@ class PIT {
 			\param handle Handle of the timer allocated with alloc_timer()
 		 */
 		void dealloc_timer(uint32_t handle);
+		
+		void handle_interrupt() override;
 	private:
 		/**
-			\brief Interrupt handler for PIT device
+			\brief Initialise timer
+			\param freq Frequency of the timer in Hertz (Hz)
 		 */
-		[[gnu::interrupt]]
-		static void pit_handler(interrupt_frame*);
-
+		void init(int freq);
 		/**
 			\brief system_timer_fractions = Cumulative sum of all the fractions of milliseconds while the OS has been running.
 			\brief system_timer_ms = Cumulative sum of all the milliseconds while the OS has been running. 
@@ -110,12 +109,5 @@ class PIT {
 			\brief Bitmap for all allocated timers.
 		 */
 		uint32_t allocated = 0;
-		/**
-			\brief Constructor
-		 */
-		PIT() {
-			vmemset(kernel_countdowns, 0, sizeof(kernel_countdowns));
-			memset(callback_args, 0, sizeof(kernel_countdowns));
-			memset(callbacks, 0, sizeof(kernel_countdowns));
-		}
+		
 };

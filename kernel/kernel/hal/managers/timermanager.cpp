@@ -7,7 +7,6 @@ hal::TimerManager& hal::TimerManager::get() {
 
 void hal::TimerManager::register_timer(Timer* timer, uint32_t ms, void (*callback)()) {
 	timers.push_back(timer);
-	timers.back()->set_callback(callback);
 	timers.back()->init();
 	timers.back()->start(ms);
 }
