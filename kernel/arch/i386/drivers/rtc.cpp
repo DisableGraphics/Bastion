@@ -8,6 +8,10 @@
 #define CMOS_ADDR 0x70
 #define CMOS_DATA 0x71
 
+RTC::RTC() {
+
+}
+
 void RTC::init() {
 	IDT::disable_interrupts();
 	NMI::disable();
@@ -32,7 +36,16 @@ uint8_t RTC::get_register(int reg) {
       return inb(CMOS_DATA);
 }
 
-void RTC::handle_interrupt() {
+void RTC::compute_days() {
+	total_days = TimeManager::days_until_year(year) + TimeManager::days_in_year_until_month_day(year, month, day);
+}
+
+uint8_t RTC::read_register_c() {
+	outb(0x70, 0x0C);
+	return inb(0x71);
+}
+
+void RTC::update_timestamp() {
 	read_register_c();
 
 	second = get_register(0x00);
@@ -58,21 +71,7 @@ void RTC::handle_interrupt() {
 		hour = ((hour & 0x7F) + 12) % 24;
 	}
 
-	TimeManager::get().set_time(get_timestamp());
-	TimeManager::get().next_second();
-}
-
-void RTC::compute_days() {
-	total_days = TimeManager::days_until_year(year) + TimeManager::days_in_year_until_month_day(year, month, day);
-}
-
-uint64_t RTC::get_timestamp() {
 	if(total_days != day) 
 		compute_days();
-	return total_days * 86400 + hour * 3600 + minute * 60 + second;
-}
-
-uint8_t RTC::read_register_c() {
-	outb(0x70, 0x0C);
-	return inb(0x71);
+	timestamp = total_days * 86400 + hour * 3600 + minute * 60 + second;
 }

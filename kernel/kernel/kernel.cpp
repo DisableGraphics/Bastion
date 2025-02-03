@@ -63,6 +63,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	pit.init();
 	pit.start(1);
 
+	RTC rtc;
+	rtc.init();
+
 	Task *idleTask = new Task{idle, nullptr};
 	Scheduler::get().append_task(idleTask);
 	

@@ -1,18 +1,18 @@
 #include <kernel/drivers/interrupts.hpp>
-#include <kernel/hal/drvbase/timer.hpp>
+#include <kernel/hal/drvbase/clock.hpp>
 
 /**
 	\brief Real time clock driver.
 	Implemented as a singleton.
  */
-class RTC final : public hal::Timer {
+class RTC final : public hal::Clock {
 	public:
+		RTC();
 		/**
 			\brief Initialises the Real Time Clock
 			so it interrupts each second.
 		 */
-		void init();
-		void handle_interrupt() override;
+		void init() override;
 	private:
 		/**
 			\brief Reads register C.
@@ -32,10 +32,7 @@ class RTC final : public hal::Timer {
 			\brief Precompute days so we don't compute them constantly
 		 */
 		void compute_days();
-		/**
-			\brief Get timestamp of current second
-		 */
-		uint64_t get_timestamp();
+		
 		/// Total days until our current day since the UNIX epoch
 		uint64_t total_days = 0;
 
@@ -47,5 +44,5 @@ class RTC final : public hal::Timer {
 		uint32_t year = 0;
 		constexpr static uint32_t century = 2000;
 
-		RTC(){};
+		void update_timestamp() override;
 };

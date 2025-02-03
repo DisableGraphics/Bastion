@@ -9,6 +9,7 @@ namespace hal {
 	class Timer : public Driver {
 		public:
 			~Timer() = default;
+			virtual void init() override = 0;
 			/**
 				\brief Starts the timer with a period of interval_ms.
 				\param interval_ms Number of milliseconds between ticks.
