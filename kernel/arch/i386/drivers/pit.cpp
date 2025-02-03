@@ -12,7 +12,7 @@ PIT::PIT() {
 }
 
 PIT::~PIT() {
-
+	stop();
 }
 
 void PIT::init() {
