@@ -26,6 +26,7 @@
 #include <kernel/hal/managers/diskmanager.hpp>
 #include <kernel/hal/managers/irqcmanager.hpp>
 #include <kernel/hal/managers/timermanager.hpp>
+#include <kernel/hal/managers/clockmanager.hpp>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -64,7 +65,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::TimerManager::get().register_timer(&pit, 1);
 
 	RTC rtc;
-	rtc.init();
+	hal::ClockManager::get().set_clock(&rtc);
 
 	Task *idleTask = new Task{idle, nullptr};
 	Scheduler::get().append_task(idleTask);
