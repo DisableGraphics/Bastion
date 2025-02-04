@@ -25,6 +25,7 @@
 // HAL
 #include <kernel/hal/managers/diskmanager.hpp>
 #include <kernel/hal/managers/irqcmanager.hpp>
+#include <kernel/hal/managers/timermanager.hpp>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -60,8 +61,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
-	pit.init();
-	pit.start(1);
+	hal::TimerManager::get().register_timer(&pit, 1);
 
 	RTC rtc;
 	rtc.init();
