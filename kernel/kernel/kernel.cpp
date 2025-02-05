@@ -62,6 +62,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
+	pit.set_is_scheduler_timer(true);
 	hal::TimerManager::get().register_timer(&pit, 1);
 
 	RTC rtc;
