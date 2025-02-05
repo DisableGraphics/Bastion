@@ -23,7 +23,11 @@ namespace hal {
 				\brief Get ellapsed time in milliseconds
 			 */
 			virtual size_t ellapsed() = 0;
+			virtual void set_callback(void (*callback)()) {this->callback = callback;}
+			void handle_interrupt() override {
+				if(callback) callback();
+			}
 		protected:
-
+			void (*callback)() = nullptr;
 	};
 }
