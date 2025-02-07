@@ -62,10 +62,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::IRQControllerManager::get().register_controller(&pic);
 
 	PIT pit;
+	pit.init();
 	hal::TimerManager::get().register_timer(&pit, 1);
 	pit.set_is_scheduler_timer(true);
 
 	RTC rtc;
+	rtc.init();
 	hal::ClockManager::get().set_clock(&rtc);
 
 	Task *idleTask = new Task{idle, nullptr};

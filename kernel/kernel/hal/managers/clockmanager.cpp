@@ -9,7 +9,6 @@ hal::ClockManager& hal::ClockManager::get() {
 void hal::ClockManager::set_clock(hal::Clock* clock) {
 	if(!this->clock) {
 		this->clock = clock;
-		clock->init();
 	} else {
 		log(ERROR, "Can't have more than one clock device.");
 	}
