@@ -21,11 +21,11 @@ PS2Keyboard& PS2Keyboard::get() {
 }
 
 void PS2Keyboard::init() {
-	port = PS2Controller::get().get_keyboard_port();
+	port = hal::PS2SubsystemController::get().get_keyboard_port();
 	if(port == -1)
 		return;
 
-	basic_setup(hal::KEYBOARD);
+	basic_setup(port == 1 ? hal::KEYBOARD : hal::MOUSE);
 }
 
 void PS2Keyboard::handle_interrupt() {

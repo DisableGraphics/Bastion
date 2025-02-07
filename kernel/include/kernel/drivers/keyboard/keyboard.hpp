@@ -91,6 +91,4 @@ class PS2Keyboard : public hal::KeyboardDriver {
 		bool caps_lock_active = false;
 		// Is num lock on
 		bool num_lock_active = false;
-
-		PS2Keyboard(){}
 };

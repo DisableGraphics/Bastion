@@ -56,7 +56,7 @@ class PS2Mouse : public hal::Mouse {
 		// Number of bytes per packet
 		size_t nbytes = 0;
 		// Type of mouse
-		PS2Controller::DeviceType type = PS2Controller::DeviceType::NONE;
+		hal::PS2SubsystemController::DeviceType type = hal::PS2SubsystemController::DeviceType::NONE;
 		// Whether the mouse is being initialised
 		// and so we should ignore any interrupts
 		bool initialising = true;
@@ -67,5 +67,4 @@ class PS2Mouse : public hal::Mouse {
 			THIRD_BYTE,
 			FOURTH_BYTE
 		} state = FIRST_BYTE;
-		PS2Mouse(){};
 };

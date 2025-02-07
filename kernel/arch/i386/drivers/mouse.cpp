@@ -6,25 +6,25 @@
 #include <kernel/hal/managers/irqcmanager.hpp>
 
 void PS2Mouse::init() {
-	port = PS2Controller::get().get_mouse_port();
+	port = hal::PS2SubsystemController::get().get_mouse_port();
 	if(port == -1) return; // No mouse connected
 	
 	try_init_wheel();
-	type = PS2Controller::get().get_device_type(port);
+	type = hal::PS2SubsystemController::get().get_device_type(port);
 	switch(type) {
-		case PS2Controller::MOUSE:
+		case hal::PS2SubsystemController::MOUSE:
 			nbytes = 3;
 			break;
-		case PS2Controller::MOUSE_SCROLLWHEEL:
+		case hal::PS2SubsystemController::MOUSE_SCROLLWHEEL:
 			nbytes = 4;
 			break;
-		case PS2Controller::MOUSE_5BUTTON:
+		case hal::PS2SubsystemController::MOUSE_5BUTTON:
 			break;
 		default:
 		  	return;
 	}
 
-	basic_setup(hal::MOUSE);
+	basic_setup(port == 1 ? hal::KEYBOARD : hal::MOUSE);
 }
 
 void PS2Mouse::handle_interrupt() {
@@ -81,7 +81,7 @@ void PS2Mouse::handle_interrupt() {
 }
 
 void PS2Mouse::try_init_wheel() {
-	PS2Controller &ps2 = PS2Controller::get();
+	hal::PS2SubsystemController &ps2 = hal::PS2SubsystemController::get();
 	ps2.write_to_port(port, 0xF3);
 	inb(DATA_PORT);
 	ps2.write_to_port(port, 200);

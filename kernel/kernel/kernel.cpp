@@ -70,10 +70,18 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	Task *idleTask = new Task{idle, nullptr};
 	Scheduler::get().append_task(idleTask);
+
+	hal::PS2SubsystemController::get().init();
+
+	PS2Keyboard keyb;
+	PS2Mouse mouse;
+
+	keyb.init();
+	mouse.init();
 	
 	/*PIT::get().init(1000);
 	RTC::get().init();
-	PS2Controller::get().init();
+	
 	PS2Keyboard::get().init();
 	PS2Mouse::get().init();
 	PCI::get().init();
