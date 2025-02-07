@@ -80,7 +80,7 @@ class PS2Controller {
 		/**
 			\brief handler for when the timeout expires
 		 */
-		static void on_timeout_expire(void* arg);
+		static void on_timeout_expire(volatile void* arg);
 
 		/**
 			\brief Whether this PS/2 Controller has two ports

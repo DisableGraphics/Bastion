@@ -9,6 +9,7 @@ namespace hal {
 			static TimerManager& get();
 			void register_timer(Timer* timer, uint32_t ms, void (*callback)() = nullptr);
 			Timer& get_timer(size_t pos);
+			void exec_at(uint32_t ms, void (*fn)(volatile void*), volatile void* args);
 		private:
 			TimerManager() = default;
 

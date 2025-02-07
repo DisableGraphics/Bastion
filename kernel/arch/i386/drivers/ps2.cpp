@@ -3,7 +3,7 @@
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/kernel/panic.hpp>
 #include <kernel/drivers/pit.hpp>
-#include <stdio.h>
+#include <kernel/hal/managers/timermanager.hpp>
 #include <kernel/kernel/log.hpp>
 
 #include "../defs/ps2/registers.h"
@@ -136,6 +136,7 @@ void PS2Controller::reset_and_detect_devices() {
 	uint32_t handle;
 	for(int i = 0; i < (has_two_channels ? 2 : 1); i++) {
 		int port = i+1;
+		hal::TimerManager::get().exec_at(2000, on_timeout_expire, this);
 		while(!timeout_expired) {
 			uint8_t status_register = inb(STATUS_REGISTER);
 			if(!(status_register & (1 << 1))) {
@@ -164,8 +165,9 @@ void PS2Controller::reset_and_detect_devices() {
 	}
 }
 
-void PS2Controller::on_timeout_expire(void* arg) {
-
+void PS2Controller::on_timeout_expire(volatile void* arg) {
+	auto self = reinterpret_cast<volatile PS2Controller*>(arg);
+	self->timeout_expired = true;
 }
 
 PS2Controller::DeviceType PS2Controller::get_device_type(int port) {

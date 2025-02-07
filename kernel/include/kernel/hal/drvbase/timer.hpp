@@ -30,12 +30,16 @@ namespace hal {
 			virtual void set_callback(void (*callback)()) {this->callback = callback;}
 			void handle_interrupt() override;
 			void set_is_scheduler_timer(bool is_scheduler_timer);
-			virtual void scheduler_callback();
+			void scheduler_callback();
+
+			void exec_at(uint32_t ms, void(*fn)(volatile void*), volatile void* args);
 		protected:
 			void (*callback)() = nullptr;
+			void (*exec_future_fn)(volatile void*) = nullptr;
+			volatile void* exec_future_args = nullptr;
 			bool is_scheduler_timer = false;
 			size_t ms_per_tick = 0;
 			size_t accum_ms = 0;
-			volatile int sleep_ms = 0;
+			volatile int sleep_ms = 0, exec_future_ms = 0;
 	};
 }

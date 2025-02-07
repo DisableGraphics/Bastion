@@ -4,8 +4,17 @@
 
 void hal::Timer::handle_interrupt() {
 	hal::IRQControllerManager::get().eoi(this->irqline);
+	// Handle sleep + the future execution
 	sleep_ms -= ms_per_tick;
+	exec_future_ms -= ms_per_tick;
+	if(exec_future_fn && exec_future_ms <= 0) {
+		exec_future_fn(exec_future_args);
+		exec_future_fn = nullptr;
+		exec_future_args = nullptr;
+	}
+	// Call callback for the timer
 	if(callback) callback();
+	// If the timer is a scheduler timer, call the scheduler's callback
 	if(is_scheduler_timer) scheduler_callback();
 }
 
@@ -18,4 +27,10 @@ void hal::Timer::scheduler_callback() {
 	Scheduler &sch = Scheduler::get();
 	sch.handle_sleeping_tasks();
 	sch.preemptive_scheduling();
+}
+
+void hal::Timer::exec_at(uint32_t ms, void (*fn)(volatile void*), volatile void* args) {
+	exec_future_fn = fn;
+	exec_future_ms = ms;
+	exec_future_args = args;
 }
