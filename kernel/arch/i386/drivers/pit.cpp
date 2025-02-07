@@ -76,7 +76,6 @@ void PIT::start(uint32_t interval_ms) {
 	outb(0x40, (PIT_reload_value >> 8) & 0xFF); // Send high byte
 
 	IDT::get().enable_interrupts();
-	Scheduler::get().set_clock_tick(ms_per_tick);
 	basic_setup(hal::PIT);
 }
 

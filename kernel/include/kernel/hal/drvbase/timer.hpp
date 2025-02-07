@@ -28,20 +28,9 @@ namespace hal {
 			virtual size_t ellapsed() = 0;
 			virtual void sleep(uint32_t ms) = 0;
 			virtual void set_callback(void (*callback)()) {this->callback = callback;}
-			void handle_interrupt() override {
-				hal::IRQControllerManager::get().eoi(this->irqline);
-				sleep_ms -= ms_per_tick;
-				if(callback) callback();
-				if(is_scheduler_timer) scheduler_callback();
-			}
-			void set_is_scheduler_timer(bool is_scheduler_timer) {
-				this->is_scheduler_timer = is_scheduler_timer;
-			}
-			virtual void scheduler_callback() {
-				Scheduler &sch = Scheduler::get();
-				sch.handle_sleeping_tasks();
-				sch.preemptive_scheduling();
-			}
+			void handle_interrupt() override;
+			void set_is_scheduler_timer(bool is_scheduler_timer);
+			virtual void scheduler_callback();
 		protected:
 			void (*callback)() = nullptr;
 			bool is_scheduler_timer = false;
