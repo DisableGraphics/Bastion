@@ -1,5 +1,5 @@
 #include <kernel/drivers/keyboard/keyboard.hpp>
-#include <kernel/drivers/ps2.hpp>
+#include <kernel/hal/managers/ps2manager.hpp>
 #include <kernel/drivers/pic.hpp>
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/assembly/inlineasm.h>
@@ -21,7 +21,7 @@ PS2Keyboard& PS2Keyboard::get() {
 }
 
 void PS2Keyboard::init() {
-	port = hal::PS2SubsystemController::get().get_keyboard_port();
+	port = hal::PS2SubsystemManager::get().get_keyboard_port();
 	if(port == -1)
 		return;
 

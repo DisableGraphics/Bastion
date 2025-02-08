@@ -2,23 +2,22 @@
 #include <kernel/drivers/pic.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include "../defs/ps2/registers.h"
-#include "kernel/drivers/ps2.hpp"
 #include <kernel/hal/managers/irqcmanager.hpp>
 
 void PS2Mouse::init() {
-	port = hal::PS2SubsystemController::get().get_mouse_port();
+	port = hal::PS2SubsystemManager::get().get_mouse_port();
 	if(port == -1) return; // No mouse connected
 	
 	try_init_wheel();
-	type = hal::PS2SubsystemController::get().get_device_type(port);
+	type = hal::PS2SubsystemManager::get().get_device_type(port);
 	switch(type) {
-		case hal::PS2SubsystemController::MOUSE:
+		case hal::PS2SubsystemManager::MOUSE:
 			nbytes = 3;
 			break;
-		case hal::PS2SubsystemController::MOUSE_SCROLLWHEEL:
+		case hal::PS2SubsystemManager::MOUSE_SCROLLWHEEL:
 			nbytes = 4;
 			break;
-		case hal::PS2SubsystemController::MOUSE_5BUTTON:
+		case hal::PS2SubsystemManager::MOUSE_5BUTTON:
 			break;
 		default:
 		  	return;
@@ -81,7 +80,7 @@ void PS2Mouse::handle_interrupt() {
 }
 
 void PS2Mouse::try_init_wheel() {
-	hal::PS2SubsystemController &ps2 = hal::PS2SubsystemController::get();
+	hal::PS2SubsystemManager &ps2 = hal::PS2SubsystemManager::get();
 	ps2.write_to_port(port, 0xF3);
 	inb(DATA_PORT);
 	ps2.write_to_port(port, 200);

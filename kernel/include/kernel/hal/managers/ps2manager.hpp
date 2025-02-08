@@ -5,7 +5,7 @@ namespace hal {
 		\brief PS/2 Driver.
 		Implemented as a singleton.
 	*/
-	class PS2SubsystemController {
+	class PS2SubsystemManager {
 		public:
 			enum DeviceType {
 				MOUSE = 0x00,
@@ -24,7 +24,7 @@ namespace hal {
 			/**
 				\brief Get singleton instance
 			*/
-			static PS2SubsystemController &get();
+			static PS2SubsystemManager &get();
 			/**
 				\brief Initialise PS/2 Controller
 			*/
@@ -101,6 +101,6 @@ namespace hal {
 			*/
 			void set_device_type(int port, DeviceType type);
 
-			PS2SubsystemController() {}
+			PS2SubsystemManager() {}
 	};
 }

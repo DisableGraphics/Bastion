@@ -1,6 +1,6 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/datastr/queue.hpp>
-#include <kernel/drivers/ps2.hpp>
+#include <kernel/hal/managers/ps2manager.hpp>
 #include <kernel/hal/drvbase/mouse.hpp>
 #include <stdint.h>
 /**
@@ -56,7 +56,7 @@ class PS2Mouse : public hal::Mouse {
 		// Number of bytes per packet
 		size_t nbytes = 0;
 		// Type of mouse
-		hal::PS2SubsystemController::DeviceType type = hal::PS2SubsystemController::DeviceType::NONE;
+		hal::PS2SubsystemManager::DeviceType type = hal::PS2SubsystemManager::DeviceType::NONE;
 		// Whether the mouse is being initialised
 		// and so we should ignore any interrupts
 		bool initialising = true;

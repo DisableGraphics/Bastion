@@ -14,7 +14,6 @@
 #include <kernel/drivers/serial.hpp>
 #include <kernel/drivers/pic.hpp>
 #include <kernel/drivers/pit.hpp>
-#include <kernel/drivers/ps2.hpp>
 #include <kernel/drivers/keyboard/keyboard.hpp>
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
@@ -23,6 +22,7 @@
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/kernel/log.hpp>
 // HAL
+#include <kernel/hal/managers/ps2manager.hpp>
 #include <kernel/hal/managers/diskmanager.hpp>
 #include <kernel/hal/managers/irqcmanager.hpp>
 #include <kernel/hal/managers/timermanager.hpp>
@@ -73,7 +73,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Task *idleTask = new Task{idle, nullptr};
 	Scheduler::get().append_task(idleTask);
 
-	hal::PS2SubsystemController::get().init();
+	hal::PS2SubsystemManager::get().init();
 
 	PS2Keyboard keyb;
 	PS2Mouse mouse;

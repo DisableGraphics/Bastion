@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <kernel/drivers/ps2.hpp>
+#include <kernel/hal/managers/ps2manager.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/kernel/panic.hpp>
 #include <kernel/drivers/pit.hpp>
@@ -12,12 +12,12 @@
 #include "../defs/ps2/return_command.h"
 #include "../defs/ps2/config_byte.h"
 
-hal::PS2SubsystemController &hal::PS2SubsystemController::get() {
-	static hal::PS2SubsystemController instance;
+hal::PS2SubsystemManager &hal::PS2SubsystemManager::get() {
+	static hal::PS2SubsystemManager instance;
 	return instance;
 }
 
-void hal::PS2SubsystemController::init() {
+void hal::PS2SubsystemManager::init() {
 	// Disable devices so it doesn't explode
 	outb(COMMAND_REGISTER, DISABLE_FIRST_PORT);
 	outb(COMMAND_REGISTER, DISABLE_SECOND_PORT);
@@ -39,7 +39,7 @@ void hal::PS2SubsystemController::init() {
 	reset_and_detect_devices();
 }
 
-void hal::PS2SubsystemController::configure_first_port() {
+void hal::PS2SubsystemManager::configure_first_port() {
 	// Set bits of the controller configuration byte
 	outb(COMMAND_REGISTER, READ_BYTE_0);
 	uint8_t ccb = inb(DATA_PORT);
@@ -51,7 +51,7 @@ void hal::PS2SubsystemController::configure_first_port() {
 	outb(DATA_PORT, ccb);
 }
 
-void hal::PS2SubsystemController::self_test() {
+void hal::PS2SubsystemManager::self_test() {
 	// Some computers reset their controllers when the controller is asked to do the self test.
 	// so, to keep all the config, we load and then restore the controller config byte
 
@@ -69,7 +69,7 @@ void hal::PS2SubsystemController::self_test() {
 	outb(DATA_PORT, ccb);
 }
 
-bool hal::PS2SubsystemController::two_channels() {
+bool hal::PS2SubsystemManager::two_channels() {
 	// Try to enable the second port
 	outb(COMMAND_REGISTER, ENABLE_SECOND_PORT);
 
@@ -80,7 +80,7 @@ bool hal::PS2SubsystemController::two_channels() {
 	return !(ccb & SECOND_PORT_CLOCK);
 }
 
-void hal::PS2SubsystemController::configure_second_port() {
+void hal::PS2SubsystemManager::configure_second_port() {
 	// Disable second PS/2 port
 	outb(COMMAND_REGISTER, DISABLE_SECOND_PORT);
 	// Set bits of the controller configuration byte
@@ -93,7 +93,7 @@ void hal::PS2SubsystemController::configure_second_port() {
 	outb(DATA_PORT, ccb);
 }
 
-bool hal::PS2SubsystemController::test() {
+bool hal::PS2SubsystemManager::test() {
 	bool are_tests_correct = true;
 
 	// Test the first port
@@ -114,7 +114,7 @@ bool hal::PS2SubsystemController::test() {
 	return are_tests_correct;
 }
 
-void hal::PS2SubsystemController::enable_devices() {
+void hal::PS2SubsystemManager::enable_devices() {
 	// Activate bits of interrupts
 	outb(COMMAND_REGISTER, READ_BYTE_0);
 	uint8_t ccb = inb(DATA_PORT);
@@ -131,7 +131,7 @@ void hal::PS2SubsystemController::enable_devices() {
 	outb(DATA_PORT, ccb);
 }
 
-void hal::PS2SubsystemController::reset_and_detect_devices() {
+void hal::PS2SubsystemManager::reset_and_detect_devices() {
 	
 	uint32_t handle;
 	for(int i = 0; i < (has_two_channels ? 2 : 1); i++) {
@@ -165,14 +165,14 @@ void hal::PS2SubsystemController::reset_and_detect_devices() {
 	}
 }
 
-void hal::PS2SubsystemController::on_timeout_expire(volatile void* arg) {
-	auto self = reinterpret_cast<volatile hal::PS2SubsystemController*>(arg);
+void hal::PS2SubsystemManager::on_timeout_expire(volatile void* arg) {
+	auto self = reinterpret_cast<volatile hal::PS2SubsystemManager*>(arg);
 	self->timeout_expired = true;
 }
 
-hal::PS2SubsystemController::DeviceType hal::PS2SubsystemController::get_device_type(int port) {
+hal::PS2SubsystemManager::DeviceType hal::PS2SubsystemManager::get_device_type(int port) {
 	uint8_t response;
-	PS2SubsystemController::DeviceType device_type = NONE;
+	PS2SubsystemManager::DeviceType device_type = NONE;
 	switch(port) {
 		case 2:
 		case 1:
@@ -220,7 +220,7 @@ hal::PS2SubsystemController::DeviceType hal::PS2SubsystemController::get_device_
 				}
 			} else if(response == 0x00 || response == 0x03 || response == 0x05) {
 				log(INFO, "Mouse connected to port %d", port);
-				device_type = static_cast<PS2SubsystemController::DeviceType>(response);
+				device_type = static_cast<PS2SubsystemManager::DeviceType>(response);
 			} else {
 				log(INFO, "Unknown or broken. Received code: %p", response);
 				device_type = NONE;
@@ -234,12 +234,12 @@ hal::PS2SubsystemController::DeviceType hal::PS2SubsystemController::get_device_
 	return device_type;
 }
 
-void hal::PS2SubsystemController::write_to_port(uint8_t port, uint8_t command) {
+void hal::PS2SubsystemManager::write_to_port(uint8_t port, uint8_t command) {
 	if(port == 2) outb(COMMAND_REGISTER, WRITE_TO_PS2_2_IN_BUFFER);
 	outb(DATA_PORT, command);
 }
 
-void hal::PS2SubsystemController::set_device_type(int port, DeviceType type) {
+void hal::PS2SubsystemManager::set_device_type(int port, DeviceType type) {
 	if(port == 1) {
 		first_port_device = type;
 	} else if(port == 2) {
@@ -247,7 +247,7 @@ void hal::PS2SubsystemController::set_device_type(int port, DeviceType type) {
 	}
 }
 
-int hal::PS2SubsystemController::get_keyboard_port() {
+int hal::PS2SubsystemManager::get_keyboard_port() {
 	if(first_port_device > 0x05) 
 		return 1;
 	if(has_two_channels) {
@@ -260,7 +260,7 @@ int hal::PS2SubsystemController::get_keyboard_port() {
 	}
 }
 
-int hal::PS2SubsystemController::get_mouse_port() {
+int hal::PS2SubsystemManager::get_mouse_port() {
 	if(first_port_device <= 0x05) 
 		return 1;
 	if(has_two_channels) {
