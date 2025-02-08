@@ -1,6 +1,6 @@
 #include <kernel/hal/managers/diskmanager.hpp>
 #include <kernel/drivers/disk/ahci.hpp>
-#include <kernel/drivers/pci/pci.hpp>
+#include <kernel/hal/managers/pci.hpp>
 #include <kernel/kernel/log.hpp>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +8,7 @@
 #include "../arch/i386/defs/pci/class_codes.hpp"
 #include "../arch/i386/defs/pci/subclasses/storage.hpp"
 #include "../arch/i386/defs/pci/prog_if/sata_progif.hpp"
+#include <kernel/sync/semaphore.hpp>
 
 hal::DiskManager &hal::DiskManager::get() {
 	static DiskManager instance;
@@ -22,8 +23,12 @@ hal::DiskManager::~DiskManager() {
 }
 
 void hal::DiskManager::init() {
-	size_t ndevices = PCI::get().getDeviceCount();
-	PCI::PCIDevice const *devices = PCI::get().getDevices();
+	init_pci_disks();
+}
+
+void hal::DiskManager::init_pci_disks() {
+	size_t ndevices = hal::PCISubsystemManager::get().getDeviceCount();
+	hal::PCISubsystemManager::PCIDevice const *devices = hal::PCISubsystemManager::get().getDevices();
 	char numberdisk = 'a';
 	for(size_t i = 0; i < ndevices; i++) {
 		if(devices[i].class_code == STORAGE_CONTROLLER) {
@@ -66,12 +71,23 @@ bool hal::DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 	return disk_controllers[diskid].second->enqueue_job(job);
 }
 
-void hal::DiskManager::spin_job(size_t diskid, volatile DiskJob* job) {
+void on_finish_sleep_job(volatile void* args) {
+	Semaphore* sem = const_cast<Semaphore*>(reinterpret_cast<volatile Semaphore*>(args));
+	log(INFO, "why am I here");
+	sem->release();
+}
+
+void hal::DiskManager::sleep_job(size_t diskid, volatile DiskJob* job) {
 	if(diskid >= disk_controllers.size()) {
 		job->state = DiskJob::ERROR;
 		return;
 	}
-	
+	Semaphore sem{1, 1};
+	job->on_finish = on_finish_sleep_job;
+	job->on_finish_args = &sem;
+	// Do not block on error
+	job->on_error = job->on_finish;
+	job->on_error_args = job->on_finish_args;
 	enqueue_job(diskid, job);
-	while(job->state == DiskJob::WAITING);
+	sem.acquire();
 }

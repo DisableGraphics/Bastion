@@ -1,19 +1,19 @@
-#include <kernel/drivers/pci/pci.hpp>
+#include <kernel/hal/managers/pci.hpp>
 #include <kernel/assembly/inlineasm.h>
 
 #include "../arch/i386/defs/pci/addresses.hpp"
 
-PCI& PCI::get() {
-	static PCI instance;
+hal::PCISubsystemManager& hal::PCISubsystemManager::get() {
+	static hal::PCISubsystemManager instance;
 	return instance;
 }
 
-void PCI::init() {
+void hal::PCISubsystemManager::init() {
 	deviceCount = 0;
 	checkAllBuses();
 }
 
-void PCI::checkAllBuses(void) {
+void hal::PCISubsystemManager::checkAllBuses(void) {
 	uint8_t function;
 	uint8_t bus;
 
@@ -31,13 +31,13 @@ void PCI::checkAllBuses(void) {
 	}
 }
 
-void PCI::checkBus(uint8_t bus) {
+void hal::PCISubsystemManager::checkBus(uint8_t bus) {
 	for (uint8_t device = 0; device < 32; ++device) {
 		checkDevice(bus, device);
 	}
 }
 
-void PCI::checkDevice(uint8_t bus, uint8_t device) {
+void hal::PCISubsystemManager::checkDevice(uint8_t bus, uint8_t device) {
 	uint8_t function = 0;
 	uint16_t vendorID = getVendorID(bus, device, function);
 	if (vendorID == 0xFFFF) return; // No device present
@@ -54,32 +54,32 @@ void PCI::checkDevice(uint8_t bus, uint8_t device) {
 	}
 }
 
-void PCI::checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
+void hal::PCISubsystemManager::checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
 	if (deviceCount >= MAX_DEVICES) return;
 
 	addDevice(bus, device, function);
 }
 
-uint16_t PCI::getVendorID(uint8_t bus, uint8_t device, uint8_t function) {
+uint16_t hal::PCISubsystemManager::getVendorID(uint8_t bus, uint8_t device, uint8_t function) {
 	return readConfigWord(bus, device, function, 0x00);
 }
 
-uint16_t PCI::getDeviceID(uint8_t bus, uint8_t device, uint8_t function) {
+uint16_t hal::PCISubsystemManager::getDeviceID(uint8_t bus, uint8_t device, uint8_t function) {
 	return readConfigWord(bus, device, function, 0x02);
 }
 
-uint8_t PCI::getHeaderType(uint8_t bus, uint8_t device, uint8_t function) {
+uint8_t hal::PCISubsystemManager::getHeaderType(uint8_t bus, uint8_t device, uint8_t function) {
 	return static_cast<uint8_t>(readConfigWord(bus, device, function, 0x0C) >> 8);
 }
 
-uint8_t PCI::getClassCode(uint8_t bus, uint8_t device, uint8_t function) {
+uint8_t hal::PCISubsystemManager::getClassCode(uint8_t bus, uint8_t device, uint8_t function) {
 	return static_cast<uint8_t>(readConfigWord(bus, device, function, 0x0A) >> 8);
 }
-uint8_t PCI::getSubclassCode(uint8_t bus, uint8_t device, uint8_t function) {
+uint8_t hal::PCISubsystemManager::getSubclassCode(uint8_t bus, uint8_t device, uint8_t function) {
 	return static_cast<uint8_t>(readConfigWord(bus, device, function, 0x0A));
 }
 
-uint16_t PCI::readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+uint16_t hal::PCISubsystemManager::readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
 	uint32_t address = (1 << 31) // Enable bit
 					 | (bus << 16)
 					 | (device << 11)
@@ -89,7 +89,7 @@ uint16_t PCI::readConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint
 	return static_cast<uint16_t>(inl(CONFIG_DATA) >> ((offset & 2) * 8));
 }
 
-const PCI::PCIDevice* PCI::search_device(size_t dev_class, size_t dev_subclass) {
+const hal::PCISubsystemManager::PCIDevice* hal::PCISubsystemManager::search_device(size_t dev_class, size_t dev_subclass) {
 	for(size_t i = 0; i < deviceCount; i++) {
 		if(devices[i].class_code == dev_class && devices[i].subclass_code == dev_subclass) 
 			return &devices[i];
@@ -97,18 +97,18 @@ const PCI::PCIDevice* PCI::search_device(size_t dev_class, size_t dev_subclass) 
 	return nullptr;
 }
 
-uint32_t PCI::getBAR(uint8_t bus, uint8_t device, uint8_t function, uint8_t barIndex) {
+uint32_t hal::PCISubsystemManager::getBAR(uint8_t bus, uint8_t device, uint8_t function, uint8_t barIndex) {
 	uint8_t offset = 0x10 + (barIndex * 4); // BARs start at 0x10
 	uint32_t lower = readConfigWord(bus, device, function, offset);
 	uint32_t upper = readConfigWord(bus, device, function, offset + 2);
 	return (upper << 16) | lower; 
 }
 
-uint8_t PCI::getProgIF(uint8_t bus, uint8_t device, uint8_t function) {
+uint8_t hal::PCISubsystemManager::getProgIF(uint8_t bus, uint8_t device, uint8_t function) {
 	return static_cast<uint8_t>(readConfigWord(bus, device, function, 0x08) >> 8);
 }
 
-void PCI::addDevice(uint8_t bus, uint8_t device, uint8_t function) {
+void hal::PCISubsystemManager::addDevice(uint8_t bus, uint8_t device, uint8_t function) {
 	uint16_t vendorID = getVendorID(bus, device, function);
 	uint16_t deviceID = getDeviceID(bus, device, function);
 	uint8_t class_code = getClassCode(bus, device, function);
@@ -120,7 +120,7 @@ void PCI::addDevice(uint8_t bus, uint8_t device, uint8_t function) {
 	class_code, subclass_code, 
 	prog_if};
 }
-void PCI::writeConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data) {
+void hal::PCISubsystemManager::writeConfigWord(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data) {
 	// Validate offset (must be aligned to 2 bytes)
 	if (offset % 2 != 0) {
 		return;

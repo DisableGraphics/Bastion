@@ -1,6 +1,5 @@
 #pragma once
 #include <kernel/hal/drvbase/driver.hpp>
-#include <kernel/drivers/pci/pci.hpp>
 #include <kernel/hal/job/diskjob.hpp>
 #include <kernel/datastr/vector.hpp>
 namespace hal {

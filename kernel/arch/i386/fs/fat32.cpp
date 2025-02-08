@@ -1,4 +1,5 @@
 #include <kernel/fs/fat32.hpp>
+#include <kernel/sync/semaphore.hpp>
 #include <kernel/hal/managers/diskmanager.hpp>
 #include <stdio.h>
 #include <string.h>
@@ -6,12 +7,11 @@
 
 FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partmanager) {
 	this->partid = partid;
-
 	sector_size = hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
-	
 	auto lba = partmanager.get_lba(partid, 0);
-	volatile hal::DiskJob job{fat_boot_buffer, lba, 1, false};
-	hal::DiskManager::get().spin_job(partmanager.get_disk_id(), &job);
+
+	volatile hal::DiskJob job{fat_boot_buffer, 0, 1, 0};
+	hal::DiskManager::get().sleep_job(0, &job);
 	fat_boot = reinterpret_cast<fat_BS_t*>(fat_boot_buffer);
 	if(job.state == hal::DiskJob::FINISHED) {
 		fat_extBS_32_t *fat_boot_ext_32 = reinterpret_cast<fat_extBS_32_t*>(&fat_boot->extended_section);
@@ -27,6 +27,9 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		root_cluster = fat_boot_ext_32->root_cluster;
 		log(INFO,"Total sectors: %d. FAT Size: %d. Cluster size: %d. Name: %s", total_sectors, fat_size, fat_boot->sectors_per_cluster, partname);
 		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
+	} else {
+		log(ERROR, "Could not load FAT from lba %d", lba);
+		return;
 	}
 	if(load_fat_sector(2)) {
 		log(INFO,"Loaded sector 2 from fat correctly");
@@ -46,7 +49,7 @@ bool FAT32::load_fat_sector(uint32_t active_cluster) {
 	uint8_t fat_buffer[sector_size];
 	auto lba = partmanager.get_lba(partid, fat_sector);
 	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
-	hal::DiskManager::get().spin_job(partmanager.get_disk_id(), &job);
+	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
 	if(job.state == hal::DiskJob::FINISHED) {
 		uint32_t table_value = *(uint32_t*)&fat_buffer[ent_offset];
 		table_value &= 0x0FFFFFFF;

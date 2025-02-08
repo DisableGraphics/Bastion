@@ -17,7 +17,6 @@
 #include <kernel/drivers/keyboard/keyboard.hpp>
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
-#include <kernel/drivers/pci/pci.hpp>
 #include <kernel/drivers/rtc.hpp>
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/kernel/log.hpp>
@@ -27,6 +26,8 @@
 #include <kernel/hal/managers/irqcmanager.hpp>
 #include <kernel/hal/managers/timermanager.hpp>
 #include <kernel/hal/managers/clockmanager.hpp>
+#include <kernel/hal/managers/pci.hpp>
+
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -47,6 +48,28 @@ void idle(void*) {
 	for(;;) halt();
 }
 
+void gen(void*) {
+	auto disks = hal::DiskManager::get().get_disks();
+	for(size_t i = 0; i < disks.size(); i++) {
+		char * name = disks[i].first;
+		uint32_t sector_size = disks[i].second->get_sector_size();
+		uint32_t n_sectors = disks[i].second->get_n_sectors();
+		uint64_t sizebytes = sector_size * n_sectors;
+		uint32_t sizemib = sizebytes / ONE_MEG;
+		log(INFO, "New disk: %s. Sector size: %d, Sectors: %d, Size: %dMiB", name, sector_size, n_sectors, sizemib);
+	}
+	PartitionManager p{0};
+	auto parts = p.get_partitions();
+	for(size_t i = 0; i < parts.size(); i++) {
+		uint64_t sizebytes = parts[i].size * disks[0].second->get_sector_size();
+		uint32_t sizemb = sizebytes / ONE_MEG;
+		uint32_t type = parts[i].type;
+		log(INFO, "Partition: %d %dMiB, Type: %p, start_lba: %d", i, sizemb, type, parts[i].start_lba);
+		if(type == 0xc) {
+			FAT32 fat{p, i};
+		}
+	}
+}
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTYManager::get().init();
@@ -71,7 +94,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::ClockManager::get().set_clock(&rtc);
 
 	Task *idleTask = new Task{idle, nullptr};
+	Task *generic = new Task{gen, nullptr};
 	Scheduler::get().append_task(idleTask);
+	Scheduler::get().append_task(generic);
 
 	hal::PS2SubsystemManager::get().init();
 
@@ -80,41 +105,10 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	keyb.init();
 	mouse.init();
-	
-	/*PIT::get().init(1000);
-	RTC::get().init();
-	
-	PS2Keyboard::get().init();
-	PS2Mouse::get().init();
-	PCI::get().init();
-	*/
 
-	/*PCI::get().init();
+	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
-
 	
-
-	auto disks = hal::DiskManager::get().get_disks();
-	for(size_t i = 0; i < disks.size(); i++) {
-		char * name = disks[i].first;
-		uint32_t sector_size = disks[i].second->get_sector_size();
-		uint32_t n_sectors = disks[i].second->get_n_sectors();
-		uint64_t sizebytes = sector_size * n_sectors;
-		uint32_t sizemib = sizebytes / ONE_MEG;
-		log(INFO, "New disk: %s. Sector size: %d, Sectors: %d, Size: %dMiB", name, sector_size, n_sectors, sizemib);
-	}
-	PartitionManager p{0};
-	auto parts = p.get_partitions();
-	for(size_t i = 0; i < parts.size(); i++) {
-		uint64_t sizebytes = parts[i].size * disks[0].second->get_sector_size();
-		uint32_t sizemb = sizebytes / ONE_MEG;
-		uint32_t type = parts[i].type;
-		log(INFO, "Partition: %d %dMiB, Type: %p, start_lba: %d", i, sizemb, type, parts[i].start_lba);
-		if(type == 0xc) {
-			FAT32 fat{p, i};
-		}
-	}*/
-
 	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");

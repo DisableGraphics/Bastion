@@ -45,15 +45,20 @@ namespace hal {
 			*/
 			size_t size() const;
 			/**
-				\brief Enqueues job but waits for the job to finish using a spinlock.
+				\brief Enqueues job but waits for the job to finish.
+				\warning You must not call this function if you have a custom on_finish or on_error
+				in the disk job. This function overwrites both.
+				\warning You must invoke this function from a task, *after* the scheduler has
+				started running, since this is implemented using a semaphore which needs the scheduler running.
 			*/
-			void spin_job(size_t diskid, volatile DiskJob* job);
+			void sleep_job(size_t diskid, volatile DiskJob* job);
 		private:
 			DiskManager(){}
 			~DiskManager();
-			/**
-				Vector that contains all disk controllers
-			*/
+			/// Initialise PCI-based disks
+			void init_pci_disks();
+			
+			///	Vector that contains all disk controllers
 			Vector<Pair<diskname, Disk*>> disk_controllers;
 	};
 }

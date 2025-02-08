@@ -15,6 +15,7 @@ void PIC::init() {
 	irq_lines.reserve(16);
 	for(size_t i = 0; i < 16; i++) {
 		irq_lines.push_back({});
+		hal::IRQControllerManager::get().set_irq_for_controller(this, i);
 	}
 }
 
@@ -114,16 +115,12 @@ uint8_t PIC::get_offset() {
 size_t PIC::get_default_irq(hal::Device dev) {
 	switch(dev) {
 		case hal::PIT:
-			hal::IRQControllerManager::get().set_irq_for_controller(this, 0);
 			return 0;
 		case hal::RTC:
-			hal::IRQControllerManager::get().set_irq_for_controller(this, 8);
 			return 8;
 		case hal::KEYBOARD:
-			hal::IRQControllerManager::get().set_irq_for_controller(this, 1);
 			return 1;
 		case hal::MOUSE:
-			hal::IRQControllerManager::get().set_irq_for_controller(this, 12);
 			return 12;
 		case hal::STORAGE:
 			return -1;
@@ -136,7 +133,7 @@ size_t PIC::get_default_irq(hal::Device dev) {
 }
 
 void PIC::register_driver(hal::Driver* driver, size_t irqline) {
-	log(INFO, "Driver at %p to line %d", driver, irqline);
+	log(INFO, "PIC requested driver %p to line %d", driver, irqline);
 	if(irqline < 16) {
 		irq_lines[irqline].push_back(driver);
 	}

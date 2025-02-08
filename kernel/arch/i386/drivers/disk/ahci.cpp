@@ -31,13 +31,13 @@
 
 // Global variable to track where is the AHCI driver in memory.
 // interrupt_handler() is a static function so I need this
-AHCI::AHCI(const PCI::PCIDevice &device) : device(device) {
+AHCI::AHCI(const hal::PCISubsystemManager::PCIDevice &device) : hal::PCIDriver(device){
 	init();
 }
 
 void AHCI::init() {
 	memset(active_jobs, 0, sizeof(active_jobs));
-	PCI &pci = PCI::get();
+	hal::PCISubsystemManager &pci = hal::PCISubsystemManager::get();
 	PagingManager& pm = PagingManager::get();
 	// Get the BARs
 	for(int i = 0; i < 6; i++) {
@@ -263,8 +263,7 @@ void AHCI::handle_interrupt() {
 		}
 	}
 	// Clear global interrupt status
-	hba->is = global_is;  
-	// Finally send End Of Interrupt
+	hba->is = global_is;
 }
 
 bool AHCI::bios_handoff() {
@@ -314,15 +313,7 @@ bool AHCI::reset_controller() {
 }
 
 void AHCI::setup_interrupts() {
-	//irqline = PCI::get().readConfigWord(device.bus, device.device, device.function, INTERRUPT_LINE);
-	irqline = hal::IRQControllerManager::get().assign_irq(this);
-	PCI::get().writeConfigWord(device.bus, device.device, device.function, INTERRUPT_LINE, irqline);
-	if(irqline == 0xFF) {
-		log(ERROR, "AHCI PCI device can't interrupt");
-	} else {
-		hal::IRQControllerManager::get().enable_irq(irqline);
-		hal::IRQControllerManager::get().register_driver(this, irqline);
-	}
+	hal::PCIDriver::basic_setup();	
 }
 
 void AHCI::enable_ahci_mode() {
