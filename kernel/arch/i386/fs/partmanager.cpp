@@ -22,8 +22,8 @@ struct [[gnu::packed]] MBR_Partition {
 PartitionManager::PartitionManager(size_t disk_id) {
 	this->disk_id = disk_id;
 
-	uint8_t buffer[hal::DiskManager::get().get_driver(disk_id)->get_sector_size()];
-	memset(buffer, 0, sizeof(buffer));
+	uint8_t *buffer = new uint8_t[hal::DiskManager::get().get_driver(disk_id)->get_sector_size()];
+	memset(buffer, 0, sizeof(hal::DiskManager::get().get_driver(disk_id)->get_sector_size()));
 
 	volatile hal::DiskJob job{buffer, 0, 1, 0};
 	hal::DiskManager::get().sleep_job(0, &job);
@@ -39,6 +39,7 @@ PartitionManager::PartitionManager(size_t disk_id) {
 			parts.push_back(p);
 		}
 	}
+	delete[] buffer;
 }
 
 Vector<Partition> PartitionManager::get_partitions() {

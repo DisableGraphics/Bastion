@@ -10,7 +10,7 @@ class FAT32 {
 		bool load_fat_sector(uint32_t active_cluster);
 		size_t partid;
 		char partname[12];
-		uint8_t fat_boot_buffer[512];
+		uint8_t* fat_boot_buffer;
 		fat_BS_t* fat_boot;
 		uint32_t total_sectors;
 		uint32_t fat_size;

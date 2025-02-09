@@ -10,6 +10,8 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 	sector_size = hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
 	auto lba = partmanager.get_lba(partid, 0);
 
+	fat_boot_buffer = new uint8_t[sector_size];
+
 	volatile hal::DiskJob job{fat_boot_buffer, lba, 1, 0};
 	hal::DiskManager::get().sleep_job(0, &job);
 	fat_boot = reinterpret_cast<fat_BS_t*>(fat_boot_buffer);
@@ -31,15 +33,15 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		log(ERROR, "Could not load FAT from lba %d", lba);
 		return;
 	}
-	if(load_fat_sector(2)) {
-		log(INFO,"Loaded sector 2 from fat correctly");
+	if(load_fat_sector(root_cluster)) {
+		log(INFO,"Loaded root cluster from fat correctly");
 	} else {
-		log(INFO,"Could not load sector 2 from fat");
+		log(INFO,"Could not load root cluster from fat");
 	}
 }
 
 FAT32::~FAT32() {
-
+	delete fat_boot_buffer;
 }
 
 bool FAT32::load_fat_sector(uint32_t active_cluster) {
