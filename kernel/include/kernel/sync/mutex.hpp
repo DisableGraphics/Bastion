@@ -24,7 +24,7 @@ class Mutex {
 		void unlock();
 	private:
 		// Whether the mutex is locked or not
-		bool locked;
+		volatile bool locked;
 		// Tasks waiting for unlock()
 		Vector<Task*> waiting_tasks;
 };

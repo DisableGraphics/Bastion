@@ -4,12 +4,6 @@
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
 
-#define TIME_SLICE_LENGTH  20000000 // 20 MS
-
-#define INIT 0
-#define SCHEDULE 1
-#define EXIT_TASK 2
-
 extern "C" void switch_task(Task** current_thread, Task *next_thread);
 
 extern "C" void task_startup(void) {
@@ -94,6 +88,8 @@ size_t Scheduler::choose_task() {
 			tasks.erase(i);
 			tasks.push_back(task);
 			return tasks.size() - 1;
+		} else {
+			log(INFO, "Status of task %d: %d", i, tasks[i]->status);
 		}
 	}
 

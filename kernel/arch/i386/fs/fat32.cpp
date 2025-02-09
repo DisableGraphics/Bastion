@@ -10,7 +10,7 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 	sector_size = hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
 	auto lba = partmanager.get_lba(partid, 0);
 
-	volatile hal::DiskJob job{fat_boot_buffer, 0, 1, 0};
+	volatile hal::DiskJob job{fat_boot_buffer, lba, 1, 0};
 	hal::DiskManager::get().sleep_job(0, &job);
 	fat_boot = reinterpret_cast<fat_BS_t*>(fat_boot_buffer);
 	if(job.state == hal::DiskJob::FINISHED) {

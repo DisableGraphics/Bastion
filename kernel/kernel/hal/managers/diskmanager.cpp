@@ -73,7 +73,6 @@ bool hal::DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 
 void on_finish_sleep_job(volatile void* args) {
 	Semaphore* sem = const_cast<Semaphore*>(reinterpret_cast<volatile Semaphore*>(args));
-	log(INFO, "why am I here");
 	sem->release();
 }
 

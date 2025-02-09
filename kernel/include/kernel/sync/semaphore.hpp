@@ -28,7 +28,7 @@ class Semaphore {
 		void release();
 	private:
 		// Max number of acquire calls before semaphore locks and current number of them
-		int max_count, current_count;
+		volatile int max_count, current_count;
 		// Tasks that are waiting for this semaphore to unlock
 		Vector<Task*> waiting_tasks;
 };
