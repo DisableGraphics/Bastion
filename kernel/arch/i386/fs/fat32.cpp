@@ -41,9 +41,12 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		char name[12];
 		uint8_t* ptr_to_i = root_dir + (32*i);
 		auto attr = ptr_to_i[11];
+		uint16_t low_16 = ptr_to_i[26];
+		uint16_t high_16 = ptr_to_i[20];
+		uint32_t cluster = (high_16 << 16) | low_16;
 		memcpy(ptr_to_i, name, 11);
 		name[11] = 0;
-		printf("%s %p\n", name, attr);
+		printf("%s %p %p\n", name, attr, cluster);
 	}
 }
 
