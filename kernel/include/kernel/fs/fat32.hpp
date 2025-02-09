@@ -7,7 +7,8 @@ class FAT32 {
 		~FAT32();
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
-		bool load_fat_sector(uint32_t active_cluster);
+		uint32_t next_cluster(uint32_t active_cluster);
+		bool load_cluster(uint32_t cluster, uint8_t* buffer);
 		size_t partid;
 		char partname[12];
 		uint8_t* fat_boot_buffer;

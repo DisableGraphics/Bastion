@@ -33,10 +33,17 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		log(ERROR, "Could not load FAT from lba %d", lba);
 		return;
 	}
-	if(load_fat_sector(root_cluster)) {
-		log(INFO,"Loaded root cluster from fat correctly");
-	} else {
-		log(INFO,"Could not load root cluster from fat");
+	auto dircluster_root = next_cluster(root_cluster);
+	log(INFO, "Directory entry for root_cluster: %d", dircluster_root);
+	uint8_t root_dir[sector_size*fat_boot->sectors_per_cluster];
+	load_cluster(dircluster_root, root_dir);
+	for(size_t i = 0; i < 16; i++) {
+		char name[12];
+		uint8_t* ptr_to_i = root_dir + (32*i);
+		auto attr = ptr_to_i[11];
+		memcpy(ptr_to_i, name, 11);
+		name[11] = 0;
+		printf("%s %p\n", name, attr);
 	}
 }
 
@@ -44,11 +51,13 @@ FAT32::~FAT32() {
 	delete[] fat_boot_buffer;
 }
 
-bool FAT32::load_fat_sector(uint32_t active_cluster) {
+uint32_t FAT32::next_cluster(uint32_t active_cluster) {
 	unsigned int fat_offset = active_cluster * 4;
 	unsigned int fat_sector = first_fat_sector + (fat_offset / sector_size);
 	unsigned int ent_offset = fat_offset % sector_size;
+
 	uint8_t fat_buffer[sector_size];
+	
 	auto lba = partmanager.get_lba(partid, fat_sector);
 	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
 	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
@@ -62,12 +71,23 @@ bool FAT32::load_fat_sector(uint32_t active_cluster) {
 		} else {
 			log(INFO,"Next cluster: %p", table_value);
 		}
-		return true;
+		return table_value;
 	}
-	return false;
+	return -1;
 }
 
 uint32_t FAT32::get_sector_of_cluster(uint32_t cluster) {
 	return ((cluster - 2) * fat_boot->sectors_per_cluster) + first_data_sector;
 }
 
+bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
+	auto sector = get_sector_of_cluster(cluster);
+	auto lba = partmanager.get_lba(partid, sector);
+	volatile hal::DiskJob job{buffer, lba, 1, false};
+	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+	if(job.state == hal::DiskJob::FINISHED) {
+		return true;
+	} else {
+		return false;
+	}
+}
