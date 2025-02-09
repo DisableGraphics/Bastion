@@ -41,7 +41,7 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 }
 
 FAT32::~FAT32() {
-	delete fat_boot_buffer;
+	delete[] fat_boot_buffer;
 }
 
 bool FAT32::load_fat_sector(uint32_t active_cluster) {
