@@ -27,7 +27,7 @@ if [ ! -e "$PARTITION" ]; then
   PARTITION="/dev/mapper/$(basename ${LOOP_DEVICE})p1"
 fi
 echo "Formatting the partition as FAT32: $PARTITION"
-sudo mkfs.fat -F32 $PARTITION
+sudo mkfs.vfat -F32 $PARTITION
 sudo fatlabel "$PARTITION" "$PART_NAME"
 
 echo "Mounting partition"

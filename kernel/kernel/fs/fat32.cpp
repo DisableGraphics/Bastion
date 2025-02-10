@@ -29,6 +29,7 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		root_cluster = fat_boot_ext_32->root_cluster;
 		log(INFO,"Total sectors: %d. FAT Size: %d. Cluster size: %d. Name: %s", total_sectors, fat_size, fat_boot->sectors_per_cluster, partname);
 		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
+		log(INFO, "First data sector: %d", first_data_sector);
 	} else {
 		log(ERROR, "Could not load FAT from lba %d", lba);
 		return;
