@@ -33,41 +33,44 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		log(ERROR, "Could not load FAT from lba %d", lba);
 		return;
 	}
-	auto dircluster_root = next_cluster(root_cluster);
-	log(INFO, "Directory entry for root_cluster: %d", dircluster_root);
+	auto cchain = next_cluster(root_cluster);
+	log(INFO, "Directory entry for root_cluster: %d", cchain);
 	uint8_t root_dir[sector_size*fat_boot->sectors_per_cluster];
-	load_cluster(dircluster_root, root_dir);
-	for(size_t i = 0; i < 16; i++) {
-		char name[14];
-		memset(name, 0, sizeof(name));
-		uint8_t* ptr_to_i = root_dir + (32*i);
-		auto attr = ptr_to_i[11];
-		if(attr != 0xf) {
-			uint16_t low_16 = ptr_to_i[26];
-			uint16_t high_16 = ptr_to_i[20];
-			uint32_t cluster = (high_16 << 16) | low_16;
-			memcpy(ptr_to_i, name, 11);
-			name[11] = 0;
-			printf("%s %p %p\n", name, attr, cluster);
-		} else {
-			uint8_t pos = *ptr_to_i;
-			// First 5 2-byte characters of the entry
-			uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
-			uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
-			uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
-			// Kludge
-			for(int i = 0; i < 5; i++) {
-				name[i] = first5[i];
+	while(cchain < 0x0FFFFFF7) {
+		load_cluster(cchain, root_dir);
+		for(size_t i = 0; i < 16; i++) {
+			char name[14];
+			memset(name, 0, sizeof(name));
+			uint8_t* ptr_to_i = root_dir + (32*i);
+			auto attr = ptr_to_i[11];
+			if(attr != 0xf) {
+				uint16_t low_16 = ptr_to_i[26];
+				uint16_t high_16 = ptr_to_i[20];
+				uint32_t cluster = (high_16 << 16) | low_16;
+				memcpy(ptr_to_i, name, 11);
+				name[11] = 0;
+				printf("%s %p %p\n", name, attr, cluster);
+			} else {
+				uint8_t pos = *ptr_to_i;
+				// First 5 2-byte characters of the entry
+				uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
+				uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
+				uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
+				// Kludge
+				for(int i = 0; i < 5; i++) {
+					name[i] = first5[i];
+				}
+				for(int i = 0; i < 6; i++) {
+					name[i+5] = second6[i];
+				}
+				for(int i = 0; i < 2; i++) {
+					name[i+11] = third2[i];
+				}
+				name[13] = 0;
+				printf("(LFN) %d %s\n", pos, name);
 			}
-			for(int i = 0; i < 6; i++) {
-				name[i+5] = second6[i];
-			}
-			for(int i = 0; i < 2; i++) {
-				name[i+11] = third2[i];
-			}
-			name[13] = 0;
-			printf("(LFN) %d %s\n", pos, name);
 		}
+		cchain = next_cluster(cchain);
 	}
 }
 

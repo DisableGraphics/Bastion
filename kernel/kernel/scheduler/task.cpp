@@ -45,7 +45,7 @@ Task& Task::operator=(Task&& other) {
 }
 
 Task::~Task() {
-	log(INFO, "Task destroyed: %p %p", stack_top, esp0);
+	log(INFO, "Task destroyed: %d", id);
 	kfree(stack_top);
 }
 
