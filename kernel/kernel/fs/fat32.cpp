@@ -38,36 +38,45 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 	uint8_t root_dir[sector_size*fat_boot->sectors_per_cluster];
 	while(cchain < 0x0FFFFFF7) {
 		load_cluster(cchain, root_dir);
-		for(size_t i = 0; i < 16; i++) {
+		const size_t entries_per_cluster = (sector_size * fat_boot->sectors_per_cluster) / 32;
+		char lfn_buffer[256] = {0};
+		bool has_lfn = false;
+		uint8_t lfn_order = 0;
+
+		for(size_t i = 0; i < entries_per_cluster; i++) {
 			char name[14];
 			memset(name, 0, sizeof(name));
 			uint8_t* ptr_to_i = root_dir + (32*i);
 			auto attr = ptr_to_i[11];
-			if(attr != 0xf) {
-				uint16_t low_16 = ptr_to_i[26];
-				uint16_t high_16 = ptr_to_i[20];
-				uint32_t cluster = (high_16 << 16) | low_16;
-				memcpy(ptr_to_i, name, 11);
-				name[11] = 0;
-				printf("%s %p %p\n", name, attr, cluster);
-			} else {
-				uint8_t pos = *ptr_to_i;
+			if(attr == 0xf) {
+				has_lfn = true;
+				uint8_t pos = *ptr_to_i & 0x3F;
+				if (pos == 1) lfn_order = 0;
 				// First 5 2-byte characters of the entry
 				uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
 				uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
 				uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
-				// Kludge
-				for(int i = 0; i < 5; i++) {
-					name[i] = first5[i];
+				for (int j = 0; j < 5; j++) lfn_buffer[lfn_order + j] = first5[j];
+				for (int j = 0; j < 6; j++) lfn_buffer[lfn_order + j + 5] = second6[j];
+				for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
+		
+				lfn_order += 13;
+			} else if(attr != 0) {
+				uint16_t low_16 = *(uint16_t*)(ptr_to_i + 26);
+				uint16_t high_16 = *(uint16_t*)(ptr_to_i + 20);
+				uint32_t cluster = (high_16 << 16) | low_16;
+
+				char sfn_name[12] = {0};
+				memcpy(sfn_name, ptr_to_i, 11);
+				sfn_name[11] = 0;
+
+				if (has_lfn) {
+					printf("(LFN) %s -> (SFN) %s %p %p\n", lfn_buffer, sfn_name, attr, cluster);
+					has_lfn = false;  // Reset after processing
+					memset(lfn_buffer, 0, sizeof(lfn_buffer));  // Clear LFN buffer
+				} else {
+					printf("%s %p %p\n", sfn_name, attr, cluster);
 				}
-				for(int i = 0; i < 6; i++) {
-					name[i+5] = second6[i];
-				}
-				for(int i = 0; i < 2; i++) {
-					name[i+11] = third2[i];
-				}
-				name[13] = 0;
-				printf("(LFN) %d %s\n", pos, name);
 			}
 		}
 		cchain = next_cluster(cchain);
@@ -95,6 +104,7 @@ uint32_t FAT32::next_cluster(uint32_t active_cluster) {
 			log(INFO,"Chain finished");
 		} else if(table_value == 0x0FFFFFF7) {
 			log(INFO,"Bad sector");
+			return -1;
 		} else {
 			log(INFO,"Next cluster: %p", table_value);
 		}
@@ -110,11 +120,8 @@ uint32_t FAT32::get_sector_of_cluster(uint32_t cluster) {
 bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 	auto sector = get_sector_of_cluster(cluster);
 	auto lba = partmanager.get_lba(partid, sector);
-	volatile hal::DiskJob job{buffer, lba, 1, false};
+	volatile hal::DiskJob job{buffer, lba, fat_boot->sectors_per_cluster, false};
 	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::FINISHED) {
-		return true;
-	} else {
-		return false;
-	}
+
+	return job.state == hal::DiskJob::FINISHED;
 }
