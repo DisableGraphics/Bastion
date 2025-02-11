@@ -6,7 +6,7 @@ PART_NAME="BASTION"
 
 if [ ! -f "$IMAGE_FILE" ]; then
   echo "Creating raw disk image: $IMAGE_FILE (${IMAGE_SIZE_MB}MB)"
-  qemu-img create -f raw ${IMAGE_FILE} 256M
+  qemu-img create -f raw ${IMAGE_FILE} "${IMAGE_SIZE_MB}M"
 fi
 LOOP_DEVICE=$(sudo losetup --find --partscan --show $IMAGE_FILE)
 sync
