@@ -64,8 +64,8 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		
 				lfn_order += 13;
 			} else if(attr != 0) {
-				uint16_t low_16 = *(uint16_t*)(ptr_to_i + 26);
-				uint16_t high_16 = *(uint16_t*)(ptr_to_i + 20);
+				uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
+				uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
 				uint32_t cluster = (high_16 << 16) | low_16;
 
 				char sfn_name[12] = {0};
