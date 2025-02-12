@@ -34,7 +34,8 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		log(ERROR, "Could not load FAT from lba %d", lba);
 		return;
 	}
-	auto cchain = next_cluster(root_cluster);
+	auto cchain = root_cluster;
+	
 	log(INFO, "Directory entry for root_cluster: %d", cchain);
 	uint8_t root_dir[sector_size*fat_boot->sectors_per_cluster];
 	while(cchain < 0x0FFFFFF7) {
