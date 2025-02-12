@@ -32,7 +32,6 @@
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
 // Scheduler
-#include <../arch/i386/scheduler/interface.hpp>
 #include <kernel/scheduler/scheduler.hpp>
 // Synchronization
 #include <kernel/sync/semaphore.hpp>
