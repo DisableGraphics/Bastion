@@ -10,48 +10,48 @@
 
 switch_task:
 	mov 4(%esp),%eax 		# eax = address of current thread
-    # Save previous task's state
+	# Save previous task's state
 
-    #Notes:
-    #  For cdecl# EAX, ECX, and EDX are already saved by the caller and don't need to be saved again
-    #  EIP is already saved on the stack by the caller's "CALL" instruction
-    #  The task isn't able to change CR3 so it doesn't need to be saved
-    #  Segment registers are constants (while running kernel code) so they don't need to be saved
+	#Notes:
+	#  For cdecl# EAX, ECX, and EDX are already saved by the caller and don't need to be saved again
+	#  EIP is already saved on the stack by the caller's "CALL" instruction
+	#  The task isn't able to change CR3 so it doesn't need to be saved
+	#  Segment registers are constants (while running kernel code) so they don't need to be saved
 
-    push %ebx
-    push %esi
-    push %edi
-    push %ebp
+	push %ebx
+	push %esi
+	push %edi
+	push %ebp
 	pushf
 
-    mov %eax,%edi    		# edi = current_thread
+	mov %eax,%edi    		# edi = current_thread
 	mov (%edi),%ecx			# ecx = *current_thread (for modifications of the stack pointer)
-    mov %esp,(%ecx)         # Save ESP for previous task's kernel stack in the thread's TCB
+	mov %esp,(%ecx)         # Save ESP for previous task's kernel stack in the thread's TCB
 
-    # Load next task's state
+	# Load next task's state
 
-    mov 28(%esp),%esi       # esi = address of the next task's "thread control block" (parameter passed on stack)
+	mov 28(%esp),%esi       # esi = address of the next task's "thread control block" (parameter passed on stack)
 	mov %esi,(%edi)			# Set current running task
-    mov %esi,(%eax)    		# Current task's TCB is the next task TCB
+	mov %esi,(%eax)    		# Current task's TCB is the next task TCB
 
-    mov (%esi),%esp         # Load ESP for next task's kernel stack from the thread's TCB
-    mov 4(%esi),%eax        # eax = address of page directory for next task
-    mov 8(%esi),%ebx        # ebx = address for the top of the next task's kernel stack
+	mov (%esi),%esp         # Load ESP for next task's kernel stack from the thread's TCB
+	mov 4(%esi),%eax        # eax = address of page directory for next task
+	mov 8(%esi),%ebx        # ebx = address for the top of the next task's kernel stack
 	mov $tss,%ecx
-    mov %ebx,4(%ecx)        #Adjust the ESP0 field in the TSS (used by CPU for for CPL=3 -> CPL=0 privilege level changes)
-    mov %cr3,%ecx           #ecx = previous task's virtual address space
+	mov %ebx,4(%ecx)        #Adjust the ESP0 field in the TSS (used by CPU for for CPL=3 -> CPL=0 privilege level changes)
+	mov %cr3,%ecx           #ecx = previous task's virtual address space
 
-    cmp %eax,%ecx           #Does the virtual address space need to being changed?
-    je .doneVAS             # no, virtual address space is the same, so don't reload it and cause TLB flushes
-    mov %eax,%cr3           # yes, load the next task's virtual address space
+	cmp %eax,%ecx           #Does the virtual address space need to being changed?
+	je .doneVAS             # no, virtual address space is the same, so don't reload it and cause TLB flushes
+	mov %eax,%cr3           # yes, load the next task's virtual address space
 .doneVAS:
 
 	popf
-    pop %ebp
-    pop %edi
-    pop %esi
-    pop %ebx
+	pop %ebp
+	pop %edi
+	pop %esi
+	pop %ebx
 
 	call task_startup
 
-    ret                     # Load next task's EIP from its kernel stack
+	ret                     # Load next task's EIP from its kernel stack
