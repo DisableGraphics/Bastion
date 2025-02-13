@@ -141,5 +141,5 @@ uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
 	delete[] directory;
 	uint8_t* buffer = new uint8_t[fat_boot->sectors_per_cluster * sector_size];
 
-	
+	delete[] buffer;
 }
