@@ -67,9 +67,12 @@ void gen(void*) {
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 			char buffer[16];
-			fat.read("/data/test.txt", 0, 15, buffer);
-			buffer[15] = 0;
-			printf("%s", buffer);
+			if(fat.read("/data/test.txt", 0, 15, buffer)) {
+				buffer[15] = 0;
+				printf("Got this: %s", buffer);
+			} else {
+				printf("Could not read from /data/test.txt");
+			}
 		}
 	}
 }

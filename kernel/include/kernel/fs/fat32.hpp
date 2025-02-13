@@ -13,8 +13,9 @@ class FAT32 {
 		uint32_t get_sector_of_cluster(uint32_t cluster);
 		uint32_t next_cluster(uint32_t active_cluster);
 		bool load_cluster(uint32_t cluster, uint8_t* buffer);
-		uint32_t cluster_for_directory(const char* directory);
+		uint32_t first_cluster_for_directory(const char* directory);
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
+		bool filecmp(const char* basename, const char* entrydata, bool lfn);
 		size_t partid;
 		char partname[12];
 		uint8_t* fat_boot_buffer;
@@ -26,5 +27,6 @@ class FAT32 {
 		uint32_t total_clusters;
 		uint32_t root_cluster;
 		uint32_t sector_size;
+		uint32_t cluster_size;
 		PartitionManager &partmanager;
 };

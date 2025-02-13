@@ -143,9 +143,13 @@ unsigned short ctype_bits[] =
 };
 
 char tolower(char c) {
-	return c + 32;
+	if(c >= 'A' && c <= 'Z')
+		return c + 32;
+	return c;
 }
 
 char toupper(char c) {
-	return c - 32;
+	if(c >= 'a' && c <= 'z')
+		return c - 32;
+	return c;
 }

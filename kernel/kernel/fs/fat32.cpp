@@ -6,6 +6,9 @@
 #include <string.h>
 #include <kernel/kernel/log.hpp>
 
+#define FAT_ERROR 0x0FFFFFF7
+#define FAT_FINISH 0x0FFFFFF8
+
 FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partmanager) {
 	this->partid = partid;
 	sector_size = hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
@@ -28,61 +31,13 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		n_data_sectors = total_sectors - (fat_boot->reserved_sector_count + (fat_boot->table_count * fat_size));
 		total_clusters = n_data_sectors / fat_boot->sectors_per_cluster;
 		root_cluster = fat_boot_ext_32->root_cluster;
+		cluster_size = fat_boot->sectors_per_cluster*sector_size;
 		log(INFO,"Total sectors: %d. FAT Size: %d. Cluster size: %d. Name: %s", total_sectors, fat_size, fat_boot->sectors_per_cluster, partname);
 		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
 		log(INFO, "First data sector: %d", first_data_sector);
 	} else {
 		log(ERROR, "Could not load FAT from lba %d", lba);
 		return;
-	}
-	auto cchain = root_cluster;
-	
-	log(INFO, "Directory entry for root_cluster: %d", cchain);
-	uint8_t root_dir[sector_size*fat_boot->sectors_per_cluster];
-	while(cchain < 0x0FFFFFF7) {
-		load_cluster(cchain, root_dir);
-		const size_t entries_per_cluster = (sector_size * fat_boot->sectors_per_cluster) / 32;
-		char lfn_buffer[256] = {0};
-		bool has_lfn = false;
-		uint8_t lfn_order = 0;
-
-		for(size_t i = 0; i < entries_per_cluster; i++) {
-			char name[14];
-			memset(name, 0, sizeof(name));
-			uint8_t* ptr_to_i = root_dir + (32*i);
-			auto attr = ptr_to_i[11];
-			if(attr == 0xf) {
-				has_lfn = true;
-				uint8_t pos = *ptr_to_i & 0x3F;
-				if (pos == 1) lfn_order = 0;
-				// First 5 2-byte characters of the entry
-				uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
-				uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
-				uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
-				for (int j = 0; j < 5; j++) lfn_buffer[lfn_order + j] = first5[j];
-				for (int j = 0; j < 6; j++) lfn_buffer[lfn_order + j + 5] = second6[j];
-				for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
-		
-				lfn_order += 13;
-			} else if(attr != 0) {
-				uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
-				uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
-				uint32_t cluster = (high_16 << 16) | low_16;
-
-				char sfn_name[12] = {0};
-				memcpy(sfn_name, ptr_to_i, 11);
-				sfn_name[11] = 0;
-
-				if (has_lfn) {
-					printf("(LFN) %s -> (SFN) %s %p %p\n", lfn_buffer, sfn_name, attr, cluster);
-					has_lfn = false;  // Reset after processing
-					memset(lfn_buffer, 0, sizeof(lfn_buffer));  // Clear LFN buffer
-				} else {
-					printf("%s %p %p\n", sfn_name, attr, cluster);
-				}
-			}
-		}
-		cchain = next_cluster(cchain);
 	}
 }
 
@@ -103,9 +58,9 @@ uint32_t FAT32::next_cluster(uint32_t active_cluster) {
 	if(job.state == hal::DiskJob::FINISHED) {
 		uint32_t table_value = *(uint32_t*)&fat_buffer[ent_offset];
 		table_value &= 0x0FFFFFFF;
-		if(table_value >= 0x0FFFFFF8) {
+		if(table_value >= FAT_FINISH) {
 			log(INFO,"Chain finished");
-		} else if(table_value == 0x0FFFFFF7) {
+		} else if(table_value == FAT_ERROR) {
 			log(INFO,"Bad sector");
 			return -1;
 		} else {
@@ -129,17 +84,109 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 	return job.state == hal::DiskJob::FINISHED;
 }
 
+uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
+	log(INFO, "FAT32::first_cluster_for_directory()");
+	return 0x473;
+}
+
 uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
-	uint32_t cluster_offset = offset/(fat_boot->sectors_per_cluster * sector_size);
-	char* end = rfind(filename, '/');
-	if(!end) return -1;
-	char * directory = new char[end - filename];
-	memcpy(directory, filename, end - filename);
+	log(INFO, "Filename: %s", filename);
+	const char* basename = rfind(filename, '/');
+	if(!basename) return -1;
+	char * dir_path = new char[basename - filename+1];
+	memcpy(dir_path, filename, basename - filename);
+	dir_path[basename - filename] = 0;
+	log(INFO, "Dir path: %s", dir_path);
+	basename++;
+	log(INFO, "Basename: %s", basename);
 
-	uint32_t dir_cluster = cluster_for_directory(directory);
+	uint32_t dir_cluster = first_cluster_for_directory(dir_path);
+	delete[] dir_path;
 
-	delete[] directory;
-	uint8_t* buffer = new uint8_t[fat_boot->sectors_per_cluster * sector_size];
+	uint8_t* buffer = new uint8_t[cluster_size];
+	char lfn_buffer[256] = {0};
+	bool has_lfn = false;
+	const size_t entries_per_cluster = cluster_size / 32;
+	do {
+		log(INFO, "Loading cluster %d", dir_cluster);
+		load_cluster(dir_cluster, buffer);
+		uint8_t lfn_order = 0;
 
+		for(size_t i = 0; i < entries_per_cluster; i++) {
+			char name[14];
+			memset(name, 0, sizeof(name));
+			uint8_t* ptr_to_i = buffer + (32*i);
+			auto attr = ptr_to_i[11];
+			if(attr == 0xf) {
+				has_lfn = true;
+				uint8_t pos = *ptr_to_i & 0x3F;
+				if (pos == 1) lfn_order = 0;
+				// First 5 2-byte characters of the entry
+				uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
+				uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
+				uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
+				for (int j = 0; j < 5; j++) lfn_buffer[lfn_order + j] = first5[j];
+				for (int j = 0; j < 6; j++) lfn_buffer[lfn_order + j + 5] = second6[j];
+				for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
+		
+				lfn_order += 13;
+			} else if(attr != 0) {
+				uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
+				uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
+				uint32_t cluster = (high_16 << 16) | low_16;
+
+				char sfn_name[12] = {0};
+				memcpy(sfn_name, ptr_to_i, 11);
+				sfn_name[11] = 0;
+				log(INFO, "%s %s %p", sfn_name, lfn_buffer, cluster);
+				// If we match return
+				if(!filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
+					log(INFO, "looks like we have a match");
+					uint32_t cluster_offset = offset/cluster_size;
+					for(size_t i = 0; i <= cluster_offset; i++) {
+						dir_cluster = cluster;
+						if(i < cluster_offset)
+							cluster = next_cluster(cluster);
+					}
+					log(INFO, "Cluster of file: %d", dir_cluster);
+					goto endloop;
+				}
+				memset(lfn_buffer, 0, sizeof(lfn_buffer));
+			}
+		}
+		dir_cluster = next_cluster(dir_cluster);
+	} while(dir_cluster < 0x0FFFFFF7);
+	endloop:
 	delete[] buffer;
+	return dir_cluster;
+}
+
+bool FAT32::filecmp(const char* basename, const char* entrydata, bool lfn) {
+	log(INFO, "%s == %s", basename, entrydata);
+	if(lfn) {
+		/// TODO: support for UTF-16 LFN entries
+		return strcmp(basename, entrydata);
+	} else {
+		return strcasecmp(basename, entrydata);
+	}
+}
+
+bool FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
+	auto cluster = cluster_for_filename(filename, offset);
+	log(INFO, "Cluster: %d", cluster);
+	if(cluster < FAT_ERROR) {
+		auto incluster_offset = offset % cluster_size;
+		auto incluster_nbytes = nbytes > (cluster_size - incluster_offset) ? (cluster_size - incluster_offset) : nbytes;
+		const unsigned clusters = (incluster_offset + nbytes) / cluster_size;
+		for(size_t i = 0; i < clusters; i++, cluster = next_cluster(cluster)) {
+			uint8_t diskbuf[cluster_size];
+			load_cluster(cluster, diskbuf);
+			memcpy(buffer, diskbuf+incluster_offset, incluster_nbytes);
+			incluster_offset = 0;
+			incluster_nbytes = (nbytes - i*cluster_size) > cluster_size ? cluster_size : nbytes;
+		}
+
+		return true;
+	}
+	return false;
 }
