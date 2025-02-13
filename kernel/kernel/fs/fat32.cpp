@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <kernel/fs/fat32.hpp>
 #include <kernel/sync/semaphore.hpp>
 #include <kernel/hal/managers/diskmanager.hpp>
@@ -129,5 +130,16 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 }
 
 uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
+	uint32_t cluster_offset = offset/(fat_boot->sectors_per_cluster * sector_size);
+	char* end = rfind(filename, '/');
+	if(!end) return -1;
+	char * directory = new char[end - filename];
+	memcpy(directory, filename, end - filename);
 
+	uint32_t dir_cluster = cluster_for_directory(directory);
+
+	delete[] directory;
+	uint8_t* buffer = new uint8_t[fat_boot->sectors_per_cluster * sector_size];
+
+	
 }

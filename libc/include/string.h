@@ -19,6 +19,8 @@ volatile void* vmemset(volatile void*, int, size_t);
 size_t strlen(const char*);
 char *strcpy(char* __restrict, const char *__restrict);
 
+char* rfind(const char* haystack, char needle);
+
 #ifdef __cplusplus
 }
 #endif
