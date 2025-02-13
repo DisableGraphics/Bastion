@@ -127,3 +127,7 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 
 	return job.state == hal::DiskJob::FINISHED;
 }
+
+uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
+
+}
