@@ -16,6 +16,7 @@ class FAT32 {
 		uint32_t first_cluster_for_directory(const char* directory);
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
+		uint32_t match_cluster(uint8_t* cluster, const char* basename);
 		size_t partid;
 		char partname[12];
 		uint8_t* fat_boot_buffer;

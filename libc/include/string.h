@@ -23,6 +23,7 @@ const char* rfind(const char* haystack, char needle);
 int strcasecmp(const char* a, const char* b);
 int strcmp(const char* a, const char* b);
 const char* strstr(const char* X, const char* Y);
+int ccount(const char* str, char c);
 
 #ifdef __cplusplus
 }

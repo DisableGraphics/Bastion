@@ -85,8 +85,9 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 }
 
 uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
-	log(INFO, "FAT32::first_cluster_for_directory()");
-	return 0x473;
+	log(INFO, "FAT32::first_cluster_for_directory(%s)", dir_path);
+	int nlevels = ccount(dir_path, '/');
+	
 }
 
 uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
@@ -104,59 +105,20 @@ uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
 	delete[] dir_path;
 
 	uint8_t* buffer = new uint8_t[cluster_size];
-	char lfn_buffer[256] = {0};
-	bool has_lfn = false;
-	const size_t entries_per_cluster = cluster_size / 32;
 	do {
 		log(INFO, "Loading cluster %d", dir_cluster);
 		load_cluster(dir_cluster, buffer);
-		uint8_t lfn_order = 0;
-
-		for(size_t i = 0; i < entries_per_cluster; i++) {
-			char name[14];
-			memset(name, 0, sizeof(name));
-			uint8_t* ptr_to_i = buffer + (32*i);
-			auto attr = ptr_to_i[11];
-			if(attr == 0xf) {
-				has_lfn = true;
-				uint8_t pos = *ptr_to_i & 0x3F;
-				if (pos == 1) lfn_order = 0;
-				// First 5 2-byte characters of the entry
-				uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
-				uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
-				uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
-				for (int j = 0; j < 5; j++) lfn_buffer[lfn_order + j] = first5[j];
-				for (int j = 0; j < 6; j++) lfn_buffer[lfn_order + j + 5] = second6[j];
-				for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
-		
-				lfn_order += 13;
-			} else if(attr != 0) {
-				uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
-				uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
-				uint32_t cluster = (high_16 << 16) | low_16;
-
-				char sfn_name[12] = {0};
-				memcpy(sfn_name, ptr_to_i, 11);
-				sfn_name[11] = 0;
-				log(INFO, "%s %s %p", sfn_name, lfn_buffer, cluster);
-				// If we match return
-				if(!filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
-					log(INFO, "looks like we have a match");
-					uint32_t cluster_offset = offset/cluster_size;
-					for(size_t i = 0; i <= cluster_offset; i++) {
-						dir_cluster = cluster;
-						if(i < cluster_offset)
-							cluster = next_cluster(cluster);
-					}
-					log(INFO, "Cluster of file: %d", dir_cluster);
-					goto endloop;
-				}
-				memset(lfn_buffer, 0, sizeof(lfn_buffer));
+		uint32_t cluster;
+		if((cluster = match_cluster(buffer, basename)) != -1) {
+			uint32_t cluster_offset = offset/cluster_size;
+			for(size_t i = 0; i <= cluster_offset; i++) {
+				dir_cluster = cluster;
+				if(i < cluster_offset)
+					cluster = next_cluster(cluster);
 			}
 		}
 		dir_cluster = next_cluster(dir_cluster);
 	} while(dir_cluster < 0x0FFFFFF7);
-	endloop:
 	delete[] buffer;
 	return dir_cluster;
 }
@@ -189,4 +151,47 @@ bool FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* b
 		return true;
 	}
 	return false;
+}
+
+uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename) {
+	uint8_t lfn_order = 0;
+	char lfn_buffer[256] = {0};
+	bool has_lfn = false;
+	const size_t entries_per_cluster = cluster_size / 32;
+	for(size_t i = 0; i < entries_per_cluster; i++) {
+		char name[14];
+		memset(name, 0, sizeof(name));
+		uint8_t* ptr_to_i = buffer + (32*i);
+		auto attr = ptr_to_i[11];
+		if(attr == 0xf) {
+			has_lfn = true;
+			uint8_t pos = *ptr_to_i & 0x3F;
+			if (pos == 1) lfn_order = 0;
+			// First 5 2-byte characters of the entry
+			uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
+			uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
+			uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
+			for (int j = 0; j < 5; j++) lfn_buffer[lfn_order + j] = first5[j];
+			for (int j = 0; j < 6; j++) lfn_buffer[lfn_order + j + 5] = second6[j];
+			for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
+	
+			lfn_order += 13;
+		} else if(attr != 0) {
+			uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
+			uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
+			uint32_t cluster = (high_16 << 16) | low_16;
+
+			char sfn_name[12] = {0};
+			memcpy(sfn_name, ptr_to_i, 11);
+			sfn_name[11] = 0;
+			log(INFO, "%s %s %p", sfn_name, lfn_buffer, cluster);
+			// If we match return
+			if(!filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
+				log(INFO, "looks like we have a match");
+				return cluster;
+			}
+			memset(lfn_buffer, 0, sizeof(lfn_buffer));
+		}
+	}
+	return -1;
 }
