@@ -67,16 +67,18 @@ void gen(void*) {
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 			char buffer[16];
-			if(fat.read("/data/test.txt", 0, 15, buffer)) {
+			if(fat.read("/data/test.txt", 0, 15, buffer) != -1) {
 				buffer[15] = 0;
 				printf("Got this: %s\n", buffer);
 			} else {
 				printf("Could not read from /data/test.txt");
 			}
-			char buffer2[768];
-			if(fat.read("/grub/grubenv", 4, 767, buffer2)) {
-				buffer2[767] = 0;
-				printf("Length: %d", strlen(buffer2));
+			char buffer2[2048];
+			int read;
+			if((read = fat.read("/data/test.txt", 0, 2048, buffer2)) != -1) {
+				buffer2[2047] = 0;
+				printf("Read: %d bytes\n", read);
+				printf("Length: %d\n", strlen(buffer2));
 				printf("Got this:\n%s\n", buffer2);
 			} else {
 				printf("Could not read from /grub/grubenv");

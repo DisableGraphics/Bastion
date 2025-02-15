@@ -98,7 +98,7 @@ uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
 			log(INFO, "Loading cluster %d", dir_cluster);
 			load_cluster(dir_cluster, buffer);
 			uint32_t cluster;
-			if((cluster = match_cluster(buffer, directories[i])) != -1) {
+			if((cluster = match_cluster(buffer, directories[i], FAT_FLAGS::DIRECTORY)) != -1) {
 				dir_cluster = cluster;
 				break;
 			} else {
@@ -135,7 +135,7 @@ uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
 		log(INFO, "Loading cluster %d", dir_cluster);
 		load_cluster(dir_cluster, buffer);
 		uint32_t cluster;
-		if((cluster = match_cluster(buffer, basename)) != -1) {
+		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE)) != -1) {
 			uint32_t cluster_offset = offset/cluster_size;
 			for(size_t i = 0; i <= cluster_offset; i++) {
 				dir_cluster = cluster;
@@ -181,30 +181,32 @@ bool FAT32::filecmp(const char* basename, const char* entrydata, bool lfn) {
 	}
 }
 
-bool FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
+int FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
 	auto cluster = cluster_for_filename(filename, offset);
 	log(INFO, "Cluster for %s: %d", filename, cluster);
 	if(cluster < FAT_ERROR) {
+		int readbytes = 0;
 		auto incluster_offset = offset % cluster_size;
 		auto incluster_nbytes = nbytes > (cluster_size - incluster_offset) ? (cluster_size - incluster_offset) : nbytes;
 		const unsigned clusters = (incluster_offset + nbytes + cluster_size - 1) / cluster_size;
 		uint8_t *diskbuf = new uint8_t[cluster_size];
-		for(size_t i = 0; i < clusters; i++, cluster = next_cluster(cluster)) {
+		for(size_t i = 0; cluster < FAT_ERROR && i < clusters; i++, cluster = next_cluster(cluster)) {
 			load_cluster(cluster, diskbuf);
 			memcpy(buffer, diskbuf+incluster_offset, incluster_nbytes);
 			buffer += incluster_nbytes;
 			nbytes -= incluster_nbytes;
+			readbytes += incluster_nbytes;
 			incluster_offset = 0;
 			incluster_nbytes = nbytes > cluster_size ? cluster_size : nbytes;
 		}
 		delete[] diskbuf;
 
-		return true;
+		return readbytes;
 	}
-	return false;
+	return -1;
 }
 
-uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename) {
+uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags) {
 	uint8_t lfn_order = 0;
 	char lfn_buffer[256] = {0};
 	bool has_lfn = false;
@@ -213,11 +215,11 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename) {
 		char name[14];
 		memset(name, 0, sizeof(name));
 		uint8_t* ptr_to_i = buffer + (32*i);
-		auto attr = ptr_to_i[11];
-		if(attr == 0xf) {
+		FAT_FLAGS attr = static_cast<FAT_FLAGS>(ptr_to_i[11]);
+		if(attr == FAT_FLAGS::LFN) {
 			has_lfn = true;
 			uint8_t pos = *ptr_to_i & 0x3F;
-			if (pos == 1) lfn_order = 0;
+			lfn_order = (pos - 1) * 13;
 			// First 5 2-byte characters of the entry
 			uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
 			uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
@@ -227,7 +229,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename) {
 			for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
 	
 			lfn_order += 13;
-		} else if(attr != 0) {
+		} else if(attr != FAT_FLAGS::NONE) {
 			uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
 			uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
 			uint32_t cluster = (high_16 << 16) | low_16;
@@ -237,7 +239,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename) {
 			sfn_name[11] = 0;
 			log(INFO, "%s %s %p", sfn_name, lfn_buffer, cluster);
 			// If we match return
-			if(!filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
+			if(attr == flags && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
 				log(INFO, "looks like we have a match");
 				return cluster;
 			}
