@@ -86,8 +86,33 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 
 uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
 	log(INFO, "FAT32::first_cluster_for_directory(%s)", dir_path);
-	int nlevels = ccount(dir_path, '/');
-	
+	int ndirs;
+	char** directories = substr(dir_path, '/', &ndirs);
+	if(!directories) return -1;
+	uint32_t dir_cluster = root_cluster;
+	uint8_t * buffer = new uint8_t[sector_size];
+	for(size_t i = 0; i < ndirs; i++) {
+		if(strcmp(directories[i], "") == 0) continue;
+		log(INFO, "Looking at directory %s", directories[i]);
+		do {
+			log(INFO, "Loading cluster %d", dir_cluster);
+			load_cluster(dir_cluster, buffer);
+			uint32_t cluster;
+			if((cluster = match_cluster(buffer, directories[i])) != -1) {
+				dir_cluster = cluster;
+				break;
+			} else {
+				dir_cluster = next_cluster(dir_cluster);
+			}
+		} while(dir_cluster < FAT_ERROR);
+		if(dir_cluster >= FAT_ERROR) goto finish;
+	}
+finish:
+	for(size_t i = 0; i < ndirs; i++)
+		kfree(directories[i]);
+	delete[] buffer;
+	kfree(directories);
+	return dir_cluster;
 }
 
 uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
@@ -103,6 +128,7 @@ uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
 
 	uint32_t dir_cluster = first_cluster_for_directory(dir_path);
 	delete[] dir_path;
+	if(dir_cluster >= FAT_ERROR) return dir_cluster;
 
 	uint8_t* buffer = new uint8_t[cluster_size];
 	do {
@@ -116,9 +142,10 @@ uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
 				if(i < cluster_offset)
 					cluster = next_cluster(cluster);
 			}
+			break;
 		}
 		dir_cluster = next_cluster(dir_cluster);
-	} while(dir_cluster < 0x0FFFFFF7);
+	} while(dir_cluster < FAT_ERROR);
 	delete[] buffer;
 	return dir_cluster;
 }
@@ -129,24 +156,48 @@ bool FAT32::filecmp(const char* basename, const char* entrydata, bool lfn) {
 		/// TODO: support for UTF-16 LFN entries
 		return strcmp(basename, entrydata);
 	} else {
-		return strcasecmp(basename, entrydata);
+		char name[13];
+		memset(name, 0, sizeof(name));
+		size_t i;
+		// Copy filename
+		memcpy(name, entrydata, 8);
+		// Remove trailing spaces
+		for(i = 7; i >= 0; i--) {
+			if(name[i] != ' ') break;
+			name[i] = 0;
+		}
+		bool dotflag = false;
+		// Copy extension
+		for(size_t j = 8; j < 11; j++, i++) {
+			if(entrydata[j] != ' ') {
+				if(!dotflag) {
+					name[i++] = '.';
+					dotflag = true;
+				}
+				name[i] = entrydata[j];
+			}
+		}
+		return strcasecmp(basename, name);
 	}
 }
 
 bool FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
 	auto cluster = cluster_for_filename(filename, offset);
-	log(INFO, "Cluster: %d", cluster);
+	log(INFO, "Cluster for %s: %d", filename, cluster);
 	if(cluster < FAT_ERROR) {
 		auto incluster_offset = offset % cluster_size;
 		auto incluster_nbytes = nbytes > (cluster_size - incluster_offset) ? (cluster_size - incluster_offset) : nbytes;
-		const unsigned clusters = (incluster_offset + nbytes) / cluster_size;
+		const unsigned clusters = (incluster_offset + nbytes + cluster_size - 1) / cluster_size;
+		uint8_t *diskbuf = new uint8_t[cluster_size];
 		for(size_t i = 0; i < clusters; i++, cluster = next_cluster(cluster)) {
-			uint8_t diskbuf[cluster_size];
 			load_cluster(cluster, diskbuf);
 			memcpy(buffer, diskbuf+incluster_offset, incluster_nbytes);
+			buffer += incluster_nbytes;
+			nbytes -= incluster_nbytes;
 			incluster_offset = 0;
-			incluster_nbytes = (nbytes - i*cluster_size) > cluster_size ? cluster_size : nbytes;
+			incluster_nbytes = nbytes > cluster_size ? cluster_size : nbytes;
 		}
+		delete[] diskbuf;
 
 		return true;
 	}

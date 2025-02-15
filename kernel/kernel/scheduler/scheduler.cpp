@@ -118,6 +118,11 @@ void Scheduler::block(TaskState reason) {
 void Scheduler::unblock(Task* task) {
 	log(INFO, "Task %d has been unlocked", task->id);
 	task->status = TaskState::RUNNING;
+	// Preempt idle task if it's the only one running
+	if(current_task == &tasks[0]) {
+		log(INFO, "Preempting idle task");
+		schedule();
+	}
 }
 
 void Scheduler::terminate() {

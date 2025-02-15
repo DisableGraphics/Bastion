@@ -18,13 +18,18 @@ void* memset(void*, int, size_t);
 volatile void* vmemset(volatile void*, int, size_t);
 size_t strlen(const char*);
 char *strcpy(char* __restrict, const char *__restrict);
+char *strncpy(char*, const char*, int n);
 
 const char* rfind(const char* haystack, char needle);
 int strcasecmp(const char* a, const char* b);
 int strcmp(const char* a, const char* b);
 const char* strstr(const char* X, const char* Y);
+/// Get the number of times the char c appears in the string
 int ccount(const char* str, char c);
-
+/// Divide string by delimiters
+/// Returns the malloced() vector that contains all the substrings
+/// length is an output parameter
+char** substr(const char* str, char delim, int* length);
 #ifdef __cplusplus
 }
 #endif

@@ -69,9 +69,17 @@ void gen(void*) {
 			char buffer[16];
 			if(fat.read("/data/test.txt", 0, 15, buffer)) {
 				buffer[15] = 0;
-				printf("Got this: %s", buffer);
+				printf("Got this: %s\n", buffer);
 			} else {
 				printf("Could not read from /data/test.txt");
+			}
+			char buffer2[768];
+			if(fat.read("/grub/grubenv", 4, 767, buffer2)) {
+				buffer2[767] = 0;
+				printf("Length: %d", strlen(buffer2));
+				printf("Got this:\n%s\n", buffer2);
+			} else {
+				printf("Could not read from /grub/grubenv");
 			}
 		}
 	}
