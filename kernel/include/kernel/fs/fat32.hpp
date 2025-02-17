@@ -10,6 +10,7 @@ class FAT32 {
 
 		int read(const char* filename, unsigned offset, unsigned nbytes, char* buffer);
 		int write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer);
+		bool truncate(const char* filename, unsigned nbytes);
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
 		uint32_t next_cluster(uint32_t active_cluster);
@@ -18,6 +19,8 @@ class FAT32 {
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
 		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags);
+
+		
 		size_t partid;
 		char partname[12];
 		uint8_t* fat_boot_buffer;
