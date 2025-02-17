@@ -69,19 +69,19 @@ void gen(void*) {
 			char buffer[16];
 			if(fat.read("/data/test.txt", 0, 15, buffer) != -1) {
 				buffer[15] = 0;
-				printf("Got this: %s\n", buffer);
+				log(INFO, "Got this: %s", buffer);
 			} else {
-				printf("Could not read from /data/test.txt");
+				log(INFO, "Could not read from /data/test.txt");
 			}
 			char buffer2[2048];
 			int read;
 			if((read = fat.read("/data/test.txt", 0, 2048, buffer2)) != -1) {
 				buffer2[2047] = 0;
-				printf("Read: %d bytes\n", read);
-				printf("Length: %d\n", strlen(buffer2));
-				printf("Got this:\n%s\n", buffer2);
+				log(INFO, "Read: %d bytes", read);
+				log(INFO, "Length: %d", strlen(buffer2));
+				log(INFO, "Got this:\n%s", buffer2);
 			} else {
-				printf("Could not read from /grub/grubenv");
+				log(INFO, "Could not read from /grub/grubenv");
 			}
 		}
 	}
