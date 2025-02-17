@@ -105,9 +105,9 @@ uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
 				dir_cluster = next_cluster(dir_cluster);
 			}
 		} while(dir_cluster < FAT_ERROR);
-		if(dir_cluster >= FAT_ERROR) goto finish;
+		if(dir_cluster >= FAT_ERROR) break;
 	}
-finish:
+
 	for(size_t i = 0; i < ndirs; i++)
 		kfree(directories[i]);
 	delete[] buffer;
