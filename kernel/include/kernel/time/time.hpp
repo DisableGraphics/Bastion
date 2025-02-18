@@ -1,6 +1,17 @@
 #pragma once
 #include <stdint.h>
 #include <time.h>
+
+struct date {
+	uint8_t hour;
+	uint8_t minute;
+	uint8_t second;
+
+	uint16_t year;
+	uint8_t month;
+	uint8_t day;
+};
+
 /**
 	\brief Keeps track of time. 
 	\details Time is tracked using UNIX time (Seconds since 00:00:00 01/01/1970).
@@ -45,6 +56,9 @@ class TimeManager {
 			\param day day
 		 */
 		static uint32_t days_in_year_until_month_day(uint32_t year, uint8_t month, uint8_t day);
+
+		static time_t date_to_timestamp(const date &date);
+		static date timestamp_to_date(time_t timestamp);
 	private:
 		time_t current_time = 0;
 		time_t seconds_since_boot = 0;

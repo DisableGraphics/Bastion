@@ -67,7 +67,8 @@ void gen(void*) {
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 			char buffer[16];
-			if(fat.read("/data/test.txt", 0, 15, buffer) != -1) {
+			const char* filename = "/data/test.txt";
+			if(fat.read(filename, 0, 15, buffer) != -1) {
 				buffer[15] = 0;
 				log(INFO, "Got this: %s", buffer);
 			} else {
@@ -75,7 +76,7 @@ void gen(void*) {
 			}
 			char buffer2[2048];
 			int read;
-			if((read = fat.read("/data/test.txt", 0, 2048, buffer2)) != -1) {
+			if((read = fat.read(filename, 0, 2048, buffer2)) != -1) {
 				buffer2[2047] = 0;
 				log(INFO, "Read: %d bytes", read);
 				log(INFO, "Length: %d", strlen(buffer2));
@@ -83,7 +84,14 @@ void gen(void*) {
 			} else {
 				log(INFO, "Could not read from /grub/grubenv");
 			}
-		}
+
+			stat st;
+			if(fat.stat(filename, &st) != -1) {
+				log(INFO, "Size of %s: %d bytes", filename, st.st_size);
+				log(INFO, "Creation date: %d", st.st_ctime);
+				log(INFO, "Accessed date: %d", st.st_atime);
+			}
+ 		}
 	}
 }
 

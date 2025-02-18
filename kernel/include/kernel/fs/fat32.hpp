@@ -2,15 +2,18 @@
 #include <kernel/fs/partmanager.hpp>
 #include "../arch/i386/defs/fs/fat32/bs.hpp"
 #include "../arch/i386/defs/fs/fat32/entryflags.hpp"
+#include "const.hpp"
 
 class FAT32 {
 	public:
 		FAT32(PartitionManager &partmanager, size_t partid);
 		~FAT32();
 
-		int read(const char* filename, unsigned offset, unsigned nbytes, char* buffer);
-		int write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer);
-		bool truncate(const char* filename, unsigned nbytes);
+		off_t read(const char* filename, unsigned offset, unsigned nbytes, char* buffer);
+		off_t write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer);
+		off_t truncate(const char* filename, unsigned nbytes);
+		int stat(const char* filename, stat* buf);
+		
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
 		uint32_t next_cluster(uint32_t active_cluster);
@@ -18,8 +21,8 @@ class FAT32 {
 		uint32_t first_cluster_for_directory(const char* directory);
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
-		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags);
-
+		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf);
+		void direntrystat(uint8_t* direntry, struct stat* statbuf);
 		
 		size_t partid;
 		char partname[12];

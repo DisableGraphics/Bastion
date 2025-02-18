@@ -1,3 +1,4 @@
+#include "kernel/time/time.hpp"
 #include <stdint.h>
 #include <kernel/fs/fat32.hpp>
 #include <kernel/sync/semaphore.hpp>
@@ -98,7 +99,7 @@ uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
 			log(INFO, "Loading cluster %d", dir_cluster);
 			load_cluster(dir_cluster, buffer);
 			uint32_t cluster;
-			if((cluster = match_cluster(buffer, directories[i], FAT_FLAGS::DIRECTORY)) != -1) {
+			if((cluster = match_cluster(buffer, directories[i], FAT_FLAGS::DIRECTORY, nullptr)) != -1) {
 				dir_cluster = cluster;
 				break;
 			} else {
@@ -135,7 +136,7 @@ uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
 		log(INFO, "Loading cluster %d", dir_cluster);
 		load_cluster(dir_cluster, buffer);
 		uint32_t cluster;
-		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE)) != -1) {
+		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, nullptr)) != -1) {
 			uint32_t cluster_offset = offset/cluster_size;
 			for(size_t i = 0; i <= cluster_offset; i++) {
 				dir_cluster = cluster;
@@ -181,11 +182,11 @@ bool FAT32::filecmp(const char* basename, const char* entrydata, bool lfn) {
 	}
 }
 
-int FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
+off_t FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
 	auto cluster = cluster_for_filename(filename, offset);
 	log(INFO, "Cluster for %s: %d", filename, cluster);
 	if(cluster < FAT_ERROR) {
-		int readbytes = 0;
+		off_t readbytes = 0;
 		auto incluster_offset = offset % cluster_size;
 		auto incluster_nbytes = nbytes > (cluster_size - incluster_offset) ? (cluster_size - incluster_offset) : nbytes;
 		const unsigned clusters = (incluster_offset + nbytes + cluster_size - 1) / cluster_size;
@@ -206,7 +207,45 @@ int FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* bu
 	return -1;
 }
 
-uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags) {
+off_t FAT32::truncate(const char* filename, unsigned nbytes) {
+	auto filecluster = cluster_for_filename(filename, 0);
+	struct stat buf;
+	int ret = stat(filename, &buf);
+	if(ret == -1) return -1;
+}
+
+int FAT32::stat(const char* filename, struct stat* buf) {
+	log(INFO, "Filename: %s", filename);
+	const char* basename = rfind(filename, '/');
+	if(!basename) return -1;
+	char * dir_path = new char[basename - filename+1];
+	memcpy(dir_path, filename, basename - filename);
+	dir_path[basename - filename] = 0;
+	log(INFO, "Dir path: %s", dir_path);
+	basename++;
+	log(INFO, "Basename: %s", basename);
+
+	uint32_t dir_cluster = first_cluster_for_directory(dir_path);
+	delete[] dir_path;
+	if(dir_cluster >= FAT_ERROR) return dir_cluster;
+
+	uint8_t* buffer = new uint8_t[cluster_size];
+	do {
+		log(INFO, "Loading cluster %d", dir_cluster);
+		load_cluster(dir_cluster, buffer);
+		uint32_t cluster;
+		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, buf)) != -1) {
+			break;
+		}
+		dir_cluster = next_cluster(dir_cluster);
+	} while(dir_cluster < FAT_ERROR);
+	delete[] buffer;
+	if(dir_cluster < FAT_ERROR)
+		return 0;
+	return dir_cluster;
+}
+
+uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags, struct stat* buf) {
 	uint8_t lfn_order = 0;
 	char lfn_buffer[256] = {0};
 	bool has_lfn = false;
@@ -241,10 +280,47 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			// If we match return
 			if(attr == flags && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
 				log(INFO, "looks like we have a match");
+				if(buf != nullptr) {
+					direntrystat(ptr_to_i, buf);
+				}
 				return cluster;
 			}
 			memset(lfn_buffer, 0, sizeof(lfn_buffer));
 		}
 	}
 	return -1;
+}
+
+void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
+	uint16_t creattime = *reinterpret_cast<uint16_t*>(direntry + 14);
+	// Format: 0000 0|000 000|0 0000
+	date creatd;
+	creatd.second = (creattime & 0x1f) * 2;
+	creatd.minute = (creattime & 0x7E0) >> 5;
+	creatd.hour = (creattime & 0xF800) >> 11;
+
+	// Format: 0000 000|0 000|0 0000
+	uint16_t creatdate = *reinterpret_cast<uint16_t*>(direntry + 16);
+	creatd.day = (creatdate & 0x1f);
+	creatd.month = (creatdate & 0x1E0) >> 5;
+	creatd.year = (creatdate & 0xFE00) >> 9;
+
+	buf->st_ctime = TimeManager::date_to_timestamp(creatd);
+	buf->st_mtime = buf->st_ctime;
+
+	uint16_t acctime = *reinterpret_cast<uint16_t*>(direntry + 22);
+	// Format: 0000 0|000 000|0 0000
+	date accdt;
+	accdt.second = (creattime & 0x1f) * 2;
+	accdt.minute = (creattime & 0x7E0) >> 5;
+	accdt.hour = (creattime & 0xF800) >> 11;
+
+	// Format: 0000 000|0 000|0 0000
+	uint16_t accdate = *reinterpret_cast<uint16_t*>(direntry + 18);
+	accdt.day = (creatdate & 0x1f);
+	accdt.month = (creatdate & 0x1E0) >> 5;
+	accdt.year = (creatdate & 0xFE00) >> 9;
+	buf->st_atime = TimeManager::date_to_timestamp(accdt);
+
+	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + 28);
 }

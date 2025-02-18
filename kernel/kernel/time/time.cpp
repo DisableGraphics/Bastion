@@ -45,3 +45,36 @@ void TimeManager::next_second() {
 time_t TimeManager::get_seconds_since_boot() {
 	return seconds_since_boot;
 }
+
+time_t TimeManager::date_to_timestamp(const date &date) {
+	auto days = days_until_year(date.year);
+	days += days_in_year_until_month_day(date.year, date.month, date.day);
+	time_t seconds = (days*24*60*60) + date.hour*60*60 + date.minute*60 + date.second;
+	return seconds;	
+}
+
+date TimeManager::timestamp_to_date(time_t timestamp) {
+	date ret;
+
+	ret.second = timestamp % 60;
+	ret.minute = (timestamp / 60) % 60;
+	uint32_t tmt = ret.minute;
+	ret.hour = (tmt/ 60) % 24;
+	auto total_days = (tmt/ 60) / 24;
+
+	uint32_t year = 1970;
+    while (total_days >= days_until_year(year + 1)) {
+        year++;
+    }
+    ret.year = year;
+	uint32_t days_in_current_year = total_days - days_until_year(year);
+
+	uint8_t month = 1;
+    while (days_in_current_year >= days_in_year_until_month_day(year, month + 1, 1)) {
+        month++;
+    }
+    ret.month = month;
+    ret.day = days_in_current_year - days_in_year_until_month_day(year, month, 1) + 1;
+    
+    return ret;
+}

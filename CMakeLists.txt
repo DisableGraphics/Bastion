@@ -11,8 +11,8 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_ASM_FLAGS "-g")
-set(CMAKE_C_FLAGS "-g -Ofast -ffreestanding -nostdlib -mgeneral-regs-only -lgcc")
-set(CMAKE_CXX_FLAGS "-g -Ofast -ffreestanding -nostdlib -lgcc")
+set(CMAKE_C_FLAGS "-g -static-libgcc -lgcc -O2 -ffreestanding -nostdlib")
+set(CMAKE_CXX_FLAGS "-g -static-libgcc -lgcc -O2 -ffreestanding -nostdlib")
 
 # Add subdirectories for kernel and libc
 add_subdirectory(kernel)
