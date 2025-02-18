@@ -278,7 +278,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			sfn_name[11] = 0;
 			log(INFO, "%s %s %p", sfn_name, lfn_buffer, cluster);
 			// If we match return
-			if(attr == flags && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
+			if((static_cast<uint8_t>(attr) & static_cast<uint8_t>(flags)) && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
 				log(INFO, "looks like we have a match");
 				if(buf != nullptr) {
 					direntrystat(ptr_to_i, buf);
@@ -303,10 +303,13 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
 	uint16_t creatdate = *reinterpret_cast<uint16_t*>(direntry + 16);
 	creatd.day = (creatdate & 0x1f);
 	creatd.month = (creatdate & 0x1E0) >> 5;
-	creatd.year = (creatdate & 0xFE00) >> 9;
+	// 1980 is the FAT epoch
+	creatd.year = ((creatdate & 0xFE00) >> 9) + 1980;
 
 	buf->st_ctime = TimeManager::date_to_timestamp(creatd);
 	buf->st_mtime = buf->st_ctime;
+
+	log(INFO, "%d-%d-%d %d:%d:%d", creatd.year, creatd.month, creatd.day, creatd.hour, creatd.minute, creatd.second);
 
 	uint16_t acctime = *reinterpret_cast<uint16_t*>(direntry + 22);
 	// Format: 0000 0|000 000|0 0000
@@ -317,9 +320,9 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
 
 	// Format: 0000 000|0 000|0 0000
 	uint16_t accdate = *reinterpret_cast<uint16_t*>(direntry + 18);
-	accdt.day = (creatdate & 0x1f);
-	accdt.month = (creatdate & 0x1E0) >> 5;
-	accdt.year = (creatdate & 0xFE00) >> 9;
+	accdt.day = (accdate & 0x1f);
+	accdt.month = (accdate & 0x1E0) >> 5;
+	accdt.year = ((accdate & 0xFE00) >> 9) + 1980;
 	buf->st_atime = TimeManager::date_to_timestamp(accdt);
 
 	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + 28);

@@ -7,5 +7,6 @@ enum class FAT_FLAGS {
 	VOLUME_ID = 0x8,
 	DIRECTORY = 0x10,
 	ARCHIVE = 0x20,
-	LFN = 0xf
+	LFN = 0xf,
+	ALL= 0xff
 };
