@@ -212,6 +212,16 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 	struct stat buf;
 	int ret = stat(filename, &buf);
 	if(ret == -1) return -1;
+	auto current_size_in_clusters = (buf.st_size + sector_size - 1) / cluster_size;
+	auto new_size_in_clusters = (nbytes + sector_size -1) / cluster_size;
+
+	if(current_size_in_clusters > new_size_in_clusters) {
+
+	} else if (current_size_in_clusters < new_size_in_clusters) {
+
+	} else { // Same cluster size
+		
+	}
 }
 
 int FAT32::stat(const char* filename, struct stat* buf) {
