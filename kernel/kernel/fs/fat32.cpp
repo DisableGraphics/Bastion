@@ -220,7 +220,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 	} else if (current_size_in_clusters < new_size_in_clusters) {
 
 	} else { // Same cluster size
-		
+
 	}
 }
 
@@ -252,7 +252,7 @@ int FAT32::stat(const char* filename, struct stat* buf) {
 	delete[] buffer;
 	if(dir_cluster < FAT_ERROR)
 		return 0;
-	return dir_cluster;
+	return -1;
 }
 
 uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags, struct stat* buf) {
