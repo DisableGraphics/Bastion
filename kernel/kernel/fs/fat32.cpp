@@ -330,7 +330,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			last_filecluster = filecluster;
 			filecluster = next_cluster(filecluster);
 		} while(filecluster < FAT_ERROR);
-		if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return false;
+		if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return 0;
 	}
 	// Update the size of the file.
 	struct stat properties{
@@ -340,7 +340,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 		-1
 	};
 	file_setproperty(filename, &properties);
-	return true;
+	return nbytes;
 }
 
 bool FAT32::file_setproperty(const char* filename, const struct stat* properties) {
