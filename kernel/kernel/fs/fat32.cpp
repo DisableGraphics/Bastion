@@ -334,7 +334,9 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			clusters.push_back(filecluster);
 			filecluster = next_cluster(filecluster);
 		} while(filecluster < FAT_ERROR);
-		for(size_t i = clusters.size() - 1; i >= current_size_in_clusters - new_size_in_clusters; i--) {
+		uint32_t newlastsectorpos = current_size_in_clusters - new_size_in_clusters - 1;
+		set_next_cluster(clusters[newlastsectorpos], FAT_FINISH);
+		for(size_t i = current_size_in_clusters - new_size_in_clusters; i < clusters.size(); i++) {
 			// Mark as free
 			set_next_cluster(clusters[i], 0);
 		}
