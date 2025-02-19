@@ -99,6 +99,8 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 	uint8_t* fat_buffer = new uint8_t[sector_size];
 	uint32_t free_cluster = -1;
 
+	ent_offset += 4;
+
 	log(INFO, "Base FAT sector: %d, Max FAT sector: %d", fat_sector, max_fat_sector);
 
 	for(size_t i = fat_sector; i < max_fat_sector; i++, fat_sector++) {
@@ -107,13 +109,14 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 		volatile hal::DiskJob job{fat_buffer, lba, 1, false};
 		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
 		if(job.state == hal::DiskJob::ERROR) { delete[] fat_buffer; return -1; }
-		for(size_t j = 0; i < sector_size / 4; j++) {
+		for(size_t j = (ent_offset/4); i < sector_size / 4; j++) {
 			uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*j);
 			if(*entry == 0) {
 				free_cluster = base_cluster_entry_for_fat + j;
 				goto finish;
 			}
 		}
+		ent_offset = 0;
 	}
 	finish:
 	log(INFO, "Found free cluster: %d", free_cluster);
@@ -139,8 +142,11 @@ bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
 	for(size_t i = 0; i < nclusters; i++) {
 		auto free_cluster = search_free_cluster(look_from);
 		set_next_cluster(look_from, free_cluster);
+		log(INFO, "%p -> %p", look_from, free_cluster);
 		look_from = free_cluster;
 	}
+
+	set_next_cluster(look_from, FAT_FINISH);
 
 	auto next_free = search_free_cluster(look_from);
 	*look_from_fsinfo = next_free;
