@@ -103,6 +103,7 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 
 	for(size_t i = fat_sector; i < max_fat_sector; i++) {
 		uint32_t base_cluster_entry_for_fat = (i - first_fat_sector) * (sector_size/4);
+		log(INFO, "Base cluster: %p", base_cluster_entry_for_fat);
 		auto lba = partmanager.get_lba(partid, i);
 		volatile hal::DiskJob job{fat_buffer, lba, 1, false};
 		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
