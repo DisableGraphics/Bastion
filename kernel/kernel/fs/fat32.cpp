@@ -437,7 +437,7 @@ bool FAT32::setstat(uint32_t dir, int nentry, const struct stat* properties) {
 		uint16_t timecalc = 0;
 		timecalc |= (dt.year & 0x1F) << 11;
 		timecalc |= (dt.month & 0x3F) << 5;
-		timecalc |= (dt.second & 0x1F);
+		timecalc |= ((dt.second/2) & 0x1F);
 
 		*time = timecalc;
 	}
