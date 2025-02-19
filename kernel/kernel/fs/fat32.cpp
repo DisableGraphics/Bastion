@@ -90,7 +90,6 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 }
 
 uint32_t FAT32::search_free_cluster(uint32_t search_from) {
-	if(search_from >= fat_size) return -1;
 	log(INFO, "Trying to look at %d", search_from);
 	unsigned int fat_offset = search_from * 4;
 	unsigned int fat_sector = first_fat_sector + (fat_offset / sector_size);
@@ -108,10 +107,10 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 		volatile hal::DiskJob job{fat_buffer, lba, 1, false};
 		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
 		if(job.state == hal::DiskJob::ERROR) { delete[] fat_buffer; return -1; }
-		for(size_t i = 0; i < sector_size / 4; i++) {
-			uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*i);
+		for(size_t j = 0; i < sector_size / 4; j++) {
+			uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*j);
 			if(*entry == 0) {
-				free_cluster = base_cluster_entry_for_fat + i;
+				free_cluster = base_cluster_entry_for_fat + j;
 				goto finish;
 			}
 		}
