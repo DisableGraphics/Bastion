@@ -91,6 +91,10 @@ void gen(void*) {
 				log(INFO, "Creation date: %d", st.st_ctime);
 				log(INFO, "Accessed date: %d", st.st_atime);
 			}
+
+			fat.truncate(filename, 64);
+			fat.truncate("/grub/grubenv", 3);
+			fat.truncate(filename, 65536);
  		}
 	}
 }

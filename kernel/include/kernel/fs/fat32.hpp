@@ -17,13 +17,20 @@ class FAT32 {
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
 		uint32_t next_cluster(uint32_t active_cluster);
+		bool set_next_cluster(uint32_t cluster, uint32_t next_cluster);
 		bool load_cluster(uint32_t cluster, uint8_t* buffer);
+		bool save_cluster(uint32_t cluster, uint8_t* buffer);
 		uint32_t first_cluster_for_directory(const char* directory);
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
-		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf);
+		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr);
 		void direntrystat(uint8_t* direntry, struct stat* statbuf);
 		
+		bool file_setproperty(const char* filename, const struct stat* properties);
+		bool setstat(uint32_t dircluster, int nentry, const struct stat* properties);
+		bool alloc_clusters(uint32_t prevcluster, uint32_t nclusters);
+		uint32_t search_free_cluster(uint32_t searchfrom);
+
 		size_t partid;
 		char partname[12];
 		uint8_t* fat_boot_buffer;
