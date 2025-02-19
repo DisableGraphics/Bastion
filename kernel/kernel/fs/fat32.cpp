@@ -90,6 +90,8 @@ bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 }
 
 uint32_t FAT32::search_free_cluster(uint32_t search_from) {
+	const int nsectors_at_once = 16;
+	const int sector_size = nsectors_at_once * this->sector_size;
 	log(INFO, "Trying to look at %d", search_from);
 	unsigned int fat_offset = search_from * 4;
 	unsigned int fat_sector = first_fat_sector + (fat_offset / sector_size);
@@ -99,20 +101,20 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 	uint8_t* fat_buffer = new uint8_t[sector_size];
 	uint32_t free_cluster = -1;
 
-	ent_offset += 4;
-
 	log(INFO, "Base FAT sector: %d, Max FAT sector: %d", fat_sector, max_fat_sector);
 
-	for(size_t i = fat_sector; i < max_fat_sector; i++, fat_sector++) {
-		uint32_t base_cluster_entry_for_fat = (fat_sector - first_fat_sector) * (sector_size/4);
-		auto lba = partmanager.get_lba(partid, fat_sector);
-		volatile hal::DiskJob job{fat_buffer, lba, 1, false};
+	for(size_t i = fat_sector; i < max_fat_sector; i += nsectors_at_once) {
+		uint32_t base_cluster_entry_for_fat = (i - first_fat_sector) * (sector_size/4);
+		auto lba = partmanager.get_lba(partid, i);
+		volatile hal::DiskJob job{fat_buffer, lba, 16, false};
 		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
 		if(job.state == hal::DiskJob::ERROR) { delete[] fat_buffer; return -1; }
-		for(size_t j = (ent_offset/4); i < sector_size / 4; j++) {
-			uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*j);
+		for(size_t j = (ent_offset/4); j < (sector_size / 4); j++) {
+			const uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*j);
+			const auto cluster = base_cluster_entry_for_fat + j;
+			if(cluster == search_from) continue;
 			if(*entry == 0) {
-				free_cluster = base_cluster_entry_for_fat + j;
+				free_cluster = cluster;
 				goto finish;
 			}
 		}
@@ -139,14 +141,21 @@ bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
 	if(*look_from_fsinfo != 0xFFFFFFFF && *look_from_fsinfo < (n_data_sectors / fat_boot->sectors_per_cluster)) {
 		look_from = *look_from_fsinfo;
 	}
+	Vector<uint32_t> clustervec;
 	for(size_t i = 0; i < nclusters; i++) {
 		auto free_cluster = search_free_cluster(look_from);
-		set_next_cluster(look_from, free_cluster);
-		log(INFO, "%p -> %p", look_from, free_cluster);
+		log(INFO, "Next free cluster from %p: %p", look_from, free_cluster);
 		look_from = free_cluster;
+		clustervec.push_back(free_cluster);
 	}
 
-	set_next_cluster(look_from, FAT_FINISH);
+	set_next_cluster(prevcluster, clustervec[0]);
+	for(int i = 0; i < (clustervec.size() - 1); i++) {
+		set_next_cluster(clustervec[i], clustervec[i+1]);
+		log(INFO, "Set link %p -> %p", clustervec[i], clustervec[i+1]);
+	}
+
+	set_next_cluster(clustervec.back(), FAT_FINISH);
 
 	auto next_free = search_free_cluster(look_from);
 	*look_from_fsinfo = next_free;
