@@ -96,35 +96,29 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 	unsigned int fat_sector = first_fat_sector + (fat_offset / sector_size);
 	unsigned int ent_offset = fat_offset % sector_size;
 
-	uint32_t fat_sector_order_number = fat_sector - first_fat_sector;
-	uint32_t first_cluster_for_this_fat_sector = fat_sector_order_number * (sector_size/4);
-	log(INFO, "first_cluster_for_this_fat_sector: %d", first_cluster_for_this_fat_sector);
-
+	uint32_t max_fat_sector = first_fat_sector + fat_size;
 	uint8_t* fat_buffer = new uint8_t[sector_size];
-	
-	auto lba = partmanager.get_lba(partid, fat_sector);
-	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::ERROR) { delete[] fat_buffer; return -1; }
+	uint32_t free_cluster = -1;
 
-	bool found_entry = false;
-	uint32_t free_cluster = 0;
-	for(size_t i = 0; i < sector_size / 4; i++) {
-		uint32_t entry = *reinterpret_cast<uint32_t*>(fat_buffer + 4*i) & 0x0FFFFFFF;
-		log(INFO, "%p", entry);
-		if(entry > FAT_ERROR) {
-			found_entry = true;
-			free_cluster = first_cluster_for_this_fat_sector + i;
-			log(INFO, "Found this free cluster: %p", free_cluster);
-			break;
+	log(INFO, "Base FAT sector: %d, Max FAT sector: %d", fat_sector, max_fat_sector);
+
+	for(size_t i = fat_sector; i < max_fat_sector; i++, fat_sector++) {
+		uint32_t base_cluster_entry_for_fat = (fat_sector - first_fat_sector) * (sector_size/4);
+		auto lba = partmanager.get_lba(partid, fat_sector);
+		volatile hal::DiskJob job{fat_buffer, lba, 1, false};
+		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+		if(job.state == hal::DiskJob::ERROR) { delete[] fat_buffer; return -1; }
+		for(size_t i = 0; i < sector_size / 4; i++) {
+			uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*i);
+			if(*entry == 0) {
+				free_cluster = base_cluster_entry_for_fat + i;
+				goto finish;
+			}
 		}
 	}
+	finish:
+	log(INFO, "Found free cluster: %d", free_cluster);
 	delete[] fat_buffer;
-	auto next_fat_sector_entry = first_cluster_for_this_fat_sector + (sector_size/4);
-	if(!found_entry) {
-		// Look at next cluster if there is something
-		free_cluster = search_free_cluster(next_fat_sector_entry);
-	}
 
 	return free_cluster;
 }
@@ -328,7 +322,8 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			filecluster = next_cluster(filecluster);
 		} while(filecluster < FAT_ERROR);
 		for(size_t i = clusters.size() - 1; i >= current_size_in_clusters - new_size_in_clusters; i--) {
-			set_next_cluster(clusters[i], FAT_FINISH);
+			// Mark as free
+			set_next_cluster(clusters[i], 0);
 		}
 	} else if (current_size_in_clusters < new_size_in_clusters) {
 		auto last_filecluster = filecluster;
