@@ -28,7 +28,7 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		fat_size = (fat_boot->table_size_16 == 0)? fat_boot_ext_32->table_size_32 : fat_boot->table_size_16;
 		memcpy(partname, fat_boot_ext_32->volume_label, 11);
 		partname[11] = 0;
-		
+		fsinfo_sector = fat_boot_ext_32->fat_info;
 		first_data_sector = fat_boot->reserved_sector_count + (fat_boot->table_count * fat_size);
 		first_fat_sector = fat_boot->reserved_sector_count;
 		n_data_sectors = total_sectors - (fat_boot->reserved_sector_count + (fat_boot->table_count * fat_size));
@@ -126,11 +126,28 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 	return free_cluster;
 }
 
+bool FAT32::update_fsinfo(int diffclusters) {
+	auto lba = partmanager.get_lba(partid, fsinfo_sector);
+	uint8_t* buffer = new uint8_t[sector_size];
+	volatile hal::DiskJob job{buffer, lba, 1, false};
+	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+	if(job.state == hal::DiskJob::ERROR) { delete[] buffer; return false; }
+
+	uint32_t* sectorscount = reinterpret_cast<uint32_t*>(buffer + 0x1e8);
+	*sectorscount += diffclusters;
+
+	job.write = true;
+	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+	if(job.state == hal::DiskJob::ERROR) { delete[] buffer; return false;}
+
+	delete[] buffer;
+	return true;
+}
+
 bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
 	// First thing to do: look at FSInfo so we know which cluster we need to start
 	// searching from
-	auto sector = 2;
-	auto lba = partmanager.get_lba(partid, sector);
+	auto lba = partmanager.get_lba(partid, fsinfo_sector);
 	uint8_t* buffer = new uint8_t[sector_size];
 	volatile hal::DiskJob job{buffer, lba, 1, false};
 	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
@@ -302,7 +319,7 @@ bool FAT32::set_next_cluster(uint32_t cluster, uint32_t next_cluster) {
 	unsigned int fat_sector = first_fat_sector + (fat_offset / sector_size);
 	unsigned int ent_offset = fat_offset % sector_size;
 
-	uint8_t fat_buffer[sector_size];
+	uint8_t* fat_buffer = new uint8_t[sector_size];
 	
 	auto lba = partmanager.get_lba(partid, fat_sector);
 	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
@@ -314,8 +331,15 @@ bool FAT32::set_next_cluster(uint32_t cluster, uint32_t next_cluster) {
 
 		volatile hal::DiskJob writejob{fat_buffer, lba, 1, true};
 		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &writejob);
+		if(job.state == hal::DiskJob::ERROR){ delete[] fat_buffer; return false;};
+
+		// Update second fat table
+		writejob.lba = lba + fat_size;
+		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &writejob);
+		delete[] fat_buffer;
 		return writejob.state == hal::DiskJob::FINISHED;
 	}
+	delete[] fat_buffer;
 	return false;
 }
 
@@ -340,6 +364,8 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			// Mark as free
 			set_next_cluster(clusters[i], 0);
 		}
+		log(INFO, "Size change from %d to %d sectors", current_size_in_clusters, new_size_in_clusters);
+		update_fsinfo(current_size_in_clusters - new_size_in_clusters);
 	} else if (current_size_in_clusters < new_size_in_clusters) {
 		auto last_filecluster = filecluster;
 		do {
@@ -347,6 +373,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			filecluster = next_cluster(filecluster);
 		} while(filecluster < FAT_ERROR);
 		if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return 0;
+		update_fsinfo(current_size_in_clusters - new_size_in_clusters);
 	}
 	// Update the size of the file.
 	struct stat properties{

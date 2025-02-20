@@ -25,6 +25,7 @@ class FAT32 {
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
 		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr);
 		void direntrystat(uint8_t* direntry, struct stat* statbuf);
+		bool update_fsinfo(int diffclusters);
 		
 		bool file_setproperty(const char* filename, const struct stat* properties);
 		bool setstat(uint32_t dircluster, int nentry, const struct stat* properties);
@@ -35,6 +36,7 @@ class FAT32 {
 		char partname[12];
 		uint8_t* fat_boot_buffer;
 		fat_BS_t* fat_boot;
+		uint32_t fsinfo_sector;
 		uint32_t total_sectors;
 		uint32_t fat_size;
 		uint32_t first_data_sector, first_fat_sector;

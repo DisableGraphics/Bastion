@@ -94,7 +94,7 @@ void gen(void*) {
 
 			fat.truncate(filename, 64);
 			fat.truncate("/grub/grubenv", 3);
-			fat.truncate(filename, 65536);
+			//fat.truncate(filename, 65536);
  		}
 	}
 }
