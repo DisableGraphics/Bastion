@@ -12,6 +12,22 @@
 #define FAT_ERROR 0x0FFFFFF7
 #define FAT_FINISH 0x0FFFFFF8
 
+/// FAT Entry offsets
+#define OFF_ENTRY_NAME 0
+#define OFF_ENTRY_ATTR 11
+// Reserved by windows NT
+#define OFF_ENTRY_RESVNT 12
+// Creation time in hundredths of a second
+#define OFF_ENTRY_CREATTIME 13
+#define OFF_ENTRY_CREATHOUR 14
+#define OFF_ENTRY_CREATDATE 16
+#define OFF_ENTRY_LASTACCDATE 18
+#define OFF_ENTRY_HIGH16 20
+#define OFF_ENTRY_LASTMODTIME 22
+#define OFF_ENTRY_LASTMODDATE 24
+#define OFF_ENTRY_LOW16 26
+#define OFF_ENTRY_SIZE 28
+
 FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partmanager) {
 	this->partid = partid;
 	sector_size = hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size();
@@ -381,18 +397,31 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 	int ret = stat(filename, &buf);
 	if(ret == -1) return -1;
 	auto filecluster = cluster_for_filename(filename, 0);
+	if(filecluster == -1) return -1;
 	uint32_t current_size_in_clusters = (static_cast<uint32_t>(buf.st_size) + sector_size - 1) / cluster_size;
 	auto new_size_in_clusters = (nbytes + sector_size -1) / cluster_size;
 
-	if(current_size_in_clusters > new_size_in_clusters) {
+	bool zerosize = false;
+	if(new_size_in_clusters == 0) {
+		Vector<uint32_t> clusters;
+		do {
+			clusters.push_back(filecluster);
+			filecluster = next_cluster(filecluster);
+		} while(filecluster < FAT_ERROR);
+		// Mark each and every cluster of the file as empty
+		for(size_t i = 0; i < clusters.size(); i++) {
+			set_next_cluster(clusters[i], 0);
+		}
+		zerosize = true;
+		update_fsinfo(clusters.size());
+	} else if(current_size_in_clusters > new_size_in_clusters) {
 		log(INFO, "Current size in clusters (%d) less than new size in clusters (%d)", current_size_in_clusters, new_size_in_clusters);
 		Vector<uint32_t> clusters;
 		do {
 			clusters.push_back(filecluster);
 			filecluster = next_cluster(filecluster);
 		} while(filecluster < FAT_ERROR);
-		uint32_t newlastsectorpos = current_size_in_clusters - new_size_in_clusters - 1;
-		set_next_cluster(clusters[newlastsectorpos], FAT_FINISH);
+		set_next_cluster(clusters[new_size_in_clusters - 1], FAT_FINISH);
 		for(size_t i = current_size_in_clusters - new_size_in_clusters; i < clusters.size(); i++) {
 			// Mark as free
 			set_next_cluster(clusters[i], 0);
@@ -400,20 +429,24 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 		log(INFO, "Size change from %d to %d sectors", current_size_in_clusters, new_size_in_clusters);
 		update_fsinfo(current_size_in_clusters - new_size_in_clusters);
 	} else if (current_size_in_clusters < new_size_in_clusters) {
+		if(current_size_in_clusters == 0) {
+			/// TODO: Set a free cluster for the file.
+		}
 		auto last_filecluster = filecluster;
 		do {
 			last_filecluster = filecluster;
 			filecluster = next_cluster(filecluster);
 		} while(filecluster < FAT_ERROR);
 		if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return 0;
-		update_fsinfo(current_size_in_clusters - new_size_in_clusters);
+		if(update_fsinfo(current_size_in_clusters - new_size_in_clusters)) return 0;
 	}
 	// Update the size of the file.
 	struct stat properties{
 		nbytes,
 		TimeManager::get().get_time(),
 		TimeManager::get().get_time(),
-		-1
+		0,
+		static_cast<ino_t>(zerosize ? 0 : -1)
 	};
 	file_setproperty(filename, &properties);
 	return nbytes;
@@ -451,6 +484,22 @@ bool FAT32::file_setproperty(const char* filename, const struct stat* properties
 	return dir_cluster < FAT_ERROR;
 }
 
+uint16_t date2fatdate(const date &dt) {
+	uint16_t datecalc = 0;
+	datecalc |= (dt.year & 0x7F) << 9;
+	datecalc |= (dt.month & 0xF) << 5;
+	datecalc |= (dt.day & 0x1F);
+	return datecalc;
+}
+
+uint16_t date2fattime(const date& dt) {
+	uint16_t timecalc = 0;
+	timecalc |= (dt.year & 0x1F) << 11;
+	timecalc |= (dt.month & 0x3F) << 5;
+	timecalc |= ((dt.second/2) & 0x1F);
+	return timecalc;
+}
+
 bool FAT32::setstat(uint32_t dir, int nentry, const struct stat* properties) {
 	uint8_t* buffer = new uint8_t[cluster_size];
 	load_cluster(dir, buffer);
@@ -459,51 +508,41 @@ bool FAT32::setstat(uint32_t dir, int nentry, const struct stat* properties) {
 
 	if(properties->st_atime != -1) {
 		date dt = TimeManager::timestamp_to_date(properties->st_atime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + 18);
-		uint16_t datecalc = 0;
-		datecalc |= (dt.year & 0x7F) << 9;
-		datecalc |= (dt.month & 0xF) << 5;
-		datecalc |= (dt.day & 0x1F);
+		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
+		auto datecalc = date2fatdate(dt);
 
 		*date = datecalc;
 	}
 	if(properties->st_mtime != -1) {
 		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + 24);
-		uint16_t datecalc = 0;
-		datecalc |= (dt.year & 0x7F) << 9;
-		datecalc |= (dt.month & 0xF) << 5;
-		datecalc |= (dt.day & 0x1F);
-
+		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODDATE);
+		auto datecalc = date2fatdate(dt);
 		*date = datecalc;
-		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + 22);
-		uint16_t timecalc = 0;
-		timecalc |= (dt.year & 0x1F) << 11;
-		timecalc |= (dt.month & 0x3F) << 5;
-		timecalc |= ((dt.second/2) & 0x1F);
 
+		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODTIME);
+		auto timecalc = date2fattime(dt);
 		*time = timecalc;
 	}
 	if(properties->st_ctime != -1) {
 		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + 16);
-		uint16_t datecalc = 0;
-		datecalc |= (dt.year & 0x7F) << 9;
-		datecalc |= (dt.month & 0xF) << 5;
-		datecalc |= (dt.day & 0x1F);
-
+		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATDATE);
+		auto datecalc = date2fatdate(dt);
 		*date = datecalc;
-		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + 14);
-		uint16_t timecalc = 0;
-		timecalc |= (dt.year & 0x1F) << 11;
-		timecalc |= (dt.month & 0x3F) << 5;
-		timecalc |= ((dt.second/2) & 0x1F);
 
+		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATTIME);
+		auto timecalc = date2fattime(dt);
 		*time = timecalc;
 	}
 	if(properties->st_size != -1) {
-		uint32_t* sizeptr = reinterpret_cast<uint32_t*>(ptr + 28);
+		uint32_t* sizeptr = reinterpret_cast<uint32_t*>(ptr + OFF_ENTRY_SIZE);
 		*sizeptr = properties->st_size;
+	}
+	if(properties->st_ino != -1) {
+		uint16_t* low_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LOW16);
+		uint16_t* high_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_HIGH16);
+
+		*low_clnumber = properties->st_ino;
+		*high_clnumber = (properties->st_ino >> 16);
 	}
 
 	auto ret = save_cluster(dir, buffer);
@@ -578,7 +617,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			if((static_cast<uint8_t>(attr) & static_cast<uint8_t>(flags)) && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
 				log(INFO, "looks like we have a match");
 				if(buf) {
-					direntrystat(ptr_to_i, buf);
+					direntrystat(ptr_to_i, buf, cluster);
 				}
 				if(nentry) {
 					*nentry = i;
@@ -591,7 +630,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 	return -1;
 }
 
-void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
+void FAT32::direntrystat(uint8_t* direntry, struct stat *buf, uint32_t cluster) {
 	uint16_t creattime = *reinterpret_cast<uint16_t*>(direntry + 14);
 	// Format: 0000 0|000 000|0 0000
 	date creatd;
@@ -631,4 +670,5 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
 	buf->st_atime = TimeManager::date_to_timestamp(accdt);
 
 	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + 28);
+	buf->st_ino = cluster;
 }

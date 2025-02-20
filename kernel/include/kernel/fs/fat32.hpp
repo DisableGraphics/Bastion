@@ -24,7 +24,7 @@ class FAT32 {
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
 		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr);
-		void direntrystat(uint8_t* direntry, struct stat* statbuf);
+		void direntrystat(uint8_t* direntry, struct stat* statbuf, uint32_t cluster);
 		bool update_fsinfo(int diffclusters);
 		
 		bool file_setproperty(const char* filename, const struct stat* properties);
