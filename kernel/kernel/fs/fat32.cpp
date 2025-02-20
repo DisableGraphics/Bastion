@@ -343,11 +343,44 @@ bool FAT32::set_next_cluster(uint32_t cluster, uint32_t next_cluster) {
 	return false;
 }
 
-off_t FAT32::truncate(const char* filename, unsigned nbytes) {
-	auto filecluster = cluster_for_filename(filename, 0);
+off_t FAT32::write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer) {
 	struct stat buf;
 	int ret = stat(filename, &buf);
 	if(ret == -1) return -1;
+	
+	if(offset + nbytes > buf.st_size) {
+		truncate(filename, offset + nbytes);
+		buf.st_size = offset + nbytes;
+	}
+	auto filecluster = cluster_for_filename(filename, offset);
+	if(filecluster < FAT_ERROR) {
+		off_t readbytes = 0;
+		auto incluster_offset = offset % cluster_size;
+		auto incluster_nbytes = nbytes > (cluster_size - incluster_offset) ? (cluster_size - incluster_offset) : nbytes;
+		const unsigned clusters = (incluster_offset + nbytes + cluster_size - 1) / cluster_size;
+		uint8_t *diskbuf = new uint8_t[cluster_size];
+		for(size_t i = 0; filecluster < FAT_ERROR && i < clusters; i++, filecluster = next_cluster(filecluster)) {
+			load_cluster(filecluster, diskbuf);
+			memcpy(diskbuf+incluster_offset, buffer, incluster_nbytes);
+			buffer += incluster_nbytes;
+			nbytes -= incluster_nbytes;
+			readbytes += incluster_nbytes;
+			incluster_offset = 0;
+			incluster_nbytes = nbytes > cluster_size ? cluster_size : nbytes;
+			save_cluster(filecluster, diskbuf);
+		}
+		delete[] diskbuf;
+
+		return readbytes;
+	}
+	return -1;
+}
+
+off_t FAT32::truncate(const char* filename, unsigned nbytes) {
+	struct stat buf;
+	int ret = stat(filename, &buf);
+	if(ret == -1) return -1;
+	auto filecluster = cluster_for_filename(filename, 0);
 	uint32_t current_size_in_clusters = (static_cast<uint32_t>(buf.st_size) + sector_size - 1) / cluster_size;
 	auto new_size_in_clusters = (nbytes + sector_size -1) / cluster_size;
 

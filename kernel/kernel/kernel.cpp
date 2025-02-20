@@ -95,6 +95,8 @@ void gen(void*) {
 			fat.truncate(filename, 64);
 			fat.truncate("/grub/grubenv", 3);
 			//fat.truncate(filename, 65536);
+			const char* str = "Never gonna give you up \n\n\n\n\t\thola\naaaaaaasdfdfdf";
+			fat.write(filename, 500, strlen(str), str);
  		}
 	}
 }
