@@ -419,6 +419,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 
 	bool zerosize = false;
 	if(new_size_in_clusters == 0) {
+		if(current_size_in_clusters == 0) return 0;
 		Vector<uint32_t> clusters;
 		do {
 			clusters.push_back(filecluster);
