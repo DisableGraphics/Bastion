@@ -14,10 +14,13 @@ class FAT32 {
 		off_t truncate(const char* filename, unsigned nbytes);
 		int stat(const char* filename, stat* buf);
 
+		bool touch(const char* filename);
+
 		bool mkdir(const char* directory);
 		bool rmdir(const char* directory);
-		bool unlink(const char* filename);
+		
 		bool rename(const char* src, const char* dest);
+		bool unlink(const char* path);
 
 		DIR* opendir(const char* directory);
 		dirent* readdir(DIR* dir);

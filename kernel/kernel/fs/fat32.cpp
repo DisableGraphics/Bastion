@@ -704,3 +704,25 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf, uint32_t cluster) 
 	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + 28);
 	buf->st_ino = cluster;
 }
+
+bool FAT32::touch(const char* filename) {
+	struct stat buf;
+	int ret = stat(filename, &buf);
+	if(ret == -1) {
+		uint32_t dir_cluster = first_cluster_for_directory(filename);
+		if(dir_cluster < FAT_ERROR) {
+			uint8_t* buffer = new uint8_t[cluster_size];
+			do {
+				load_cluster(dir_cluster, buffer);
+				
+				dir_cluster = next_cluster(dir_cluster);
+			} while(dir_cluster < FAT_ERROR);
+			
+			
+			delete[] buffer;
+			if(dir_cluster >= FAT_ERROR) return false;
+
+		}
+	}
+	return false;
+}
