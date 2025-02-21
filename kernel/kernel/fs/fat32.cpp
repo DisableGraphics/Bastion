@@ -160,11 +160,9 @@ bool FAT32::update_fsinfo(int diffclusters) {
 	return true;
 }
 
-bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
-	// First thing to do: look at FSInfo so we know which cluster we need to start
-	// searching from
+uint32_t FAT32::get_lookup_cluster(uint8_t* buffer) {
 	auto lba = partmanager.get_lba(partid, fsinfo_sector);
-	uint8_t* buffer = new uint8_t[sector_size];
+	
 	volatile hal::DiskJob job{buffer, lba, 1, false};
 	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
 	if(job.state == hal::DiskJob::ERROR) { delete[] buffer; return false;}
@@ -173,6 +171,27 @@ bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
 	if(*look_from_fsinfo != 0xFFFFFFFF && *look_from_fsinfo < (n_data_sectors / fat_boot->sectors_per_cluster)) {
 		look_from = *look_from_fsinfo;
 	}
+	delete[] buffer;
+	return look_from;
+}
+
+bool FAT32::save_lookup_cluster(uint32_t cluster, uint8_t* buffer) {
+	auto lba = partmanager.get_lba(partid, fsinfo_sector);
+	uint32_t* look_from_fsinfo = reinterpret_cast<uint32_t*>(buffer + 0x1EC);
+	*look_from_fsinfo = cluster;
+	volatile hal::DiskJob job{buffer, lba, 1, true};
+	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+	if(job.state == hal::DiskJob::ERROR) { delete[] buffer; return false;}
+
+	return true;
+}
+
+bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
+	// First thing to do: look at FSInfo so we know which cluster we need to start
+	// searching from
+	uint8_t* buffer = new uint8_t[sector_size];
+	auto look_from = get_lookup_cluster(buffer);
+	uint32_t* look_from_fsinfo = reinterpret_cast<uint32_t*>(buffer + 0x1EC);
 	Vector<uint32_t> clustervec;
 	for(size_t i = 0; i < nclusters; i++) {
 		auto free_cluster = search_free_cluster(look_from);
@@ -190,10 +209,7 @@ bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
 	set_next_cluster(clustervec.back(), FAT_FINISH);
 
 	auto next_free = search_free_cluster(look_from);
-	*look_from_fsinfo = next_free;
-	volatile hal::DiskJob savejob{buffer, lba, 1, true};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &savejob);
-	if(savejob.state == hal::DiskJob::ERROR) { delete[] buffer; return false;}
+	save_lookup_cluster(next_free, buffer);
 
 	delete[] buffer;
 	return true;
@@ -413,7 +429,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			set_next_cluster(clusters[i], 0);
 		}
 		zerosize = true;
-		update_fsinfo(clusters.size());
+		if(!update_fsinfo(clusters.size())) return 0;
 	} else if(current_size_in_clusters > new_size_in_clusters) {
 		log(INFO, "Current size in clusters (%d) less than new size in clusters (%d)", current_size_in_clusters, new_size_in_clusters);
 		Vector<uint32_t> clusters;
@@ -427,18 +443,33 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 			set_next_cluster(clusters[i], 0);
 		}
 		log(INFO, "Size change from %d to %d sectors", current_size_in_clusters, new_size_in_clusters);
-		update_fsinfo(current_size_in_clusters - new_size_in_clusters);
+		if(!update_fsinfo(current_size_in_clusters - new_size_in_clusters)) return 0;
 	} else if (current_size_in_clusters < new_size_in_clusters) {
 		if(current_size_in_clusters == 0) {
-			/// TODO: Set a free cluster for the file.
+			filecluster = search_free_cluster(2);
+			if(filecluster == -1) return 0;
+			struct stat buf {
+				0,
+				TimeManager::get().get_time(),
+				TimeManager::get().get_time(),
+				0,
+				filecluster
+			};
+			file_setproperty(filename, &buf);
+			if(new_size_in_clusters - 1 == 0) {
+				set_next_cluster(filecluster, FAT_FINISH);
+			} else {
+				if(!alloc_clusters(filecluster, new_size_in_clusters -1)) return 0;
+			}
+		} else {
+			auto last_filecluster = filecluster;
+			do {
+				last_filecluster = filecluster;
+				filecluster = next_cluster(filecluster);
+			} while(filecluster < FAT_ERROR);
+			if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return 0;
 		}
-		auto last_filecluster = filecluster;
-		do {
-			last_filecluster = filecluster;
-			filecluster = next_cluster(filecluster);
-		} while(filecluster < FAT_ERROR);
-		if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return 0;
-		if(update_fsinfo(current_size_in_clusters - new_size_in_clusters)) return 0;
+		if(!update_fsinfo(current_size_in_clusters - new_size_in_clusters)) return 0;
 	}
 	// Update the size of the file.
 	struct stat properties{

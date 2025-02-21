@@ -31,6 +31,8 @@ class FAT32 {
 		bool setstat(uint32_t dircluster, int nentry, const struct stat* properties);
 		bool alloc_clusters(uint32_t prevcluster, uint32_t nclusters);
 		uint32_t search_free_cluster(uint32_t searchfrom);
+		uint32_t get_lookup_cluster(uint8_t* buffer);
+		bool save_lookup_cluster(uint32_t cluster, uint8_t* buffer);
 
 		size_t partid;
 		char partname[12];
