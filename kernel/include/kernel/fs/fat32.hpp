@@ -13,7 +13,15 @@ class FAT32 {
 		off_t write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer);
 		off_t truncate(const char* filename, unsigned nbytes);
 		int stat(const char* filename, stat* buf);
-		
+
+		bool mkdir(const char* directory);
+		bool rmdir(const char* directory);
+		bool unlink(const char* filename);
+		bool rename(const char* src, const char* dest);
+
+		DIR* opendir(const char* directory);
+		dirent* readdir(DIR* dir);
+		void closedir(DIR* dir);
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
 		uint32_t next_cluster(uint32_t active_cluster);
