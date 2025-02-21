@@ -100,6 +100,8 @@ void gen(void*) {
 
 			fat.truncate(filename, 0);
 			fat.truncate(filename, 512);
+			fat.truncate(filename, 0);
+			fat.truncate(filename, 1026);
 			const char* str2 = "Hey hey hey hey hel\n\nhola";
 			fat.write(filename, 0, strlen(str2), str2);
  		}
