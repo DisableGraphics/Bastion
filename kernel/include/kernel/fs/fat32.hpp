@@ -3,6 +3,7 @@
 #include "../arch/i386/defs/fs/fat32/bs.hpp"
 #include "../arch/i386/defs/fs/fat32/entryflags.hpp"
 #include "const.hpp"
+#include <kernel/datastr/buffer.hpp>
 
 class FAT32 {
 	public:
@@ -45,9 +46,11 @@ class FAT32 {
 		uint32_t get_lookup_cluster(uint8_t* buffer);
 		bool save_lookup_cluster(uint32_t cluster, uint8_t* buffer);
 
+		uint32_t get_parent_dir_cluster(const char* filename, const char* basename);
+
 		size_t partid;
 		char partname[12];
-		uint8_t* fat_boot_buffer;
+		
 		fat_BS_t* fat_boot;
 		uint32_t fsinfo_sector;
 		uint32_t total_sectors;
@@ -58,5 +61,7 @@ class FAT32 {
 		uint32_t root_cluster;
 		uint32_t sector_size;
 		uint32_t cluster_size;
+
+		Buffer<uint8_t> fat_boot_buffer;
 		PartitionManager &partmanager;
 };
