@@ -105,6 +105,18 @@ void gen(void*) {
 			const char* str2 = "Hey hey hey hey hel\n\nhola";
 			fat.write(filename, 0, strlen(str2), str2);
 			fat.touch("/data/hll.txt");
+			fat.write("/data/hll.txt", 0, strlen(str2), str2);
+			fat.touch("/data/hll.txt");
+			char testbuf[strlen(str2)];
+			if(fat.read("/data/hll.txt", 0, strlen(str2), testbuf) != -1) {
+				if(!memcmp(testbuf, str2, strlen(str2))) {
+					log(INFO, "No modifications. Everything went well :)");
+				} else {
+					log(ERROR, "There have been modifications in /data/hll.txt. \"%s\" vs \"%s\"", testbuf, str2);
+				}
+			} else {
+				log(INFO, "Could not read from /data/hll.txt");
+			}
  		}
 	}
 }
