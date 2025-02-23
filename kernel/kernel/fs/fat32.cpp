@@ -505,48 +505,8 @@ uint16_t date2fattime(const date& dt) {
 bool FAT32::setstat(uint32_t dir, int nentry, const struct stat* properties) {
 	Buffer<uint8_t> buffer(cluster_size);
 	load_cluster(dir, buffer);
-
 	uint8_t* ptr = buffer + 32*nentry;
-
-	if(properties->st_atime != -1) {
-		date dt = TimeManager::timestamp_to_date(properties->st_atime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
-		auto datecalc = date2fatdate(dt);
-
-		*date = datecalc;
-	}
-	if(properties->st_mtime != -1) {
-		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODDATE);
-		auto datecalc = date2fatdate(dt);
-		*date = datecalc;
-
-		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODTIME);
-		auto timecalc = date2fattime(dt);
-		*time = timecalc;
-	}
-	if(properties->st_ctime != -1) {
-		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATDATE);
-		auto datecalc = date2fatdate(dt);
-		*date = datecalc;
-
-		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATTIME);
-		auto timecalc = date2fattime(dt);
-		*time = timecalc;
-	}
-	if(properties->st_size != -1) {
-		uint32_t* sizeptr = reinterpret_cast<uint32_t*>(ptr + OFF_ENTRY_SIZE);
-		*sizeptr = properties->st_size;
-	}
-	if(properties->st_ino != -1) {
-		uint16_t* low_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LOW16);
-		uint16_t* high_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_HIGH16);
-
-		*low_clnumber = properties->st_ino;
-		*high_clnumber = (properties->st_ino >> 16);
-	}
-
+	set_sfn_entry_data(ptr, nullptr, FAT_FLAGS::NONE, properties);
 	return save_cluster(dir, buffer);
 }
 
@@ -722,71 +682,20 @@ bool FAT32::touch(const char* filename) {
 				}
 				for(size_t i = nentry; i < nentry + nreqentries - 1; i++) {
 					uint8_t* ptr = buffer + 32*i;
-					const char* basenameptr = basename + 13*(i - nentry);
-					uint8_t lfn_order = (basenameptr - basename) / 13;
-					ptr[0] = lfn_order + 1;
-					ptr[11] = static_cast<uint8_t>(FAT_FLAGS::LFN);
-					
-					uint8_t* first_5 = reinterpret_cast<uint8_t*>(ptr + 1);
-					for(size_t i = 0; i < 5; i++) {
-						first_5[2*i] = basenameptr[i];
-						first_5[2*i + 1] = 0;
-					}
-					uint8_t* second_6 = reinterpret_cast<uint8_t*>(ptr + 14);
-					for(size_t i = 0; i < 6; i++) {
-						second_6[2*i] = basenameptr[5 + i];
-						second_6[2*i + 1] = 0;
-					}
-
-					uint8_t* third_2 = reinterpret_cast<uint8_t*>(ptr + 28);
-					for(size_t i = 0; i < 2; i++) {
-						third_2[2*i] = basenameptr[11 + i];
-						third_2[2*i + 1] = 0;
-					}
-					// If last entry mark it as such
-					if(i == nentry + nreqentries - 2) {
-						ptr[0] |= 0x40;
-					}
+					const int order = (i - nentry) + 1;
+					const char* basenameptr = basename + ((order - 1) * 13);
+					set_lfn_entry_data(ptr, basenameptr, order, i == nentry + nreqentries - 2);
 				}
 				// Finally the non-LFN entry
 				uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
-				memset(ptr, 0, 32);
-				char uppbasename[11];
-				/// Default padding for short filenames are spaces
-				memset(uppbasename, 0x20, sizeof(uppbasename));
-				// Find the .
-				const char* dot = rfind(basename, '.');
-				if(dot) {
-					// Copy the extension into the name
-					memcpy(uppbasename + 8, dot + 1, 3);
-					// Copy either first 8 chars or until the dot
-					if(dot - basename > 8) {
-						memcpy(uppbasename, basename, 8);
-					} else {
-						memcpy(uppbasename, basename, dot - basename);
-					}
-					
-				} else {
-					// Copy first 8 characters into name
-					memcpy(uppbasename, basename, 8);
-				}
-				for(size_t i = 0; i < 11; i++) {
-					uppbasename[i] = toupper(uppbasename[i]);
-				}
-				memcpy(ptr, uppbasename, sizeof(uppbasename));
-				// Set archive 
-				ptr[OFF_ENTRY_ATTR] = static_cast<uint8_t>(FAT_FLAGS::ARCHIVE);
-				ptr[OFF_ENTRY_CREATTIME] = 0;
-				uint16_t *dateptr = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATDATE);
-				*dateptr = date2fatdate(TimeManager::get().timestamp_to_date(TimeManager::get().get_time()));
-				dateptr = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATHOUR);
-				*dateptr = date2fattime(TimeManager::get().timestamp_to_date(TimeManager::get().get_time()));
-				dateptr = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
-				*dateptr = date2fatdate(TimeManager::get().timestamp_to_date(TimeManager::get().get_time()));
-				dateptr = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODTIME);
-				*dateptr = date2fattime(TimeManager::get().timestamp_to_date(TimeManager::get().get_time()));
-				dateptr = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODDATE);
-				*dateptr = date2fatdate(TimeManager::get().timestamp_to_date(TimeManager::get().get_time()));
+				struct stat properties {
+					0,
+					TimeManager::get().get_time(),
+					TimeManager::get().get_time(),
+					TimeManager::get().get_time(),
+					0
+				};
+				set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
 				save_cluster(dir_cluster, buffer);
 			}
 			if(dir_cluster >= FAT_ERROR) return false;
@@ -794,4 +703,99 @@ bool FAT32::touch(const char* filename) {
 		}
 	}
 	return false;
+}
+
+void FAT32::set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last) {
+	ptr[0] = order;
+	ptr[11] = static_cast<uint8_t>(FAT_FLAGS::LFN);
+	
+	uint8_t* first_5 = reinterpret_cast<uint8_t*>(ptr + 1);
+	for(size_t i = 0; i < 5; i++) {
+		first_5[2*i] = basename[i];
+		first_5[2*i + 1] = 0;
+	}
+	uint8_t* second_6 = reinterpret_cast<uint8_t*>(ptr + 14);
+	for(size_t i = 0; i < 6; i++) {
+		second_6[2*i] = basename[5 + i];
+		second_6[2*i + 1] = 0;
+	}
+
+	uint8_t* third_2 = reinterpret_cast<uint8_t*>(ptr + 28);
+	for(size_t i = 0; i < 2; i++) {
+		third_2[2*i] = basename[11 + i];
+		third_2[2*i + 1] = 0;
+	}
+	// If last entry mark it as such
+	if(is_last) {
+		ptr[0] |= 0x40;
+	}
+}
+
+void FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties) {
+	if(properties->st_atime != -1) {
+		date dt = TimeManager::timestamp_to_date(properties->st_atime);
+		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
+		auto datecalc = date2fatdate(dt);
+
+		*date = datecalc;
+	}
+	if(properties->st_mtime != -1) {
+		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
+		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODDATE);
+		auto datecalc = date2fatdate(dt);
+		*date = datecalc;
+
+		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODTIME);
+		auto timecalc = date2fattime(dt);
+		*time = timecalc;
+	}
+	if(properties->st_ctime != -1) {
+		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
+		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATDATE);
+		auto datecalc = date2fatdate(dt);
+		*date = datecalc;
+
+		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATTIME);
+		auto timecalc = date2fattime(dt);
+		*time = timecalc;
+	}
+	if(properties->st_size != -1) {
+		uint32_t* sizeptr = reinterpret_cast<uint32_t*>(ptr + OFF_ENTRY_SIZE);
+		*sizeptr = properties->st_size;
+	}
+	if(properties->st_ino != -1) {
+		uint16_t* low_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LOW16);
+		uint16_t* high_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_HIGH16);
+
+		*low_clnumber = properties->st_ino;
+		*high_clnumber = (properties->st_ino >> 16);
+	}
+	if(basename) {
+		char uppbasename[11];
+		/// Default padding for short filenames are spaces
+		memset(uppbasename, 0x20, sizeof(uppbasename));
+		// Find the .
+		const char* dot = rfind(basename, '.');
+		if(dot) {
+			// Copy the extension into the name
+			memcpy(uppbasename + 8, dot + 1, 3);
+			// Copy either first 8 chars or until the dot
+			if(dot - basename > 8) {
+				memcpy(uppbasename, basename, 8);
+			} else {
+				memcpy(uppbasename, basename, dot - basename);
+			}
+			
+		} else {
+			// Copy first 8 characters into name
+			memcpy(uppbasename, basename, 8);
+		}
+		for(size_t i = 0; i < 11; i++) {
+			uppbasename[i] = toupper(uppbasename[i]);
+		}
+		memcpy(ptr, uppbasename, sizeof(uppbasename));
+	}
+	if(flags != FAT_FLAGS::NONE) {
+		ptr[OFF_ENTRY_ATTR] = static_cast<uint8_t>(flags);
+	}
 }
