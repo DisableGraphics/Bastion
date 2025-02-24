@@ -664,20 +664,19 @@ bool FAT32::touch(const char* filename) {
 			if(basenamelen > 255) return false;
 			strncpy(basename, basenameptr, basenamelen);
 			basename[basenamelen] = 0;
+			// Round up (+12) + another required entry (non-LFN entry)
 			const size_t nreqentries = ((basenamelen + 12 +13) / 13);
 			const size_t ndirentries = cluster_size / 32;
 			const size_t availentries = ndirentries - nentry;
+			if(nreqentries > availentries) {
+				// Allocate needed clusters + change nentry to point to the first
+				// position since IIRC entries can't be spread across clusters
+				auto required_clusters = (nreqentries - availentries + ndirentries - 1) / ndirentries;
+				if(!alloc_clusters(dir_cluster, required_clusters)) return false;
+				nentry = 0;
+			}
 			/// We have at least one entry in the directory
 			if(nentry != -1) {
-				// Round up (+12) + another required entry (non-LFN entry)
-				
-				if(nreqentries > availentries) {
-					// Allocate needed clusters + change nentry to point to the first
-					// position since IIRC entries can't be spread across clusters
-					auto required_clusters = (nreqentries - availentries + ndirentries - 1) / ndirentries;
-					if(!alloc_clusters(dir_cluster, required_clusters)) return false;
-					nentry = 0;
-				}
 				for(size_t i = nentry; i < nentry + nreqentries - 1; i++) {
 					uint8_t* ptr = buffer + 32*i;
 					const int order = (i - nentry) + 1;
