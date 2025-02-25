@@ -161,6 +161,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
+	// Seed RNG
+	srand(time(NULL));
 	
 	Scheduler::get().run();
 	for(;;) {

@@ -777,13 +777,17 @@ void FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS fla
 		if(dot) {
 			// Copy the extension into the name
 			memcpy(uppbasename + 8, dot + 1, 3);
-			// Copy either first 8 chars or until the dot
-			if(dot - basename > 8) {
-				memcpy(uppbasename, basename, 8);
+			// Copy either first 6 chars or until the dot
+			if(dot - basename > 6) {
+				memcpy(uppbasename, basename, 6);
 			} else {
 				memcpy(uppbasename, basename, dot - basename);
 			}
-			
+			const unsigned last_char = dot - basename > 6 ? 6 : dot - basename;
+			// Copy a ~ and a random number into the last character
+			int random = rand() % 10;
+			uppbasename[last_char] = '~';
+			uppbasename[last_char+1] = random + '0';
 		} else {
 			// Copy first 8 characters into name
 			memcpy(uppbasename, basename, 8);
