@@ -35,7 +35,7 @@ class FAT32 {
 		uint32_t first_cluster_for_directory(const char* directory);
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
-		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr);
+		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr, int nfree = 0);
 		void direntrystat(uint8_t* direntry, struct stat* statbuf, uint32_t cluster);
 		bool update_fsinfo(int diffclusters);
 		
@@ -47,8 +47,9 @@ class FAT32 {
 		bool save_lookup_cluster(uint32_t cluster, uint8_t* buffer);
 
 		uint32_t get_parent_dir_cluster(const char* filename, const char* basename);
-		void set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties);
-		void set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last);
+		uint8_t checksum_sfn(const char* basename);
+		uint8_t set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties);
+		void set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last, uint8_t checksum);
 
 		size_t partid;
 		char partname[12];

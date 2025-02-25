@@ -541,7 +541,7 @@ int FAT32::stat(const char* filename, struct stat* buf) {
 	return -1;
 }
 
-uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags, struct stat* buf, int* nentry) {
+uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags, struct stat* buf, int* nentry, int nfree) {
 	uint8_t lfn_order = 0;
 	char lfn_buffer[256] = {0};
 	bool has_lfn = false;
@@ -587,8 +587,11 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			memset(lfn_buffer, 0, sizeof(lfn_buffer));
 		} else {
 			if(nentry && !strcmp(basename, "")) {
-				*nentry = i;
-				return i;
+				nfree--;
+				if(nfree == 0) {
+					*nentry = i - 1;
+					return i;
+				}
 			}
 		}
 	}
@@ -651,13 +654,6 @@ bool FAT32::touch(const char* filename) {
 
 		if(dir_cluster < FAT_ERROR) {
 			Buffer<uint8_t> buffer(cluster_size);
-			int nentry = -1;
-			do {
-				load_cluster(dir_cluster, buffer);
-				if(match_cluster(buffer, "", FAT_FLAGS::NONE, nullptr, &nentry) != -1)
-					break;
-				dir_cluster = next_cluster(dir_cluster);
-			} while(dir_cluster < FAT_ERROR);
 			/// Check if there is going to be enough size.
 			char basename[256];
 			size_t basenamelen = strlen(basenameptr);
@@ -667,35 +663,58 @@ bool FAT32::touch(const char* filename) {
 			// Round up (+12) + another required entry (non-LFN entry)
 			const size_t nreqentries = ((basenamelen + 12 +13) / 13);
 			const size_t ndirentries = cluster_size / 32;
-			const size_t availentries = ndirentries - nentry;
-			if(nreqentries > availentries) {
-				// Allocate needed clusters + change nentry to point to the first
-				// position since IIRC entries can't be spread across clusters
-				auto required_clusters = (nreqentries - availentries + ndirentries - 1) / ndirentries;
-				if(!alloc_clusters(dir_cluster, required_clusters)) return false;
-				nentry = 0;
-				load_cluster(next_cluster(dir_cluster), buffer);
-			}
-			/// We have at least one entry in the directory
-			if(nentry != -1) {
-				for(size_t i = nentry; i < nentry + nreqentries - 1; i++) {
-					uint8_t* ptr = buffer + 32*i;
-					const int order = (i - nentry) + 1;
-					const char* basenameptr = basename + ((order - 1) * 13);
-					set_lfn_entry_data(ptr, basenameptr, order, i == nentry + nreqentries - 2);
+			int nentry = -1;
+			do {
+				load_cluster(dir_cluster, buffer);
+				if(match_cluster(buffer, "", FAT_FLAGS::NONE, nullptr, &nentry, nreqentries) != -1)
+					break;
+				dir_cluster = next_cluster(dir_cluster);
+			} while(dir_cluster < FAT_ERROR);
+			
+			/// We have enough free space in the directory
+			if(nentry == -1) { /// No free space in the directory. We need to allocate more clusters
+				auto last_cluster = dir_cluster;
+				do {
+					last_cluster = dir_cluster;
+					dir_cluster = next_cluster(dir_cluster);
+				} while(dir_cluster < FAT_ERROR);
+				if(alloc_clusters(last_cluster, 1)) {
+					load_cluster(last_cluster, buffer);
+					memset(buffer, 0, cluster_size);
+					uint8_t* ptr = buffer;
+					struct stat properties {
+						0,
+						TimeManager::get().get_time(),
+						TimeManager::get().get_time(),
+						TimeManager::get().get_time(),
+						0
+					};
+					set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
+					save_cluster(last_cluster, buffer);
+				} else {
+					return false;
 				}
-				// Finally the non-LFN entry
-				uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
-				struct stat properties {
-					0,
-					TimeManager::get().get_time(),
-					TimeManager::get().get_time(),
-					TimeManager::get().get_time(),
-					0
-				};
-				set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
-				save_cluster(dir_cluster, buffer);
+				nentry = 0;
 			}
+			// SFN entry
+			uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
+			struct stat properties {
+				0,
+				TimeManager::get().get_time(),
+				TimeManager::get().get_time(),
+				TimeManager::get().get_time(),
+				0
+			};
+			auto checksum = set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
+			for(size_t i = nentry; i < nentry + nreqentries - 1; i++) {
+				uint8_t* ptr = buffer + 32*i;
+				const int order = (i - nentry) + 1;
+				const char* basenameptr = basename + ((order - 1) * 13);
+				set_lfn_entry_data(ptr, basenameptr, order, i == nentry + nreqentries - 2, checksum);
+			}
+			// Finally the non-LFN entry
+			
+			save_cluster(dir_cluster, buffer);
 			if(dir_cluster >= FAT_ERROR) return false;
 			return true;
 		}
@@ -703,7 +722,7 @@ bool FAT32::touch(const char* filename) {
 	return false;
 }
 
-void FAT32::set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last) {
+void FAT32::set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last, uint8_t checksum) {
 	ptr[0] = order;
 	ptr[11] = static_cast<uint8_t>(FAT_FLAGS::LFN);
 	
@@ -723,13 +742,25 @@ void FAT32::set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order
 		third_2[2*i] = basename[11 + i];
 		third_2[2*i + 1] = 0;
 	}
+
+	ptr[13] = checksum;
+
 	// If last entry mark it as such
 	if(is_last) {
 		ptr[0] |= 0x40;
 	}
 }
 
-void FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties) {
+uint8_t FAT32::checksum_sfn(const char* basename) {
+    uint8_t sum = 0;
+    for (int i = 0; i < 11; i++) {
+        sum = ((sum >> 1) | (sum << 7)) + basename[i];
+    }
+    return sum;
+}
+
+uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties) {
+	uint8_t checksum = 0;
 	if(properties->st_atime != -1) {
 		date dt = TimeManager::timestamp_to_date(properties->st_atime);
 		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
@@ -785,7 +816,7 @@ void FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS fla
 			}
 			const unsigned last_char = dot - basename > 6 ? 6 : dot - basename;
 			// Copy a ~ and a random number into the last character
-			int random = rand() % 10;
+			int random = ((rand() % 10) + 10) % 10;
 			uppbasename[last_char] = '~';
 			uppbasename[last_char+1] = random + '0';
 		} else {
@@ -796,8 +827,10 @@ void FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS fla
 			uppbasename[i] = toupper(uppbasename[i]);
 		}
 		memcpy(ptr, uppbasename, sizeof(uppbasename));
+		checksum = checksum_sfn(uppbasename);
 	}
 	if(flags != FAT_FLAGS::NONE) {
 		ptr[OFF_ENTRY_ATTR] = static_cast<uint8_t>(flags);
 	}
+	return checksum;
 }
