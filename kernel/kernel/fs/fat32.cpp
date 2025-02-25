@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <kernel/kernel/log.hpp>
+#include <kernel/cpp/min.hpp>
 
 #define FAT_ERROR 0x0FFFFFF7
 #define FAT_FINISH 0x0FFFFFF8
@@ -546,12 +547,14 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 	char lfn_buffer[256] = {0};
 	bool has_lfn = false;
 	const size_t entries_per_cluster = cluster_size / 32;
+	const int free = nfree;
 	for(size_t i = 0; i < entries_per_cluster; i++) {
 		char name[14];
 		memset(name, 0, sizeof(name));
 		uint8_t* ptr_to_i = buffer + (32*i);
 		FAT_FLAGS attr = static_cast<FAT_FLAGS>(ptr_to_i[11]);
 		if(attr == FAT_FLAGS::LFN) {
+			nfree = free;
 			has_lfn = true;
 			uint8_t pos = *ptr_to_i & 0x3F;
 			lfn_order = (pos - 1) * 13;
@@ -565,6 +568,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 	
 			lfn_order += 13;
 		} else if(attr != FAT_FLAGS::NONE) {
+			nfree = free;
 			uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
 			uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
 			uint32_t cluster = (high_16 << 16) | low_16;
@@ -589,7 +593,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			if(nentry && !strcmp(basename, "")) {
 				nfree--;
 				if(nfree == 0) {
-					*nentry = i - 1;
+					*nentry = i - free + 1;
 					return i;
 				}
 			}
@@ -649,53 +653,50 @@ bool FAT32::touch(const char* filename) {
 	if(ret == -1) {
 		const char* basenameptr = rfind(filename, '/');
 		if(!basenameptr) return false;
-		uint32_t dir_cluster = get_parent_dir_cluster(filename, basenameptr);
+		const uint32_t first_dir_cluster = get_parent_dir_cluster(filename, basenameptr);
+		uint32_t dir_cluster = first_dir_cluster;
 		basenameptr++;
 
 		if(dir_cluster < FAT_ERROR) {
 			Buffer<uint8_t> buffer(cluster_size);
 			/// Check if there is going to be enough size.
 			char basename[256];
+			memset(basename, 0, sizeof(basename));
+			const size_t ndirentries = cluster_size / 32;
 			size_t basenamelen = strlen(basenameptr);
 			if(basenamelen > 255) return false;
 			strncpy(basename, basenameptr, basenamelen);
 			basename[basenamelen] = 0;
 			// Round up (+12) + another required entry (non-LFN entry)
 			const size_t nreqentries = ((basenamelen + 12 +13) / 13);
-			const size_t ndirentries = cluster_size / 32;
+			if(nreqentries > ndirentries) {
+				log(ERROR, "Not enough space in a directory for the file");
+				return false;
+			}
+			
 			int nentry = -1;
+			uint32_t last_cluster = dir_cluster;
 			do {
+				last_cluster = dir_cluster;
 				load_cluster(dir_cluster, buffer);
 				if(match_cluster(buffer, "", FAT_FLAGS::NONE, nullptr, &nentry, nreqentries) != -1)
 					break;
 				dir_cluster = next_cluster(dir_cluster);
 			} while(dir_cluster < FAT_ERROR);
+
+			log(INFO, "Reported nentry: %d", nentry);
 			
-			/// We have enough free space in the directory
 			if(nentry == -1) { /// No free space in the directory. We need to allocate more clusters
-				auto last_cluster = dir_cluster;
-				do {
+				last_cluster = first_dir_cluster;
+				do { // Advance remaining clusters until last
 					last_cluster = dir_cluster;
 					dir_cluster = next_cluster(dir_cluster);
 				} while(dir_cluster < FAT_ERROR);
-				if(alloc_clusters(last_cluster, 1)) {
-					load_cluster(last_cluster, buffer);
-					memset(buffer, 0, cluster_size);
-					uint8_t* ptr = buffer;
-					struct stat properties {
-						0,
-						TimeManager::get().get_time(),
-						TimeManager::get().get_time(),
-						TimeManager::get().get_time(),
-						0
-					};
-					set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
-					save_cluster(last_cluster, buffer);
-				} else {
-					return false;
-				}
+				if(!alloc_clusters(last_cluster, 1)) return false; /// Could not allocate more clusters
+				load_cluster(next_cluster(last_cluster), buffer);
 				nentry = 0;
 			}
+			log(INFO, "Max offset: %d", 32*(nentry + nreqentries - 1));
 			// SFN entry
 			uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
 			struct stat properties {
@@ -705,16 +706,17 @@ bool FAT32::touch(const char* filename) {
 				TimeManager::get().get_time(),
 				0
 			};
+			// Data for LFN entry
 			auto checksum = set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
-			for(size_t i = nentry; i < nentry + nreqentries - 1; i++) {
+			// Christ in a handbasket, IT'S BACKWARDS
+			for(size_t i = nentry, nentries = nreqentries - 1; i < nentry + nreqentries - 1; i++, nentries--) {
 				uint8_t* ptr = buffer + 32*i;
-				const int order = (i - nentry) + 1;
+				const int order = nentries;
 				const char* basenameptr = basename + ((order - 1) * 13);
-				set_lfn_entry_data(ptr, basenameptr, order, i == nentry + nreqentries - 2, checksum);
-			}
-			// Finally the non-LFN entry
-			
+				set_lfn_entry_data(ptr, basenameptr, order, i == nentry, checksum);
+			}			
 			save_cluster(dir_cluster, buffer);
+			log(INFO, "Created file %s", filename);
 			if(dir_cluster >= FAT_ERROR) return false;
 			return true;
 		}
