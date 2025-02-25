@@ -694,6 +694,7 @@ bool FAT32::touch(const char* filename) {
 				} while(dir_cluster < FAT_ERROR);
 				if(!alloc_clusters(last_cluster, 1)) return false; /// Could not allocate more clusters
 				load_cluster(next_cluster(last_cluster), buffer);
+				memset(buffer, 0, cluster_size);
 				nentry = 0;
 			}
 			log(INFO, "Max offset: %d", 32*(nentry + nreqentries - 1));
