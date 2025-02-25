@@ -674,6 +674,7 @@ bool FAT32::touch(const char* filename) {
 				auto required_clusters = (nreqentries - availentries + ndirentries - 1) / ndirentries;
 				if(!alloc_clusters(dir_cluster, required_clusters)) return false;
 				nentry = 0;
+				load_cluster(next_cluster(dir_cluster), buffer);
 			}
 			/// We have at least one entry in the directory
 			if(nentry != -1) {
