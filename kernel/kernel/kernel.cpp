@@ -120,6 +120,9 @@ void gen(void*) {
 			if(fat.touch("/data/236147861327463247812367846123746871236478162374612837467812364781627834618.txt")) {
 				log(INFO, "Could create the file with a long name");
 			}
+			if(fat.mkdir("/data/carpetahola")) {
+				log(INFO, "Created /data/carpetahola");
+			}
  		}
 	}
 }

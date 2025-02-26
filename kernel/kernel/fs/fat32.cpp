@@ -1,3 +1,4 @@
+#include "kernel/datastr/buffer.hpp"
 #include "kernel/datastr/vector.hpp"
 #include "kernel/hal/job/diskjob.hpp"
 #include "kernel/time/time.hpp"
@@ -183,24 +184,32 @@ bool FAT32::save_lookup_cluster(uint32_t cluster, uint8_t* buffer) {
 bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
 	// First thing to do: look at FSInfo so we know which cluster we need to start
 	// searching from
+	Vector<uint32_t> clustervec;
+	if(alloc_clusters(nclusters, clustervec)) {
+		return set_next_cluster(prevcluster, clustervec[0]);
+	}
+	return false;
+}
+
+bool FAT32::alloc_clusters(uint32_t nclusters, Vector<uint32_t>& vec) {
 	Buffer<uint8_t> buffer(sector_size);
 	auto look_from = get_lookup_cluster(buffer);
 	uint32_t* look_from_fsinfo = reinterpret_cast<uint32_t*>(buffer + 0x1EC);
-	Vector<uint32_t> clustervec;
+	
 	for(size_t i = 0; i < nclusters; i++) {
 		auto free_cluster = search_free_cluster(look_from);
 		log(INFO, "Next free cluster from %p: %p", look_from, free_cluster);
 		look_from = free_cluster;
-		clustervec.push_back(free_cluster);
+		vec.push_back(free_cluster);
 	}
 
-	set_next_cluster(prevcluster, clustervec[0]);
-	for(int i = 0; i < (clustervec.size() - 1); i++) {
-		set_next_cluster(clustervec[i], clustervec[i+1]);
-		log(INFO, "Set link %p -> %p", clustervec[i], clustervec[i+1]);
+	
+	for(int i = 0; i < (vec.size() - 1); i++) {
+		set_next_cluster(vec[i], vec[i+1]);
+		log(INFO, "Set link %p -> %p", vec[i], vec[i+1]);
 	}
 
-	set_next_cluster(clustervec.back(), FAT_FINISH);
+	set_next_cluster(vec.back(), FAT_FINISH);
 
 	auto next_free = search_free_cluster(look_from);
 	save_lookup_cluster(next_free, buffer);
@@ -645,81 +654,134 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf, uint32_t cluster) 
 	buf->st_ino = cluster;
 }
 
+uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster) {
+	const char* basenameptr = rfind(filename, '/');
+	if(!basenameptr) return -1;
+	const uint32_t first_dir_cluster = get_parent_dir_cluster(filename, basenameptr);
+	uint32_t dir_cluster = first_dir_cluster;
+	basenameptr++;
+
+	if(dir_cluster < FAT_ERROR) {
+		Buffer<uint8_t> buffer(cluster_size);
+		/// Check if there is going to be enough size.
+		char basename[256];
+		memset(basename, 0, sizeof(basename));
+		const size_t ndirentries = cluster_size / 32;
+		size_t basenamelen = strlen(basenameptr);
+		if(basenamelen > 255) return false;
+		strncpy(basename, basenameptr, basenamelen);
+		basename[basenamelen] = 0;
+		// Round up (+12) + another required entry (non-LFN entry)
+		const size_t nreqentries = ((basenamelen + 12 +13) / 13);
+		if(nreqentries > ndirentries) {
+			log(ERROR, "Not enough space in a directory for the file");
+			return -1;
+		}
+		
+		int nentry = -1;
+		uint32_t last_cluster;
+		do {
+			last_cluster = dir_cluster;
+			load_cluster(dir_cluster, buffer);
+			if(match_cluster(buffer, "", FAT_FLAGS::NONE, nullptr, &nentry, nreqentries) != -1)
+				break;
+			dir_cluster = next_cluster(dir_cluster);
+		} while(dir_cluster < FAT_ERROR);
+
+		log(INFO, "Reported nentry: %d", nentry);
+		
+		if(nentry == -1) { /// No free space in the directory. We need to allocate more clusters
+			last_cluster = first_dir_cluster;
+			do { // Advance remaining clusters until last
+				last_cluster = dir_cluster;
+				dir_cluster = next_cluster(dir_cluster);
+			} while(dir_cluster < FAT_ERROR);
+			if(!alloc_clusters(last_cluster, 1)) return -1; /// Could not allocate more clusters
+			last_cluster = next_cluster(last_cluster);
+			load_cluster(last_cluster, buffer);
+			memset(buffer, 0, cluster_size);
+			nentry = 0;
+		}
+		log(INFO, "Max offset: %d", 32*(nentry + nreqentries - 1));
+		// SFN entry
+		uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
+		struct stat properties {
+			0,
+			TimeManager::get().get_time(),
+			TimeManager::get().get_time(),
+			TimeManager::get().get_time(),
+			0
+		};
+		// Data for LFN entry
+		auto checksum = set_sfn_entry_data(ptr, basename, flags, &properties);
+		// Christ in a handbasket, IT'S BACKWARDS
+		for(size_t i = nentry, nentries = nreqentries - 1; i < nentry + nreqentries - 1; i++, nentries--) {
+			uint8_t* ptr = buffer + 32*i;
+			const int order = nentries;
+			const char* basenameptr = basename + ((order - 1) * 13);
+			set_lfn_entry_data(ptr, basenameptr, order, i == nentry, checksum);
+		}			
+		save_cluster(dir_cluster, buffer);
+		log(INFO, "Created file %s", filename);
+		if(dir_cluster >= FAT_ERROR) return -1;
+		if(parent_dircluster) {
+			*parent_dircluster = last_cluster;
+		}
+		return nentry + nreqentries - 1;
+	}
+	return -1;
+}
+
 bool FAT32::touch(const char* filename) {
 	struct stat buf;
 	// Check whether file already exists
 	int ret = stat(filename, &buf);
 
 	if(ret == -1) {
-		const char* basenameptr = rfind(filename, '/');
-		if(!basenameptr) return false;
-		const uint32_t first_dir_cluster = get_parent_dir_cluster(filename, basenameptr);
-		uint32_t dir_cluster = first_dir_cluster;
-		basenameptr++;
+		Buffer<uint8_t> buf(cluster_size);
+		return create_entry(buf, filename, FAT_FLAGS::ARCHIVE) != -1;
+	}
+	return false;
+}
 
-		if(dir_cluster < FAT_ERROR) {
-			Buffer<uint8_t> buffer(cluster_size);
-			/// Check if there is going to be enough size.
-			char basename[256];
-			memset(basename, 0, sizeof(basename));
-			const size_t ndirentries = cluster_size / 32;
-			size_t basenamelen = strlen(basenameptr);
-			if(basenamelen > 255) return false;
-			strncpy(basename, basenameptr, basenamelen);
-			basename[basenamelen] = 0;
-			// Round up (+12) + another required entry (non-LFN entry)
-			const size_t nreqentries = ((basenamelen + 12 +13) / 13);
-			if(nreqentries > ndirentries) {
-				log(ERROR, "Not enough space in a directory for the file");
-				return false;
-			}
-			
-			int nentry = -1;
-			uint32_t last_cluster = dir_cluster;
-			do {
-				last_cluster = dir_cluster;
-				load_cluster(dir_cluster, buffer);
-				if(match_cluster(buffer, "", FAT_FLAGS::NONE, nullptr, &nentry, nreqentries) != -1)
-					break;
-				dir_cluster = next_cluster(dir_cluster);
-			} while(dir_cluster < FAT_ERROR);
+bool FAT32::mkdir(const char* directory) {
+	struct stat buf;
+	// Check whether file already exists
+	int ret = stat(directory, &buf);
 
-			log(INFO, "Reported nentry: %d", nentry);
-			
-			if(nentry == -1) { /// No free space in the directory. We need to allocate more clusters
-				last_cluster = first_dir_cluster;
-				do { // Advance remaining clusters until last
-					last_cluster = dir_cluster;
-					dir_cluster = next_cluster(dir_cluster);
-				} while(dir_cluster < FAT_ERROR);
-				if(!alloc_clusters(last_cluster, 1)) return false; /// Could not allocate more clusters
-				load_cluster(next_cluster(last_cluster), buffer);
-				memset(buffer, 0, cluster_size);
-				nentry = 0;
-			}
-			log(INFO, "Max offset: %d", 32*(nentry + nreqentries - 1));
-			// SFN entry
-			uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
+	if(ret == -1) {
+		Buffer<uint8_t> buf(cluster_size);
+		uint32_t parentdir;
+		uint32_t entry = create_entry(buf, directory, FAT_FLAGS::DIRECTORY, &parentdir);
+		if(entry == -1) return false;
+		uint8_t* entryptr = buf + 32*entry;
+		Vector<uint32_t> clustervec;
+		// Create a new directory and set the cluster to it
+		if(alloc_clusters(1, clustervec)) {
 			struct stat properties {
 				0,
 				TimeManager::get().get_time(),
 				TimeManager::get().get_time(),
 				TimeManager::get().get_time(),
-				0
+				clustervec[0]
 			};
-			// Data for LFN entry
-			auto checksum = set_sfn_entry_data(ptr, basename, FAT_FLAGS::ARCHIVE, &properties);
-			// Christ in a handbasket, IT'S BACKWARDS
-			for(size_t i = nentry, nentries = nreqentries - 1; i < nentry + nreqentries - 1; i++, nentries--) {
-				uint8_t* ptr = buffer + 32*i;
-				const int order = nentries;
-				const char* basenameptr = basename + ((order - 1) * 13);
-				set_lfn_entry_data(ptr, basenameptr, order, i == nentry, checksum);
-			}			
-			save_cluster(dir_cluster, buffer);
-			log(INFO, "Created file %s", filename);
-			if(dir_cluster >= FAT_ERROR) return false;
-			return true;
+			set_sfn_entry_data(entryptr, NULL, FAT_FLAGS::NONE, &properties);
+			save_cluster(parentdir, buf);
+			Buffer<uint8_t> clusterbuffer(cluster_size);
+			memset(clusterbuffer, 0, clusterbuffer.get_size());
+
+			// We need an entry for .
+			uint8_t* ptr = clusterbuffer;			
+			// This entry
+			set_sfn_entry_data(ptr, ".", FAT_FLAGS::DIRECTORY, &properties);
+			ptr = clusterbuffer + 32;
+			properties.st_ino = parentdir;
+			set_sfn_entry_data(ptr, "..", FAT_FLAGS::DIRECTORY, &properties);
+
+			// The cluster should have necessary data
+			return save_cluster(clustervec[0], clusterbuffer);
+		} else {
+			return false;
 		}
 	}
 	return false;
@@ -808,7 +870,9 @@ uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS 
 		memset(uppbasename, 0x20, sizeof(uppbasename));
 		// Find the .
 		const char* dot = rfind(basename, '.');
-		if(dot) {
+		if(!strcmp(basename, ".") || !strcmp(basename, "..")) {
+			memcpy(uppbasename, basename, strlen(basename));
+		} else if(dot) {
 			// Copy the extension into the name
 			memcpy(uppbasename + 8, dot + 1, 3);
 			// Copy either first 6 chars or until the dot

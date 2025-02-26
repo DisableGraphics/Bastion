@@ -3,6 +3,7 @@
 #include "../arch/i386/defs/fs/fat32/bs.hpp"
 #include "../arch/i386/defs/fs/fat32/entryflags.hpp"
 #include "const.hpp"
+#include "kernel/datastr/vector.hpp"
 #include <kernel/datastr/buffer.hpp>
 
 class FAT32 {
@@ -42,6 +43,7 @@ class FAT32 {
 		bool file_setproperty(const char* filename, const struct stat* properties);
 		bool setstat(uint32_t dircluster, int nentry, const struct stat* properties);
 		bool alloc_clusters(uint32_t prevcluster, uint32_t nclusters);
+		bool alloc_clusters(uint32_t nclusters, Vector<uint32_t>& clustervec);
 		uint32_t search_free_cluster(uint32_t searchfrom);
 		uint32_t get_lookup_cluster(uint8_t* buffer);
 		bool save_lookup_cluster(uint32_t cluster, uint8_t* buffer);
@@ -50,6 +52,7 @@ class FAT32 {
 		uint8_t checksum_sfn(const char* basename);
 		uint8_t set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties);
 		void set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last, uint8_t checksum);
+		uint32_t create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster = nullptr);
 
 		size_t partid;
 		char partname[12];
