@@ -662,7 +662,6 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 	basenameptr++;
 
 	if(dir_cluster < FAT_ERROR) {
-		Buffer<uint8_t> buffer(cluster_size);
 		/// Check if there is going to be enough size.
 		char basename[256];
 		memset(basename, 0, sizeof(basename));
@@ -777,6 +776,8 @@ bool FAT32::mkdir(const char* directory) {
 			ptr = clusterbuffer + 32;
 			properties.st_ino = parentdir;
 			set_sfn_entry_data(ptr, "..", FAT_FLAGS::DIRECTORY, &properties);
+
+			update_fsinfo(-1);
 
 			// The cluster should have necessary data
 			return save_cluster(clustervec[0], clusterbuffer);
