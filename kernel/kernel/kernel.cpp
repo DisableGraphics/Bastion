@@ -68,6 +68,7 @@ void gen(void*) {
 			FAT32 fat{p, i};
 			char buffer[16];
 			const char* filename = "/data/test.txt";
+			log(INFO, "Reading %s", filename);
 			if(fat.read(filename, 0, 15, buffer) != -1) {
 				buffer[15] = 0;
 				log(INFO, "Got this: %s", buffer);
@@ -76,6 +77,7 @@ void gen(void*) {
 			}
 			char buffer2[2048];
 			int read;
+			log(INFO, "Reading 2 %s", filename);
 			if((read = fat.read(filename, 0, 2048, buffer2)) != -1) {
 				buffer2[2047] = 0;
 				log(INFO, "Read: %d bytes", read);
@@ -84,28 +86,38 @@ void gen(void*) {
 			} else {
 				log(INFO, "Could not read from /grub/grubenv");
 			}
-
+			log(INFO, "stat()ing %s", filename);
 			stat st;
 			if(fat.stat(filename, &st) != -1) {
 				log(INFO, "Size of %s: %d bytes", filename, st.st_size);
 				log(INFO, "Creation date: %d", st.st_ctime);
 				log(INFO, "Accessed date: %d", st.st_atime);
 			}
-
+			log(INFO, "Truncating %s to 64 bytes", filename);
 			fat.truncate(filename, 64);
+			log(INFO, "Truncating /grub/grubenv to 3 bytes");
 			fat.truncate("/grub/grubenv", 3);
 			//fat.truncate(filename, 65536);
+			log(INFO, "Writing something to %s", filename);
 			const char* str = "Never gonna give you up \n\n\n\n\t\thola\naaaaaaasdfdfdf";
 			fat.write(filename, 500, strlen(str), str);
 
+			log(INFO, "Truncating %p to 0 bytes");
 			fat.truncate(filename, 0);
+			log(INFO, "Truncating %p to 512 bytes");
 			fat.truncate(filename, 512);
+			log(INFO, "Truncating %p to 0 bytes");
 			fat.truncate(filename, 0);
+			log(INFO, "Truncating %p to 1026 bytes");
 			fat.truncate(filename, 1026);
+			log(INFO, "Writing something to %s", filename);
 			const char* str2 = "Hey hey hey hey hel\n\nhola";
 			fat.write(filename, 0, strlen(str2), str2);
+			log(INFO, "Creating /data/hll.txt");
 			fat.touch("/data/hll.txt");
+			log(INFO, "Writing to /data/hll.txt");
 			fat.write("/data/hll.txt", 0, strlen(str2), str2);
+			log(INFO, "Creating /data/hll.txt again");
 			fat.touch("/data/hll.txt");
 			char testbuf[strlen(str2)];
 			if(fat.read("/data/hll.txt", 0, strlen(str2), testbuf) != -1) {
@@ -117,9 +129,11 @@ void gen(void*) {
 			} else {
 				log(INFO, "Could not read from /data/hll.txt");
 			}
+			log(INFO, "Trying to create a file with a huge name");
 			if(fat.touch("/data/236147861327463247812367846123746871236478162374612837467812364781627834618.txt")) {
 				log(INFO, "Could create the file with a long name");
 			}
+			log(INFO, "Try to create a directory");
 			if(fat.mkdir("/data/carpetahola")) {
 				log(INFO, "Created /data/carpetahola");
 			}

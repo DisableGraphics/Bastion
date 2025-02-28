@@ -22,7 +22,7 @@ class FAT32 {
 		bool rmdir(const char* directory);
 		
 		bool rename(const char* src, const char* dest);
-		bool unlink(const char* path);
+		bool remove(const char* path);
 
 		DIR* opendir(const char* directory);
 		dirent* readdir(DIR* dir);
@@ -37,8 +37,10 @@ class FAT32 {
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
 		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr, int nfree = 0);
-		void direntrystat(uint8_t* direntry, struct stat* statbuf, uint32_t cluster);
+		void direntrystat(uint8_t* direntry, struct stat* statbuf);
 		bool update_fsinfo(int diffclusters);
+
+		uint32_t get_cluster_from_direntry(uint8_t* direntry);
 		
 		bool file_setproperty(const char* filename, const struct stat* properties);
 		bool setstat(uint32_t dircluster, int nentry, const struct stat* properties);
@@ -53,6 +55,10 @@ class FAT32 {
 		uint8_t set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties);
 		void set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last, uint8_t checksum);
 		uint32_t create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster = nullptr);
+
+		uint32_t find(const char* path, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr, int nfree = 0, uint32_t* dir_cluster = nullptr);
+
+		uint32_t remove_entry(uint8_t* buffer, int nentry);
 
 		size_t partid;
 		char partname[12];

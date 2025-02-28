@@ -474,26 +474,13 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 }
 
 bool FAT32::file_setproperty(const char* filename, const struct stat* properties) {
-	log(INFO, "Filename: %s", filename);
-	const char* basename = rfind(filename, '/');
-	if(!basename) return -1;
-	auto dir_cluster = get_parent_dir_cluster(filename, basename);
-	basename++;
-	if(dir_cluster >= FAT_ERROR) return false;
-
-	Buffer<uint8_t> buffer(cluster_size);
-	do {
-		log(INFO, "Loading cluster %d", dir_cluster);
-		load_cluster(dir_cluster, buffer);
-		uint32_t cluster;
-		int nentry = -1;
-		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, nullptr, &nentry)) != -1) {
-			dir_cluster = setstat(dir_cluster, nentry, properties) ? dir_cluster : FAT_ERROR;
-			break;
-		}
-		dir_cluster = next_cluster(dir_cluster);
-	} while(dir_cluster < FAT_ERROR);
-	return dir_cluster < FAT_ERROR;
+	int nentry = -1;
+	uint32_t* dir_cluster;
+	auto found = find(filename, FAT_FLAGS::ARCHIVE, nullptr, &nentry, 0, dir_cluster);
+	if(found >= FAT_ERROR) {
+		return false;
+	}
+	return setstat(*dir_cluster, nentry, properties);
 }
 
 uint16_t date2fatdate(const date &dt) {
@@ -531,24 +518,9 @@ uint32_t FAT32::get_parent_dir_cluster(const char* filename, const char* basenam
 }
 
 int FAT32::stat(const char* filename, struct stat* buf) {
-	log(INFO, "Filename: %s", filename);
-	const char* basename = rfind(filename, '/');
-	if(!basename) return -1;
-	auto dir_cluster = get_parent_dir_cluster(filename, basename);
-	basename++;
-	Buffer<uint8_t> buffer(cluster_size);
-	do {
-		log(INFO, "Loading cluster %d", dir_cluster);
-		load_cluster(dir_cluster, buffer);
-		uint32_t cluster;
-		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, buf)) != -1) {
-			break;
-		}
-		dir_cluster = next_cluster(dir_cluster);
-	} while(dir_cluster < FAT_ERROR);
-	if(dir_cluster < FAT_ERROR)
-		return 0;
-	return -1;
+	auto found = find(filename, FAT_FLAGS::ARCHIVE, buf);
+	if(found >= FAT_ERROR) return -1;
+	return 0;
 }
 
 uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags, struct stat* buf, int* nentry, int nfree) {
@@ -578,24 +550,20 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			lfn_order += 13;
 		} else if(attr != FAT_FLAGS::NONE) {
 			nfree = free;
-			uint16_t low_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 26);
-			uint16_t high_16 = *reinterpret_cast<uint16_t*>(ptr_to_i + 20);
-			uint32_t cluster = (high_16 << 16) | low_16;
-
 			char sfn_name[12] = {0};
 			memcpy(sfn_name, ptr_to_i, 11);
 			sfn_name[11] = 0;
-			log(INFO, "%s %s %p", sfn_name, lfn_buffer, cluster);
+			log(INFO, "%s %s", sfn_name, lfn_buffer);
 			// If we match return
 			if((static_cast<uint8_t>(attr) & static_cast<uint8_t>(flags)) && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
 				log(INFO, "looks like we have a match");
 				if(buf) {
-					direntrystat(ptr_to_i, buf, cluster);
+					direntrystat(ptr_to_i, buf);
 				}
 				if(nentry) {
 					*nentry = i;
 				}
-				return cluster;
+				return get_cluster_from_direntry(ptr_to_i);
 			}
 			memset(lfn_buffer, 0, sizeof(lfn_buffer));
 		} else {
@@ -611,7 +579,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 	return -1;
 }
 
-void FAT32::direntrystat(uint8_t* direntry, struct stat *buf, uint32_t cluster) {
+void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
 	uint16_t creattime = *reinterpret_cast<uint16_t*>(direntry + 14);
 	// Format: 0000 0|000 000|0 0000
 	date creatd;
@@ -650,8 +618,16 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf, uint32_t cluster) 
 	accdt.year = ((accdate & 0xFE00) >> 9) + 1980;
 	buf->st_atime = TimeManager::date_to_timestamp(accdt);
 
-	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + 28);
-	buf->st_ino = cluster;
+	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + OFF_ENTRY_SIZE);
+
+	buf->st_ino = get_cluster_from_direntry(direntry);
+}
+
+uint32_t FAT32::get_cluster_from_direntry(uint8_t* direntry) {
+	uint16_t low_16 = *reinterpret_cast<uint16_t*>(direntry + 26);
+	uint16_t high_16 = *reinterpret_cast<uint16_t*>(direntry + 20);
+	uint32_t cluster = (high_16 << 16) | low_16;
+	return cluster;
 }
 
 uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster) {
@@ -901,4 +877,55 @@ uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS 
 		ptr[OFF_ENTRY_ATTR] = static_cast<uint8_t>(flags);
 	}
 	return checksum;
+}
+
+uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry) {
+	// Find whether there are lfn entries
+	bool found_first = false;
+	int i;
+	for(i = nentry - 1; i >= 0; i--) {
+		uint8_t* ptr = buffer + 32*i;
+		if(ptr[OFF_ENTRY_ATTR] == static_cast<uint8_t>(FAT_FLAGS::LFN) && (ptr[0] & 0x40)) {
+			found_first = true;
+			break;
+		}
+	}
+	if(found_first) {
+		for(int j = i; j < nentry; j++) {
+			// Delete LFN entry
+			uint8_t* ptr = buffer + 32*j;
+			memset(ptr, 0, 32);
+		}
+	}
+	uint8_t* ptr = buffer + 32*nentry;
+	uint32_t cluster =  get_cluster_from_direntry(ptr);
+	// Delete the entry
+	memset(ptr, 0, 32);
+	return cluster;
+}
+
+uint32_t FAT32::find(const char* path, FAT_FLAGS flags, struct stat* statbuf, int* nentry, int nfree, uint32_t* dir_cluster) {
+	log(INFO, "Path: %s", path);
+	const char* basename = rfind(path, '/');
+	if(!basename) return -1;
+	auto dir = get_parent_dir_cluster(path, basename);
+	basename++;
+	if(dir >= FAT_ERROR) return false;
+
+	Buffer<uint8_t> buffer(cluster_size);
+	uint32_t cluster;
+	do {
+		log(INFO, "Loading cluster %d", dir);
+		load_cluster(dir, buffer);
+		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, statbuf, nentry, nfree)) != -1) {
+			break;
+		}
+		dir = next_cluster(dir);
+	} while(dir < FAT_ERROR);
+	if(dir_cluster) *dir_cluster = dir;
+	return dir >= FAT_ERROR ? dir : cluster;
+}
+
+bool FAT32::remove(const char* path) {
+	
 }
