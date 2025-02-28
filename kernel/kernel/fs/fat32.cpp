@@ -14,6 +14,7 @@
 
 #define FAT_ERROR 0x0FFFFFF7
 #define FAT_FINISH 0x0FFFFFF8
+#define FAT_FREE 0
 
 /// FAT Entry offsets
 #define OFF_ENTRY_NAME 0
@@ -35,12 +36,8 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 	sector_size(hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size()), 
 	fat_boot_buffer(sector_size) {
 	this->partid = partid;
-	auto lba = partmanager.get_lba(partid, 0);
-
-	volatile hal::DiskJob job{fat_boot_buffer, lba, 1, 0};
-	hal::DiskManager::get().sleep_job(0, &job);
 	fat_boot = reinterpret_cast<fat_BS_t*>(static_cast<uint8_t*>(fat_boot_buffer));
-	if(job.state == hal::DiskJob::FINISHED) {
+	if(disk_op(fat_boot_buffer, 0, 1, false)) {
 		fat_extBS_32_t *fat_boot_ext_32 = reinterpret_cast<fat_extBS_32_t*>(&fat_boot->extended_section);
 		total_sectors = (fat_boot->total_sectors_16 == 0)? fat_boot->total_sectors_32 : fat_boot->total_sectors_16;
 		fat_size = (fat_boot->table_size_16 == 0)? fat_boot_ext_32->table_size_32 : fat_boot->table_size_16;
@@ -57,12 +54,19 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
 		log(INFO, "First data sector: %d", first_data_sector);
 	} else {
-		log(ERROR, "Could not load FAT from lba %d", lba);
+		log(ERROR, "Could not load FAT from partition %d", partid);
 		return;
 	}
 }
 
 FAT32::~FAT32() {
+}
+
+bool FAT32::disk_op(uint8_t* buffer, uint64_t sector, uint32_t sector_count, bool write) {
+	auto lba = partmanager.get_lba(partid, sector);
+	volatile hal::DiskJob job{buffer, lba, sector_count, write};
+	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+	return job.state == hal::DiskJob::FINISHED;
 }
 
 uint32_t FAT32::next_cluster(uint32_t active_cluster) {
@@ -72,10 +76,7 @@ uint32_t FAT32::next_cluster(uint32_t active_cluster) {
 
 	Buffer<uint8_t> fat_buffer(sector_size);
 	
-	auto lba = partmanager.get_lba(partid, fat_sector);
-	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::FINISHED) {
+	if(disk_op(fat_buffer, fat_sector, 1, false)) {
 		uint32_t table_value = *(uint32_t*)&fat_buffer[ent_offset];
 		table_value &= 0x0FFFFFFF;
 		if(table_value >= FAT_FINISH) {
@@ -97,11 +98,12 @@ uint32_t FAT32::get_sector_of_cluster(uint32_t cluster) {
 
 bool FAT32::load_cluster(uint32_t cluster, uint8_t* buffer) {
 	auto sector = get_sector_of_cluster(cluster);
-	auto lba = partmanager.get_lba(partid, sector);
-	volatile hal::DiskJob job{buffer, lba, fat_boot->sectors_per_cluster, false};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
+	return disk_op(buffer, sector, cluster_size / sector_size, false);
+}
 
-	return job.state == hal::DiskJob::FINISHED;
+bool FAT32::save_cluster(uint32_t cluster, uint8_t* buffer) {
+	auto sector = get_sector_of_cluster(cluster);
+	return disk_op(buffer, sector, cluster_size / sector_size, true);
 }
 
 uint32_t FAT32::search_free_cluster(uint32_t search_from) {
@@ -119,52 +121,42 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 	for(size_t i = fat_sector; i < max_fat_sector; i++) {
 		uint32_t base_cluster_entry_for_fat = (i - first_fat_sector) * (sector_size/4);
 		log(INFO, "Base cluster: %p", base_cluster_entry_for_fat);
-		auto lba = partmanager.get_lba(partid, i);
-		volatile hal::DiskJob job{fat_buffer, lba, 1, false};
-		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-		if(job.state == hal::DiskJob::ERROR) { delete[] fat_buffer; return -1; }
+
+		if(!disk_op(fat_buffer, i, 1, false)) return -1;
+
 		for(size_t j = (ent_offset/4); j < (sector_size / 4); j++) {
 			const uint32_t* entry = reinterpret_cast<uint32_t*>(fat_buffer + 4*j);
 			const auto cluster = base_cluster_entry_for_fat + j;
 			if(cluster == search_from) continue;
 			if(*entry == 0) {
 				free_cluster = cluster;
-				goto finish;
+				log(INFO, "Found free cluster: %d", free_cluster);
+				return free_cluster;
 			}
 		}
 		ent_offset = 0;
 	}
-	finish:
-	log(INFO, "Found free cluster: %d", free_cluster);
-
-	return free_cluster;
+	return -1;
 }
 
 bool FAT32::update_fsinfo(int diffclusters) {
-	auto lba = partmanager.get_lba(partid, fsinfo_sector);
 	Buffer<uint8_t> buffer(sector_size);
-	volatile hal::DiskJob job{buffer, lba, 1, false};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::ERROR) { return false; }
-
+	// Load FSInfo sector
+	if(!disk_op(buffer, fsinfo_sector, 1, false)) return false;
+	// Update free sectors count
 	uint32_t* sectorscount = reinterpret_cast<uint32_t*>(buffer + 0x1e8);
 	*sectorscount += diffclusters;
-
-	job.write = true;
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::ERROR) { return false;}
-
-	return true;
+	// Save FSInfo
+	return disk_op(buffer, fsinfo_sector, 1, true);
 }
 
 uint32_t FAT32::get_lookup_cluster(uint8_t* buffer) {
-	auto lba = partmanager.get_lba(partid, fsinfo_sector);
-	
-	volatile hal::DiskJob job{buffer, lba, 1, false};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::ERROR) { return false;}
+	// Load FSInfo sector
+	if(!disk_op(buffer, fsinfo_sector, 1, false)) return false;
+	// If look_from_fsinfo is 0xFFFFFFFF we need to comput it manually (look_from = root cluster)
+	// Else we can try to search from that cluster in particular
 	uint32_t* look_from_fsinfo = reinterpret_cast<uint32_t*>(buffer + 0x1EC);
-	uint32_t look_from = 2;
+	uint32_t look_from = root_cluster;
 	if(*look_from_fsinfo != 0xFFFFFFFF && *look_from_fsinfo < (n_data_sectors / fat_boot->sectors_per_cluster)) {
 		look_from = *look_from_fsinfo;
 	}
@@ -172,20 +164,17 @@ uint32_t FAT32::get_lookup_cluster(uint8_t* buffer) {
 }
 
 bool FAT32::save_lookup_cluster(uint32_t cluster, uint8_t* buffer) {
-	auto lba = partmanager.get_lba(partid, fsinfo_sector);
 	uint32_t* look_from_fsinfo = reinterpret_cast<uint32_t*>(buffer + 0x1EC);
 	*look_from_fsinfo = cluster;
-	volatile hal::DiskJob job{buffer, lba, 1, true};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::ERROR) {return false;}
-	return true;
+	// Save FSInfo with lookup cluster updated
+	return disk_op(buffer, fsinfo_sector, 1, true);
 }
 
 bool FAT32::alloc_clusters(uint32_t prevcluster, uint32_t nclusters) {
-	// First thing to do: look at FSInfo so we know which cluster we need to start
-	// searching from
+	// Allocate needed clusters
 	Vector<uint32_t> clustervec;
 	if(alloc_clusters(nclusters, clustervec)) {
+		// Set the first allocated cluster of the chain to the previous cluster
 		return set_next_cluster(prevcluster, clustervec[0]);
 	}
 	return false;
@@ -215,15 +204,6 @@ bool FAT32::alloc_clusters(uint32_t nclusters, Vector<uint32_t>& vec) {
 	save_lookup_cluster(next_free, buffer);
 
 	return true;
-}
-
-bool FAT32::save_cluster(uint32_t cluster, uint8_t* buffer) {
-	auto sector = get_sector_of_cluster(cluster);
-	auto lba = partmanager.get_lba(partid, sector);
-	volatile hal::DiskJob job{buffer, lba, fat_boot->sectors_per_cluster, true};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-
-	return job.state == hal::DiskJob::FINISHED;
 }
 
 uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
@@ -257,30 +237,13 @@ uint32_t FAT32::first_cluster_for_directory(const char* dir_path) {
 }
 
 uint32_t FAT32::cluster_for_filename(const char* filename, unsigned offset) {
-	log(INFO, "Filename: %s", filename);
-	const char* basename = rfind(filename, '/');
-	if(!basename) return -1;
-	uint32_t dir_cluster = get_parent_dir_cluster(filename, basename);
-	basename++;
-	if(dir_cluster >= FAT_ERROR) return dir_cluster;
+	uint32_t cluster = find(filename, FAT_FLAGS::ARCHIVE);
+	uint32_t cluster_offset = offset/cluster_size;
+	for(size_t i = 0; i < cluster_offset; i++) {
+		cluster = next_cluster(cluster);
+	}
 
-	Buffer<uint8_t> buffer(cluster_size);
-	do {
-		log(INFO, "Loading cluster %d", dir_cluster);
-		load_cluster(dir_cluster, buffer);
-		uint32_t cluster;
-		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, nullptr)) != -1) {
-			uint32_t cluster_offset = offset/cluster_size;
-			for(size_t i = 0; i <= cluster_offset; i++) {
-				dir_cluster = cluster;
-				if(i < cluster_offset)
-					cluster = next_cluster(cluster);
-			}
-			break;
-		}
-		dir_cluster = next_cluster(dir_cluster);
-	} while(dir_cluster < FAT_ERROR);
-	return dir_cluster;
+	return cluster;
 }
 
 bool FAT32::filecmp(const char* basename, const char* entrydata, bool lfn) {
@@ -343,23 +306,14 @@ bool FAT32::set_next_cluster(uint32_t cluster, uint32_t next_cluster) {
 	unsigned int ent_offset = fat_offset % sector_size;
 
 	Buffer<uint8_t> fat_buffer(sector_size);
-	
-	auto lba = partmanager.get_lba(partid, fat_sector);
-	volatile hal::DiskJob job{fat_buffer, lba, 1, false};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	if(job.state == hal::DiskJob::FINISHED) {
+
+	if(disk_op(fat_buffer, fat_sector, 1, false)) {
 		uint32_t* table_value = (uint32_t*)&fat_buffer[ent_offset];
-
 		*table_value = (next_cluster & 0x0FFFFFFF) | (*table_value & 0xF0000000);
-
-		volatile hal::DiskJob writejob{fat_buffer, lba, 1, true};
-		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &writejob);
-		if(job.state == hal::DiskJob::ERROR){ delete[] fat_buffer; return false;};
-
+		// Update first fat table
+		if(!disk_op(fat_buffer, fat_sector, 1, true)) return false;
 		// Update second fat table
-		writejob.lba = lba + fat_size;
-		hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &writejob);
-		return writejob.state == hal::DiskJob::FINISHED;
+		return disk_op(fat_buffer, fat_sector + fat_size, 1, true);
 	}
 	return false;
 }
@@ -410,27 +364,21 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 	if(new_size_in_clusters == 0) {
 		if(current_size_in_clusters == 0) return 0;
 		Vector<uint32_t> clusters;
-		do {
-			clusters.push_back(filecluster);
-			filecluster = next_cluster(filecluster);
-		} while(filecluster < FAT_ERROR);
+		get_all_clusters_from(filecluster, clusters);
 		// Mark each and every cluster of the file as empty
 		for(size_t i = 0; i < clusters.size(); i++) {
-			set_next_cluster(clusters[i], 0);
+			set_next_cluster(clusters[i], FAT_FREE);
 		}
 		zerosize = true;
 		if(!update_fsinfo(clusters.size())) return 0;
 	} else if(current_size_in_clusters > new_size_in_clusters) {
 		log(INFO, "Current size in clusters (%d) less than new size in clusters (%d)", current_size_in_clusters, new_size_in_clusters);
 		Vector<uint32_t> clusters;
-		do {
-			clusters.push_back(filecluster);
-			filecluster = next_cluster(filecluster);
-		} while(filecluster < FAT_ERROR);
+		get_all_clusters_from(filecluster, clusters);
 		set_next_cluster(clusters[new_size_in_clusters - 1], FAT_FINISH);
 		for(size_t i = current_size_in_clusters - new_size_in_clusters; i < clusters.size(); i++) {
 			// Mark as free
-			set_next_cluster(clusters[i], 0);
+			set_next_cluster(clusters[i], FAT_FREE);
 		}
 		log(INFO, "Size change from %d to %d sectors", current_size_in_clusters, new_size_in_clusters);
 		if(!update_fsinfo(current_size_in_clusters - new_size_in_clusters)) return 0;
@@ -452,11 +400,7 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 				if(!alloc_clusters(filecluster, new_size_in_clusters -1)) return 0;
 			}
 		} else {
-			auto last_filecluster = filecluster;
-			do {
-				last_filecluster = filecluster;
-				filecluster = next_cluster(filecluster);
-			} while(filecluster < FAT_ERROR);
+			auto last_filecluster = last_cluster_in_chain(filecluster);
 			if(!alloc_clusters(last_filecluster, new_size_in_clusters - current_size_in_clusters)) return 0;
 		}
 		if(!update_fsinfo(current_size_in_clusters - new_size_in_clusters)) return 0;
@@ -475,12 +419,28 @@ off_t FAT32::truncate(const char* filename, unsigned nbytes) {
 
 bool FAT32::file_setproperty(const char* filename, const struct stat* properties) {
 	int nentry = -1;
-	uint32_t* dir_cluster;
-	auto found = find(filename, FAT_FLAGS::ARCHIVE, nullptr, &nentry, 0, dir_cluster);
+	uint32_t dir_cluster;
+	auto found = find(filename, FAT_FLAGS::ARCHIVE, nullptr, &nentry, 0, &dir_cluster);
 	if(found >= FAT_ERROR) {
 		return false;
 	}
-	return setstat(*dir_cluster, nentry, properties);
+	return setstat(dir_cluster, nentry, properties);
+}
+
+void FAT32::get_all_clusters_from(uint32_t cluster, Vector<uint32_t> &clusters) {
+	do {
+		clusters.push_back(cluster);
+		cluster = next_cluster(cluster);
+	} while(cluster < FAT_ERROR);
+}
+
+uint32_t FAT32::last_cluster_in_chain(uint32_t cluster) {
+	uint32_t last_cluster = -1;
+	do {
+		last_cluster = cluster;
+		cluster = next_cluster(cluster);
+	} while(cluster < FAT_ERROR);
+	return last_cluster;
 }
 
 uint16_t date2fatdate(const date &dt) {
@@ -654,23 +614,13 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 		}
 		
 		int nentry = -1;
-		uint32_t last_cluster;
-		do {
-			last_cluster = dir_cluster;
-			load_cluster(dir_cluster, buffer);
-			if(match_cluster(buffer, "", FAT_FLAGS::NONE, nullptr, &nentry, nreqentries) != -1)
-				break;
-			dir_cluster = next_cluster(dir_cluster);
-		} while(dir_cluster < FAT_ERROR);
+		uint32_t last_cluster = find(buffer, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, nreqentries, &dir_cluster);
+		if(last_cluster >= FAT_ERROR) return false;
 
 		log(INFO, "Reported nentry: %d", nentry);
 		
 		if(nentry == -1) { /// No free space in the directory. We need to allocate more clusters
-			last_cluster = first_dir_cluster;
-			do { // Advance remaining clusters until last
-				last_cluster = dir_cluster;
-				dir_cluster = next_cluster(dir_cluster);
-			} while(dir_cluster < FAT_ERROR);
+			last_cluster = last_cluster_in_chain(first_dir_cluster);
 			if(!alloc_clusters(last_cluster, 1)) return -1; /// Could not allocate more clusters
 			last_cluster = next_cluster(last_cluster);
 			load_cluster(last_cluster, buffer);
@@ -731,7 +681,7 @@ bool FAT32::mkdir(const char* directory) {
 		if(entry == -1) return false;
 		uint8_t* entryptr = buf + 32*entry;
 		Vector<uint32_t> clustervec;
-		// Create a new directory and set the cluster to it
+		// Create a new cluster that will hold the newly created directory data
 		if(alloc_clusters(1, clustervec)) {
 			struct stat properties {
 				0,
@@ -904,28 +854,60 @@ uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry) {
 	return cluster;
 }
 
-uint32_t FAT32::find(const char* path, FAT_FLAGS flags, struct stat* statbuf, int* nentry, int nfree, uint32_t* dir_cluster) {
-	log(INFO, "Path: %s", path);
-	const char* basename = rfind(path, '/');
+uint32_t FAT32::find(uint8_t* buffer, const char* path, FAT_FLAGS flags, struct stat* statbuf, int* nentry, int nfree, uint32_t* dir_cluster, uint32_t* prev_dir_cluster) {
+	const char* basename = path ? rfind(path, '/') : "";
 	if(!basename) return -1;
-	auto dir = get_parent_dir_cluster(path, basename);
-	basename++;
+	uint32_t dir = path ? get_parent_dir_cluster(path, basename) : *dir_cluster;
+	if(path) basename++;
 	if(dir >= FAT_ERROR) return false;
 
-	Buffer<uint8_t> buffer(cluster_size);
 	uint32_t cluster;
+	uint32_t prev_cluster = -1;
 	do {
 		log(INFO, "Loading cluster %d", dir);
 		load_cluster(dir, buffer);
 		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, statbuf, nentry, nfree)) != -1) {
 			break;
 		}
+		prev_cluster = dir;
 		dir = next_cluster(dir);
 	} while(dir < FAT_ERROR);
 	if(dir_cluster) *dir_cluster = dir;
+	if(prev_dir_cluster) *prev_dir_cluster = prev_cluster;
 	return dir >= FAT_ERROR ? dir : cluster;
 }
 
+uint32_t FAT32::find(const char* path, FAT_FLAGS flags, struct stat* statbuf, int* nentry, int nfree, uint32_t* dir_cluster, uint32_t* prev_dir_cluster) {
+	return find(Buffer<uint8_t>(cluster_size), path, flags, statbuf, nentry, nfree, dir_cluster, prev_dir_cluster);
+}
+
 bool FAT32::remove(const char* path) {
-	
+	return remove_generic(path, FAT_FLAGS::ARCHIVE);
+}
+
+bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
+	Buffer<uint8_t> buf(sector_size);
+	int nentry = -1;
+	uint32_t dir_cluster;
+	// Search for the entry
+	auto cluster = find(buf, path, flags, nullptr, &nentry, 0, &dir_cluster);
+	if(cluster >= FAT_ERROR || nentry == -1) return false;
+	// Remove the entry
+	if(remove_entry(buf, nentry) >= FAT_ERROR) return false;
+
+	// Check if we're at the last cluster
+	if(next_cluster(dir_cluster) >= FAT_ERROR) {
+		// Check if there are no free entries left
+		nentry = -1;
+		uint32_t prev_dir_cluster;
+		cluster = find(buf, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, cluster_size / 32, &dir_cluster, &prev_dir_cluster);
+		if(nentry != -1) { // We just deleted the last entry in the directory and the directory is free.
+			// Previous directory doesn't exist
+			if(prev_dir_cluster == -1) return false;
+			// Delete directory cluster
+			set_next_cluster(prev_dir_cluster, FAT_FINISH);
+			set_next_cluster(dir_cluster, FAT_FREE);
+		}
+	}
+	return true;
 }

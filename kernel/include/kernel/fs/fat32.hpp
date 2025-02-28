@@ -56,9 +56,30 @@ class FAT32 {
 		void set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last, uint8_t checksum);
 		uint32_t create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster = nullptr);
 
-		uint32_t find(const char* path, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr, int nfree = 0, uint32_t* dir_cluster = nullptr);
+		uint32_t find(const char* path, 
+			FAT_FLAGS flags, 
+			struct stat* statbuf = nullptr, 
+			int* nentry = nullptr, 
+			int nfree = 0, 
+			uint32_t* dir_cluster = nullptr, 
+			uint32_t* prev_dir_cluster = nullptr);
+		uint32_t find(uint8_t* buffer, 
+			const char* path, 
+			FAT_FLAGS flags, 
+			struct stat* statbuf = nullptr, 
+			int* nentry = nullptr, 
+			int nfree = 0, 
+			uint32_t* dir_cluster = nullptr,
+			uint32_t* prev_dir_cluster = nullptr);
 
 		uint32_t remove_entry(uint8_t* buffer, int nentry);
+
+		bool disk_op(uint8_t* buffer, uint64_t sector, uint32_t sector_count, bool write);
+
+		void get_all_clusters_from(uint32_t cluster, Vector<uint32_t> &clusters);
+		uint32_t last_cluster_in_chain(uint32_t cluster);
+
+		bool remove_generic(const char* path, FAT_FLAGS flags);
 
 		size_t partid;
 		char partname[12];

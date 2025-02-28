@@ -137,6 +137,12 @@ void gen(void*) {
 			if(fat.mkdir("/data/carpetahola")) {
 				log(INFO, "Created /data/carpetahola");
 			}
+			if(fat.touch("/data/carpetahola/hola.txt")) {
+				log(INFO, "Created /data/carpetahola/hola.txt");
+			}
+			if(fat.remove("/data/carpetahola/hola.txt")) {
+				log(INFO, "Deleted /data/carpetahola/hola.txt sucessfully");
+			}
  		}
 	}
 }
