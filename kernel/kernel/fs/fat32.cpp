@@ -309,7 +309,9 @@ bool FAT32::set_next_cluster(uint32_t cluster, uint32_t next_cluster) {
 
 	if(disk_op(fat_buffer, fat_sector, 1, false)) {
 		uint32_t* table_value = (uint32_t*)&fat_buffer[ent_offset];
-		*table_value = (next_cluster & 0x0FFFFFFF) | (*table_value & 0xF0000000);
+		auto prev_table_value = *table_value;
+		// MS spec says to leave the 4 upper bits as they were
+		*table_value = (next_cluster & 0x0FFFFFFF) | (prev_table_value & 0xF0000000);
 		// Update first fat table
 		if(!disk_op(fat_buffer, fat_sector, 1, true)) return false;
 		// Update second fat table
@@ -670,9 +672,9 @@ bool FAT32::touch(const char* filename) {
 }
 
 bool FAT32::mkdir(const char* directory) {
-	struct stat buf;
+	struct stat stbuf;
 	// Check whether file already exists
-	int ret = stat(directory, &buf);
+	int ret = stat(directory, &stbuf);
 
 	if(ret == -1) {
 		Buffer<uint8_t> buf(cluster_size);
@@ -683,6 +685,7 @@ bool FAT32::mkdir(const char* directory) {
 		Vector<uint32_t> clustervec;
 		// Create a new cluster that will hold the newly created directory data
 		if(alloc_clusters(1, clustervec)) {
+			log(INFO, "Returned: %p", clustervec[0]);
 			struct stat properties {
 				0,
 				TimeManager::get().get_time(),
@@ -695,15 +698,21 @@ bool FAT32::mkdir(const char* directory) {
 			Buffer<uint8_t> clusterbuffer(cluster_size);
 			memset(clusterbuffer, 0, clusterbuffer.get_size());
 
-			// We need an entry for .
-			uint8_t* ptr = clusterbuffer;			
-			// This entry
-			set_sfn_entry_data(ptr, ".", FAT_FLAGS::DIRECTORY, &properties);
-			ptr = clusterbuffer + 32;
-			properties.st_ino = parentdir;
-			set_sfn_entry_data(ptr, "..", FAT_FLAGS::DIRECTORY, &properties);
+			// . entry
+			set_sfn_entry_data(clusterbuffer, ".", FAT_FLAGS::DIRECTORY, &properties);
+			struct stat second_properties {
+				0,
+				TimeManager::get().get_time(),
+				TimeManager::get().get_time(),
+				TimeManager::get().get_time(),
+				parentdir
+			};
+			// .. entry
+			set_sfn_entry_data(clusterbuffer + 32, "..", FAT_FLAGS::DIRECTORY, &properties);
 
 			update_fsinfo(-1);
+
+			set_next_cluster(clustervec[0], FAT_FINISH);
 
 			// The cluster should have necessary data
 			return save_cluster(clustervec[0], clusterbuffer);
