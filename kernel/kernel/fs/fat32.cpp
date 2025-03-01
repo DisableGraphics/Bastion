@@ -894,10 +894,11 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 	uint32_t dir_cluster;
 	// Search for the entry
 	auto cluster = find(buf, path, flags, nullptr, &nentry, 0, &dir_cluster);
+	log(INFO, "Cluster returned: %d, directory cluster: %d", cluster, dir_cluster);
 	if(cluster >= FAT_ERROR || nentry == -1) return false;
 	// Remove the entry
 	if(remove_entry(buf, nentry) >= FAT_ERROR) return false;
-
+	if(!save_cluster(dir_cluster, buf)) return false;
 	// Check if we're at the last cluster
 	if(next_cluster(dir_cluster) >= FAT_ERROR) {
 		// Check if there are no free entries left
