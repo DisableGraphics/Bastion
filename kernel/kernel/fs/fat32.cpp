@@ -652,7 +652,7 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 		log(INFO, "Created file %s", filename);
 		if(dir_cluster >= FAT_ERROR) return -1;
 		if(parent_dircluster) {
-			*parent_dircluster = last_cluster;
+			*parent_dircluster = dir_cluster;
 		}
 		return nentry + nreqentries - 1;
 	}
@@ -700,13 +700,7 @@ bool FAT32::mkdir(const char* directory) {
 
 			// . entry
 			set_sfn_entry_data(clusterbuffer, ".", FAT_FLAGS::DIRECTORY, &properties);
-			struct stat second_properties {
-				0,
-				TimeManager::get().get_time(),
-				TimeManager::get().get_time(),
-				TimeManager::get().get_time(),
-				parentdir
-			};
+			properties.st_ino = parentdir;
 			// .. entry
 			set_sfn_entry_data(clusterbuffer + 32, "..", FAT_FLAGS::DIRECTORY, &properties);
 
