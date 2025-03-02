@@ -1,5 +1,7 @@
 #include <kernel/time/time.hpp>
 
+#define UNIX_EPOCH 1970
+
 TimeManager& TimeManager::get() {
 	static TimeManager instance;
 	return instance;
@@ -19,7 +21,7 @@ bool TimeManager::is_leap_year(uint32_t year) {
 
 uint32_t TimeManager::days_until_year(uint32_t year) {
     uint32_t days = 0;
-    for (uint32_t y = 1970; y < year; ++y) {
+    for (uint32_t y = UNIX_EPOCH; y < year; ++y) {
         days += 365 + is_leap_year(y);
     }
     return days;
