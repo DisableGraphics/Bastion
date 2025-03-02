@@ -897,7 +897,14 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 	log(INFO, "Cluster returned: %d, directory cluster: %d", cluster, dir_cluster);
 	if(cluster >= FAT_ERROR || nentry == -1) return false;
 	// Remove the entry
-	if(remove_entry(buf, nentry) >= FAT_ERROR) return false;
+	auto filecluster = remove_entry(buf, nentry);
+	if(filecluster >= FAT_ERROR) return false;
+	Vector<uint32_t> clusters;
+	get_all_clusters_from(filecluster, clusters);
+	for(size_t i = 0; i < clusters.size(); i++) {
+		set_next_cluster(clusters[i], FAT_FREE);
+	}
+	update_fsinfo(clusters.size());
 	if(!save_cluster(dir_cluster, buf)) return false;
 	// Check if we're at the last cluster
 	if(next_cluster(dir_cluster) >= FAT_ERROR) {

@@ -140,6 +140,7 @@ void gen(void*) {
 			if(fat.touch("/data/carpetahola/hola.txt")) {
 				log(INFO, "Created /data/carpetahola/hola.txt");
 			}
+			fat.write("/data/carpetahola/hola.txt", 0, 12, "Hello worllllldddd");
 			if(fat.remove("/data/carpetahola/hola.txt")) {
 				log(INFO, "Deleted /data/carpetahola/hola.txt sucessfully");
 			}
