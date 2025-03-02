@@ -50,6 +50,8 @@ class FAT32 {
 		uint32_t get_lookup_cluster(uint8_t* buffer);
 		bool save_lookup_cluster(uint32_t cluster, uint8_t* buffer);
 
+		bool is_dir_empty(const char* directory);
+
 		uint32_t get_parent_dir_cluster(const char* filename, const char* basename);
 		uint8_t checksum_sfn(const char* basename);
 		uint8_t set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties);
