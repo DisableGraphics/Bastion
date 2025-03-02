@@ -112,7 +112,7 @@ uint32_t FAT32::search_free_cluster(uint32_t search_from) {
 	unsigned int fat_sector = first_fat_sector + (fat_offset / sector_size);
 	unsigned int ent_offset = fat_offset % sector_size;
 
-	uint32_t max_fat_sector = first_fat_sector + fat_size;
+	const uint32_t max_fat_sector = first_fat_sector + fat_size;
 	Buffer<uint8_t> fat_buffer(sector_size);
 	uint32_t free_cluster = -1;
 
