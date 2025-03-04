@@ -592,7 +592,7 @@ uint32_t FAT32::get_cluster_from_direntry(uint8_t* direntry) {
 	return cluster;
 }
 
-uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster) {
+uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster, uint32_t* first_parent_dircluster) {
 	const char* basenameptr = rfind(filename, '/');
 	if(!basenameptr) return -1;
 	const uint32_t first_dir_cluster = get_parent_dir_cluster(filename, basenameptr);
@@ -617,7 +617,7 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 		
 		int nentry = -1;
 		uint32_t last_cluster = find(buffer, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, nreqentries, &dir_cluster);
-		if(last_cluster >= FAT_ERROR) return false;
+		//if(last_cluster >= FAT_ERROR) return false;
 
 		log(INFO, "Reported nentry: %d", nentry);
 		
@@ -626,7 +626,9 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 			if(!alloc_clusters(last_cluster, 1)) return -1; /// Could not allocate more clusters
 			last_cluster = next_cluster(last_cluster);
 			load_cluster(last_cluster, buffer);
+			dir_cluster = last_cluster;
 			memset(buffer, 0, cluster_size);
+			update_fsinfo(-1);
 			nentry = 0;
 		}
 		log(INFO, "Max offset: %d", 32*(nentry + nreqentries - 1));
@@ -654,6 +656,7 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 		if(parent_dircluster) {
 			*parent_dircluster = dir_cluster;
 		}
+		if(first_parent_dircluster) *first_parent_dircluster = first_dir_cluster;
 		return nentry + nreqentries - 1;
 	}
 	return -1;
@@ -679,7 +682,8 @@ bool FAT32::mkdir(const char* directory) {
 	if(ret == -1) {
 		Buffer<uint8_t> buf(cluster_size);
 		uint32_t parentdir;
-		uint32_t entry = create_entry(buf, directory, FAT_FLAGS::DIRECTORY, &parentdir);
+		uint32_t first_parentdir;
+		uint32_t entry = create_entry(buf, directory, FAT_FLAGS::DIRECTORY, &parentdir, &first_parentdir);
 		if(entry == -1) return false;
 		uint8_t* entryptr = buf + 32*entry;
 		Vector<uint32_t> clustervec;
@@ -700,7 +704,7 @@ bool FAT32::mkdir(const char* directory) {
 
 			// . entry
 			set_sfn_entry_data(clusterbuffer, ".", FAT_FLAGS::DIRECTORY, &properties);
-			properties.st_ino = parentdir;
+			properties.st_ino = first_parentdir;
 			// .. entry
 			set_sfn_entry_data(clusterbuffer + 32, "..", FAT_FLAGS::DIRECTORY, &properties);
 
@@ -925,7 +929,27 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 
 bool FAT32::is_dir_empty(const char* directory) {
 	uint32_t cluster = find(directory, FAT_FLAGS::DIRECTORY);
+	if(cluster >= FAT_ERROR) return false;
 	Buffer<uint8_t> buf(sector_size);
-	load_cluster(cluster, buf);
+	if(!load_cluster(cluster, buf)) return false;
 	
+	// Directory is empty if it has only one cluster and there are only
+	// two entries: . and ..
+	auto next = next_cluster(cluster);
+	if(next < FAT_ERROR) return false;
+	const int nentries_per_dir = cluster_size/32;
+	// Check if there are more entries available
+	for(int i = 2; i < nentries_per_dir; i++) {
+		uint8_t* entryptr = buf + 32*i;
+		if(entryptr[OFF_ENTRY_ATTR] != 0) return false;
+	}
+
+	return true;
+}
+
+bool FAT32::rmdir(const char* directory) {
+	if(is_dir_empty(directory)) {
+		return remove_generic(directory, FAT_FLAGS::DIRECTORY);
+	}
+	return false;
 }

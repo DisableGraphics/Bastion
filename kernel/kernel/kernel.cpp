@@ -144,6 +144,13 @@ void gen(void*) {
 			if(fat.remove("/data/carpetahola/hola.txt")) {
 				log(INFO, "Deleted /data/carpetahola/hola.txt sucessfully");
 			}
+
+			if(fat.mkdir("/data/carpetaadios")) {
+				log(INFO, "Created directory /data/carpetaadios");
+			}
+			if(fat.rmdir("/data/carpetaadios")) {
+				log(INFO, "Deleted directory /data/carpetaadios");
+			}
  		}
 	}
 }
