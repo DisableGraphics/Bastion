@@ -928,7 +928,7 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 }
 
 bool FAT32::is_dir_empty(const char* directory) {
-	uint32_t cluster = find(directory, FAT_FLAGS::DIRECTORY);
+	uint32_t cluster = first_cluster_for_directory(directory);
 	if(cluster >= FAT_ERROR) return false;
 	Buffer<uint8_t> buf(sector_size);
 	if(!load_cluster(cluster, buf)) return false;
