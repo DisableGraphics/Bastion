@@ -873,7 +873,7 @@ uint32_t FAT32::find(uint8_t* buffer, const char* path, FAT_FLAGS flags, struct 
 	do {
 		log(INFO, "Loading cluster %d", dir);
 		load_cluster(dir, buffer);
-		if((cluster = match_cluster(buffer, basename, FAT_FLAGS::ARCHIVE, statbuf, nentry, nfree)) != -1) {
+		if((cluster = match_cluster(buffer, basename, flags, statbuf, nentry, nfree)) != -1) {
 			break;
 		}
 		prev_cluster = dir;
