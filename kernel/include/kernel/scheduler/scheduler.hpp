@@ -101,4 +101,6 @@ class Scheduler {
 		bool init = false;
 		// Length of clock tick of the timer
 		int ms_clock_tick = 0;
+		// Schedule early (when preempting the idle task)
+		bool early_sched = false;
 };

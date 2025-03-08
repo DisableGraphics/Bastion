@@ -34,7 +34,6 @@ void Scheduler::append_task(Task* task) {
 
 void Scheduler::schedule() {
 	if(!init) return;
-	//log(INFO, "Finished quantum for task %p", (*current_task)->id);
 	size_t next = choose_task();
 	lock();
 
@@ -55,7 +54,8 @@ void Scheduler::sleep(unsigned millis) {
 
 void Scheduler::preemptive_scheduling() {
 	time_slice -= ms_clock_tick;
-	if(time_slice < 0) {
+	if(time_slice < 0 || early_sched) {
+		early_sched = false;
 		time_slice = TIME_QUANTUM_MS;
 		schedule();
 	}
@@ -118,10 +118,11 @@ void Scheduler::block(TaskState reason) {
 void Scheduler::unblock(Task* task) {
 	log(INFO, "Task %d has been unlocked", task->id);
 	task->status = TaskState::RUNNING;
+	log(INFO, "New state of task: %d", task->status);
 	// Preempt idle task if it's the only one running
 	if(current_task && (*current_task)->id == 0) {
 		log(INFO, "Preempting idle task");
-		schedule();
+		early_sched = true;
 	}
 }
 

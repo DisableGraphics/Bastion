@@ -72,6 +72,7 @@ bool hal::DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 }
 
 void on_finish_sleep_job(volatile void* args) {
+	log(INFO, "sem->release() called");
 	Semaphore* sem = const_cast<Semaphore*>(reinterpret_cast<volatile Semaphore*>(args));
 	sem->release();
 }
@@ -81,12 +82,14 @@ void hal::DiskManager::sleep_job(size_t diskid, volatile DiskJob* job) {
 		job->state = DiskJob::ERROR;
 		return;
 	}
-	Semaphore sem{1, 1};
+	Semaphore *sem = new Semaphore{1, 1};
 	job->on_finish = on_finish_sleep_job;
-	job->on_finish_args = &sem;
+	job->on_finish_args = sem;
 	// Do not block on error
 	job->on_error = job->on_finish;
 	job->on_error_args = job->on_finish_args;
 	enqueue_job(diskid, job);
-	sem.acquire();
+	log(INFO, "sem.acquire()");
+	sem->acquire();
+	delete sem;
 }
