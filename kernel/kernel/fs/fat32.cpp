@@ -895,9 +895,9 @@ bool FAT32::remove(const char* path) {
 bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 	Buffer<uint8_t> buf(sector_size);
 	int nentry = -1;
-	uint32_t dir_cluster;
+	uint32_t dir_cluster, prev_dir_cluster;
 	// Search for the entry
-	auto cluster = find(buf, path, flags, nullptr, &nentry, 0, &dir_cluster);
+	auto cluster = find(buf, path, flags, nullptr, &nentry, 0, &dir_cluster, &prev_dir_cluster);
 	log(INFO, "Cluster returned: %d, directory cluster: %d", cluster, dir_cluster);
 	if(cluster >= FAT_ERROR || nentry == -1) return false;
 	// Remove the entry
@@ -914,14 +914,14 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 	if(next_cluster(dir_cluster) >= FAT_ERROR) {
 		// Check if there are no free entries left
 		nentry = -1;
-		uint32_t prev_dir_cluster;
-		cluster = find(buf, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, cluster_size / 32, &dir_cluster, &prev_dir_cluster);
+		cluster = find(buf, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, cluster_size / 32, &dir_cluster);
 		if(nentry != -1) { // We just deleted the last entry in the directory and the directory is free.
 			// Previous directory doesn't exist
-			if(prev_dir_cluster == -1) return false;
+			if(prev_dir_cluster == -1) return true;
 			// Delete directory cluster
 			set_next_cluster(prev_dir_cluster, FAT_FINISH);
 			set_next_cluster(dir_cluster, FAT_FREE);
+			update_fsinfo(1);
 		}
 	}
 	return true;
