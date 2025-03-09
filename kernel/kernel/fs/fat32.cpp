@@ -836,7 +836,7 @@ uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS 
 	return checksum;
 }
 
-uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry) {
+uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry, FAT_FLAGS* flags) {
 	// Find whether there are lfn entries
 	bool found_first = false;
 	int i;
@@ -856,6 +856,7 @@ uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry) {
 	}
 	uint8_t* ptr = buffer + 32*nentry;
 	uint32_t cluster =  get_cluster_from_direntry(ptr);
+	if(flags) *flags = static_cast<FAT_FLAGS>(ptr[OFF_ENTRY_ATTR]);
 	// Delete the entry
 	memset(ptr, 0, 32);
 	return cluster;
