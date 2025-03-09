@@ -27,48 +27,10 @@ void PIT::stop() {
 }
 
 void PIT::start(uint32_t interval_ms) {
-	int freq = 1000 / interval_ms;
-	uint32_t final_freq, ebx, edx;
-
-	// Do some checking and determine the reload value
-	final_freq = 0x10000; // Slowest possible frequency (65536)
-
-	if (freq <= 18) {
-	} else if (freq >= 1193181) {
-		final_freq = 1; // Use the fastest possible frequency
-	} else {
-		// Calculate reload value
-		final_freq = 3579545;
-		edx = 0;
-		final_freq /= freq; // eax = 3579545 / frequency, edx = remainder
-		edx = 3579545 % freq;
-		if ((3579545 % freq) > (3579545 / 2)) {
-			final_freq++; // Round up if remainder > half
-		}
-	}
-
-	// Store reload value and calculate actual frequency
-	auto PIT_reload_value = final_freq;
-	ebx = final_freq;
-
-	final_freq = 3579545;
-	edx = 0;
-	final_freq /= ebx; // eax = 3579545 / reload_value
-	if ((3579545 % ebx) > (3579545 / 2)) {
-		final_freq++; // Round up if remainder > half
-	}
+	int PIT_reload_value = (1193182 * interval_ms) / 1000;
+	ms_per_tick = interval_ms;
 	
-	// Calculate the time in milliseconds between IRQs in 32.32 fixed point
-	ebx = PIT_reload_value;
-	final_freq = 0xDBB3A062; // 3000 * (2^42) / 3579545
-
-	uint64_t product = (uint64_t)final_freq * ebx;
-	final_freq = (product >> 10) & 0xFFFFFFFF; // Get the lower 32 bits after shifting
-	edx = product >> 42; // Get the higher 32 bits after shifting
-
-	ms_per_tick = edx; // Whole ms between IRQs
-	
-	// Program the PIT channel (abstracted in this C version)
+	// Program the PIT channel
 	IDT::get().disable_interrupts(); // Function to disable interrupts
 
 	outb(0x43, 0x34); // Set command to PIT control register
