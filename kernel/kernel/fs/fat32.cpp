@@ -849,7 +849,7 @@ uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry) {
 	}
 	if(found_first) {
 		for(int j = i; j < nentry; j++) {
-			// Delete LFN entry
+			// Delete LFN entries
 			uint8_t* ptr = buffer + 32*j;
 			memset(ptr, 0, 32);
 		}
