@@ -78,7 +78,7 @@ class FAT32 {
 			uint32_t* dir_cluster = nullptr,
 			uint32_t* prev_dir_cluster = nullptr);
 
-		uint32_t remove_entry(uint8_t* buffer, int nentry, FAT_FLAGS* flags = nullptr);
+		uint32_t remove_entry(uint8_t* buffer, int nentry, uint8_t* entry = nullptr);
 
 		bool disk_op(uint8_t* buffer, uint64_t sector, uint32_t sector_count, bool write);
 

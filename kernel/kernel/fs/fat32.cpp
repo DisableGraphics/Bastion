@@ -32,6 +32,8 @@
 #define OFF_ENTRY_LOW16 26
 #define OFF_ENTRY_SIZE 28
 
+#define ENTRY_SIZE 32
+
 FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partmanager), 
 	sector_size(hal::DiskManager::get().get_driver(partmanager.get_disk_id())->get_sector_size()), 
 	fat_boot_buffer(sector_size) {
@@ -464,7 +466,7 @@ uint16_t date2fattime(const date& dt) {
 bool FAT32::setstat(uint32_t dir, int nentry, const struct stat* properties) {
 	Buffer<uint8_t> buffer(cluster_size);
 	load_cluster(dir, buffer);
-	uint8_t* ptr = buffer + 32*nentry;
+	uint8_t* ptr = buffer + ENTRY_SIZE*nentry;
 	set_sfn_entry_data(ptr, nullptr, FAT_FLAGS::NONE, properties);
 	return save_cluster(dir, buffer);
 }
@@ -489,12 +491,12 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 	uint8_t lfn_order = 0;
 	char lfn_buffer[256] = {0};
 	bool has_lfn = false;
-	const size_t entries_per_cluster = cluster_size / 32;
+	const size_t entries_per_cluster = cluster_size / ENTRY_SIZE;
 	const int free = nfree;
 	for(size_t i = 0; i < entries_per_cluster; i++) {
 		char name[14];
 		memset(name, 0, sizeof(name));
-		uint8_t* ptr_to_i = buffer + (32*i);
+		uint8_t* ptr_to_i = buffer + (ENTRY_SIZE*i);
 		FAT_FLAGS attr = static_cast<FAT_FLAGS>(ptr_to_i[11]);
 		if(attr == FAT_FLAGS::LFN) {
 			nfree = free;
@@ -603,7 +605,7 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 		/// Check if there is going to be enough size.
 		char basename[256];
 		memset(basename, 0, sizeof(basename));
-		const size_t ndirentries = cluster_size / 32;
+		const size_t ndirentries = cluster_size / ENTRY_SIZE;
 		size_t basenamelen = strlen(basenameptr);
 		if(basenamelen > 255) return false;
 		strncpy(basename, basenameptr, basenamelen);
@@ -631,9 +633,9 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 			update_fsinfo(-1);
 			nentry = 0;
 		}
-		log(INFO, "Max offset: %d", 32*(nentry + nreqentries - 1));
+		log(INFO, "Max offset: %d", ENTRY_SIZE*(nentry + nreqentries - 1));
 		// SFN entry
-		uint8_t* ptr = buffer + 32*(nentry + nreqentries - 1);
+		uint8_t* ptr = buffer + ENTRY_SIZE*(nentry + nreqentries - 1);
 		struct stat properties {
 			0,
 			TimeManager::get().get_time(),
@@ -645,7 +647,7 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 		auto checksum = set_sfn_entry_data(ptr, basename, flags, &properties);
 		// Christ in a handbasket, IT'S BACKWARDS
 		for(size_t i = nentry, nentries = nreqentries - 1; i < nentry + nreqentries - 1; i++, nentries--) {
-			uint8_t* ptr = buffer + 32*i;
+			uint8_t* ptr = buffer + ENTRY_SIZE*i;
 			const int order = nentries;
 			const char* basenameptr = basename + ((order - 1) * 13);
 			set_lfn_entry_data(ptr, basenameptr, order, i == nentry, checksum);
@@ -685,7 +687,7 @@ bool FAT32::mkdir(const char* directory) {
 		uint32_t first_parentdir;
 		uint32_t entry = create_entry(buf, directory, FAT_FLAGS::DIRECTORY, &parentdir, &first_parentdir);
 		if(entry == -1) return false;
-		uint8_t* entryptr = buf + 32*entry;
+		uint8_t* entryptr = buf + ENTRY_SIZE*entry;
 		Vector<uint32_t> clustervec;
 		// Create a new cluster that will hold the newly created directory data
 		if(alloc_clusters(1, clustervec)) {
@@ -706,7 +708,7 @@ bool FAT32::mkdir(const char* directory) {
 			set_sfn_entry_data(clusterbuffer, ".", FAT_FLAGS::DIRECTORY, &properties);
 			properties.st_ino = first_parentdir;
 			// .. entry
-			set_sfn_entry_data(clusterbuffer + 32, "..", FAT_FLAGS::DIRECTORY, &properties);
+			set_sfn_entry_data(clusterbuffer + ENTRY_SIZE, "..", FAT_FLAGS::DIRECTORY, &properties);
 
 			update_fsinfo(-1);
 
@@ -836,12 +838,12 @@ uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS 
 	return checksum;
 }
 
-uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry, FAT_FLAGS* flags) {
+uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry, uint8_t* entry) {
 	// Find whether there are lfn entries
 	bool found_first = false;
 	int i;
 	for(i = nentry - 1; i >= 0; i--) {
-		uint8_t* ptr = buffer + 32*i;
+		uint8_t* ptr = buffer + ENTRY_SIZE*i;
 		if(ptr[OFF_ENTRY_ATTR] == static_cast<uint8_t>(FAT_FLAGS::LFN) && (ptr[0] & 0x40)) {
 			found_first = true;
 			break;
@@ -850,15 +852,15 @@ uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry, FAT_FLAGS* flags) {
 	if(found_first) {
 		for(int j = i; j < nentry; j++) {
 			// Delete LFN entries
-			uint8_t* ptr = buffer + 32*j;
-			memset(ptr, 0, 32);
+			uint8_t* ptr = buffer + ENTRY_SIZE*j;
+			memset(ptr, 0, ENTRY_SIZE);
 		}
 	}
-	uint8_t* ptr = buffer + 32*nentry;
+	uint8_t* ptr = buffer + ENTRY_SIZE*nentry;
 	uint32_t cluster =  get_cluster_from_direntry(ptr);
-	if(flags) *flags = static_cast<FAT_FLAGS>(ptr[OFF_ENTRY_ATTR]);
+	if(entry) memcpy(entry, ptr, ENTRY_SIZE);
 	// Delete the entry
-	memset(ptr, 0, 32);
+	memset(ptr, 0, ENTRY_SIZE);
 	return cluster;
 }
 
@@ -915,7 +917,7 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 	if(next_cluster(dir_cluster) >= FAT_ERROR) {
 		// Check if there are no free entries left
 		nentry = -1;
-		cluster = find(buf, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, cluster_size / 32, &dir_cluster);
+		cluster = find(buf, nullptr, FAT_FLAGS::NONE, nullptr, &nentry, cluster_size / ENTRY_SIZE, &dir_cluster);
 		if(nentry != -1) { // We just deleted the last entry in the directory and the directory is free.
 			// Previous directory doesn't exist
 			if(prev_dir_cluster == -1) return true;
@@ -938,10 +940,10 @@ bool FAT32::is_dir_empty(const char* directory) {
 	// two entries: . and ..
 	auto next = next_cluster(cluster);
 	if(next < FAT_ERROR) return false;
-	const int nentries_per_dir = cluster_size/32;
+	const int nentries_per_dir = cluster_size/ENTRY_SIZE;
 	// Check if there are more entries available
 	for(int i = 2; i < nentries_per_dir; i++) {
-		uint8_t* entryptr = buf + 32*i;
+		uint8_t* entryptr = buf + ENTRY_SIZE*i;
 		if(entryptr[OFF_ENTRY_ATTR] != 0) return false;
 	}
 
