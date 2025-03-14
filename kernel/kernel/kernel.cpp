@@ -151,6 +151,8 @@ void gen(void*) {
 			if(fat.rmdir("/data/carpetaadios")) {
 				log(INFO, "Deleted directory /data/carpetaadios");
 			}
+			if(fat.rename("/data/carpetahola", "/data/carpetahola2")) 
+				log(INFO, "Renamed directory /data/carpetahola /data/carpetahola2");
  		}
 	}
 }

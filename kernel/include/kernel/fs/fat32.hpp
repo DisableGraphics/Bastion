@@ -37,7 +37,7 @@ class FAT32 {
 		uint32_t cluster_for_filename(const char* filename, unsigned offset);
 		bool filecmp(const char* basename, const char* entrydata, bool lfn);
 		uint32_t match_cluster(uint8_t* cluster, const char* basename, FAT_FLAGS flags, struct stat* statbuf = nullptr, int* nentry = nullptr, int nfree = 0);
-		void direntrystat(uint8_t* direntry, struct stat* statbuf);
+		void direntrystat(uint8_t* direntry, struct stat *buf, FAT_FLAGS* flags = nullptr);
 		bool update_fsinfo(int diffclusters);
 
 		uint32_t get_cluster_from_direntry(uint8_t* direntry);

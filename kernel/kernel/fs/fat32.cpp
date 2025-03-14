@@ -543,7 +543,7 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 	return -1;
 }
 
-void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
+void FAT32::direntrystat(uint8_t* direntry, struct stat *buf, FAT_FLAGS* flags) {
 	uint16_t creattime = *reinterpret_cast<uint16_t*>(direntry + 14);
 	// Format: 0000 0|000 000|0 0000
 	date creatd;
@@ -585,6 +585,7 @@ void FAT32::direntrystat(uint8_t* direntry, struct stat *buf) {
 	buf->st_size = *reinterpret_cast<uint32_t*>(direntry + OFF_ENTRY_SIZE);
 
 	buf->st_ino = get_cluster_from_direntry(direntry);
+	if(flags) *flags = static_cast<FAT_FLAGS>(direntry[OFF_ENTRY_ATTR]);
 }
 
 uint32_t FAT32::get_cluster_from_direntry(uint8_t* direntry) {
@@ -707,7 +708,7 @@ bool FAT32::mkdir(const char* directory) {
 			// . entry
 			set_sfn_entry_data(clusterbuffer, ".", FAT_FLAGS::DIRECTORY, &properties);
 			properties.st_ino = first_parentdir;
-			// .. entry
+			// .. entrycreate_entry(, const char *filename, FAT_FLAGS flags)
 			set_sfn_entry_data(clusterbuffer + ENTRY_SIZE, "..", FAT_FLAGS::DIRECTORY, &properties);
 
 			update_fsinfo(-1);
@@ -762,43 +763,45 @@ uint8_t FAT32::checksum_sfn(const char* basename) {
 
 uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS flags, const struct stat* properties) {
 	uint8_t checksum = 0;
-	if(properties->st_atime != -1) {
-		date dt = TimeManager::timestamp_to_date(properties->st_atime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
-		auto datecalc = date2fatdate(dt);
+	if(properties) {
+		if(properties->st_atime != -1) {
+			date dt = TimeManager::timestamp_to_date(properties->st_atime);
+			uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTACCDATE);
+			auto datecalc = date2fatdate(dt);
 
-		*date = datecalc;
-	}
-	if(properties->st_mtime != -1) {
-		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODDATE);
-		auto datecalc = date2fatdate(dt);
-		*date = datecalc;
+			*date = datecalc;
+		}
+		if(properties->st_mtime != -1) {
+			date dt = TimeManager::timestamp_to_date(properties->st_mtime);
+			uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODDATE);
+			auto datecalc = date2fatdate(dt);
+			*date = datecalc;
 
-		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODTIME);
-		auto timecalc = date2fattime(dt);
-		*time = timecalc;
-	}
-	if(properties->st_ctime != -1) {
-		date dt = TimeManager::timestamp_to_date(properties->st_mtime);
-		uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATDATE);
-		auto datecalc = date2fatdate(dt);
-		*date = datecalc;
+			uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LASTMODTIME);
+			auto timecalc = date2fattime(dt);
+			*time = timecalc;
+		}
+		if(properties->st_ctime != -1) {
+			date dt = TimeManager::timestamp_to_date(properties->st_mtime);
+			uint16_t* date = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATDATE);
+			auto datecalc = date2fatdate(dt);
+			*date = datecalc;
 
-		uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATTIME);
-		auto timecalc = date2fattime(dt);
-		*time = timecalc;
-	}
-	if(properties->st_size != -1) {
-		uint32_t* sizeptr = reinterpret_cast<uint32_t*>(ptr + OFF_ENTRY_SIZE);
-		*sizeptr = properties->st_size;
-	}
-	if(properties->st_ino != -1) {
-		uint16_t* low_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LOW16);
-		uint16_t* high_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_HIGH16);
+			uint16_t* time = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_CREATTIME);
+			auto timecalc = date2fattime(dt);
+			*time = timecalc;
+		}
+		if(properties->st_size != -1) {
+			uint32_t* sizeptr = reinterpret_cast<uint32_t*>(ptr + OFF_ENTRY_SIZE);
+			*sizeptr = properties->st_size;
+		}
+		if(properties->st_ino != -1) {
+			uint16_t* low_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LOW16);
+			uint16_t* high_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_HIGH16);
 
-		*low_clnumber = properties->st_ino;
-		*high_clnumber = (properties->st_ino >> 16);
+			*low_clnumber = properties->st_ino;
+			*high_clnumber = (properties->st_ino >> 16);
+		}
 	}
 	if(basename) {
 		char uppbasename[11];
@@ -896,7 +899,7 @@ bool FAT32::remove(const char* path) {
 }
 
 bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
-	Buffer<uint8_t> buf(sector_size);
+	Buffer<uint8_t> buf(cluster_size);
 	int nentry = -1;
 	uint32_t dir_cluster, prev_dir_cluster;
 	// Search for the entry
@@ -933,7 +936,7 @@ bool FAT32::remove_generic(const char* path, FAT_FLAGS flags) {
 bool FAT32::is_dir_empty(const char* directory) {
 	uint32_t cluster = first_cluster_for_directory(directory);
 	if(cluster >= FAT_ERROR) return false;
-	Buffer<uint8_t> buf(sector_size);
+	Buffer<uint8_t> buf(cluster_size);
 	if(!load_cluster(cluster, buf)) return false;
 	
 	// Directory is empty if it has only one cluster and there are only
@@ -955,4 +958,30 @@ bool FAT32::rmdir(const char* directory) {
 		return remove_generic(directory, FAT_FLAGS::DIRECTORY);
 	}
 	return false;
+}
+
+bool FAT32::rename(const char* src, const char* dest) {
+	constexpr FAT_FLAGS flags_to_search = static_cast<FAT_FLAGS>(static_cast<uint8_t>(FAT_FLAGS::DIRECTORY) | static_cast<uint8_t>(FAT_FLAGS::ARCHIVE));
+	Buffer<uint8_t> buf(cluster_size);
+	int nentry = -1;
+	uint32_t dir_cluster, prev_dir_cluster;
+	// Search for the entry
+	auto cluster = find(buf, src, flags_to_search, nullptr, &nentry, 0, &dir_cluster, &prev_dir_cluster);
+	log(INFO, "Cluster returned: %d, directory cluster: %d", cluster, dir_cluster);
+	if(cluster >= FAT_ERROR || nentry == -1) return false;
+	uint8_t entry[ENTRY_SIZE];
+	// Remove the entry
+	auto filecluster = remove_entry(buf, nentry, entry);
+	if(filecluster >= FAT_ERROR) return false;
+	struct stat statbuf;
+	FAT_FLAGS entry_flags = FAT_FLAGS::NONE;
+	direntrystat(entry, &statbuf, &entry_flags);
+
+	// Now we create a new entry in the directory
+	Buffer<uint8_t> createentrybuf(cluster_size);
+	nentry = create_entry(createentrybuf, dest, entry_flags);
+	if(nentry == -1) return false;
+	
+	set_sfn_entry_data(createentrybuf + ENTRY_SIZE*nentry, nullptr, FAT_FLAGS::NONE, &statbuf);
+	return true;
 }
