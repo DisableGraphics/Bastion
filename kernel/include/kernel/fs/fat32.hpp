@@ -58,7 +58,8 @@ class FAT32 {
 		void set_lfn_entry_data(uint8_t* ptr, const char* basename, uint8_t order, bool is_last, uint8_t checksum);
 		uint32_t create_entry(uint8_t* buffer, 
 			const char* filename, 
-			FAT_FLAGS flags, 
+			FAT_FLAGS flags,
+			uint32_t ino = 0,
 			uint32_t* parent_dircluster = nullptr, 
 			uint32_t* first_parent_dircluster = nullptr);
 

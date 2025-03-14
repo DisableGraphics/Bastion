@@ -595,7 +595,7 @@ uint32_t FAT32::get_cluster_from_direntry(uint8_t* direntry) {
 	return cluster;
 }
 
-uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t* parent_dircluster, uint32_t* first_parent_dircluster) {
+uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t ino, uint32_t* parent_dircluster, uint32_t* first_parent_dircluster) {
 	const char* basenameptr = rfind(filename, '/');
 	if(!basenameptr) return -1;
 	const uint32_t first_dir_cluster = get_parent_dir_cluster(filename, basenameptr);
@@ -642,7 +642,7 @@ uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS fl
 			TimeManager::get().get_time(),
 			TimeManager::get().get_time(),
 			TimeManager::get().get_time(),
-			0
+			ino
 		};
 		// Data for LFN entry
 		auto checksum = set_sfn_entry_data(ptr, basename, flags, &properties);
@@ -686,7 +686,7 @@ bool FAT32::mkdir(const char* directory) {
 		Buffer<uint8_t> buf(cluster_size);
 		uint32_t parentdir;
 		uint32_t first_parentdir;
-		uint32_t entry = create_entry(buf, directory, FAT_FLAGS::DIRECTORY, &parentdir, &first_parentdir);
+		uint32_t entry = create_entry(buf, directory, FAT_FLAGS::DIRECTORY, 0, &parentdir, &first_parentdir);
 		if(entry == -1) return false;
 		uint8_t* entryptr = buf + ENTRY_SIZE*entry;
 		Vector<uint32_t> clustervec;
@@ -979,11 +979,5 @@ bool FAT32::rename(const char* src, const char* dest) {
 
 	// Now we create a new entry in the directory
 	Buffer<uint8_t> createentrybuf(cluster_size);
-	nentry = create_entry(createentrybuf, dest, entry_flags);
-	if(nentry == -1) return false;
-
-	const char* basename = rfind(dest, '/') + 1;
-	
-	set_sfn_entry_data(createentrybuf + ENTRY_SIZE*nentry, basename, FAT_FLAGS::NONE, &statbuf);
-	return true;
+	return create_entry(createentrybuf, dest, entry_flags, filecluster) != -1;
 }
