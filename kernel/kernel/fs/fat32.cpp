@@ -981,7 +981,9 @@ bool FAT32::rename(const char* src, const char* dest) {
 	Buffer<uint8_t> createentrybuf(cluster_size);
 	nentry = create_entry(createentrybuf, dest, entry_flags);
 	if(nentry == -1) return false;
+
+	const char* basename = rfind(dest, '/') + 1;
 	
-	set_sfn_entry_data(createentrybuf + ENTRY_SIZE*nentry, nullptr, FAT_FLAGS::NONE, &statbuf);
+	set_sfn_entry_data(createentrybuf + ENTRY_SIZE*nentry, basename, FAT_FLAGS::NONE, &statbuf);
 	return true;
 }
