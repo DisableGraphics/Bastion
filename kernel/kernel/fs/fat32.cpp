@@ -974,11 +974,31 @@ bool FAT32::rename(const char* src, const char* dest) {
 	auto filecluster = remove_entry(buf, nentry, entry);
 	if(filecluster >= FAT_ERROR) return false;
 	save_cluster(dir_cluster, buf);
+	// Get attributes
 	struct stat statbuf;
 	FAT_FLAGS entry_flags = FAT_FLAGS::NONE;
 	direntrystat(entry, &statbuf, &entry_flags);
 
 	// Now we create a new entry in the directory
 	Buffer<uint8_t> createentrybuf(cluster_size);
-	return create_entry(createentrybuf, dest, entry_flags, filecluster) != -1;
+	if(create_entry(createentrybuf, dest, entry_flags, filecluster) == -1) return false;
+	// Change .. entry so it points to correct parent directory
+	if(entry_flags == FAT_FLAGS::DIRECTORY) {
+		auto cluster = first_cluster_for_directory(dest);
+		Buffer<uint8_t> buffer(cluster_size);
+		load_cluster(cluster, buffer);
+		const char* basename = rfind(dest, '/');
+		if(!basename) return false;
+		uint32_t parent_dir = get_parent_dir_cluster(dest, basename);
+		struct stat properties {
+			0,
+			-1,
+			-1,
+			-1,
+			parent_dir
+		};
+		set_sfn_entry_data(buffer + ENTRY_SIZE, nullptr, FAT_FLAGS::NONE, &properties);
+		save_cluster(cluster, buffer);
+	}
+	return true;
 }
