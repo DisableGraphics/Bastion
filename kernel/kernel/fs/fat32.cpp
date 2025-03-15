@@ -53,7 +53,7 @@ FAT32::FAT32(PartitionManager &partmanager, size_t partid) : partmanager(partman
 		root_cluster = fat_boot_ext_32->root_cluster;
 		cluster_size = fat_boot->sectors_per_cluster*sector_size;
 		log(INFO,"Total sectors: %d. FAT Size: %d. Cluster size: %d. Name: %s", total_sectors, fat_size, fat_boot->sectors_per_cluster, partname);
-		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %d", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
+		log(INFO,"Total clusters: %d. First FAT sector: %d. Number of data sectors: %d. Root cluster: %p", total_clusters, first_fat_sector, n_data_sectors, root_cluster);
 		log(INFO, "First data sector: %d", first_data_sector);
 	} else {
 		log(ERROR, "Could not load FAT from partition %d", partid);
@@ -517,7 +517,9 @@ uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS f
 			char sfn_name[12] = {0};
 			memcpy(sfn_name, ptr_to_i, 11);
 			sfn_name[11] = 0;
-			log(INFO, "%s %s", sfn_name, lfn_buffer);
+			struct stat debugbuf;
+			direntrystat(ptr_to_i, &debugbuf);
+			log(INFO, "%s %s %p", sfn_name, lfn_buffer, debugbuf.st_ino);
 			// If we match return
 			if((static_cast<uint8_t>(attr) & static_cast<uint8_t>(flags)) && !filecmp(basename, has_lfn ? lfn_buffer : sfn_name, has_lfn)) {
 				log(INFO, "looks like we have a match");
@@ -592,7 +594,7 @@ uint32_t FAT32::get_cluster_from_direntry(uint8_t* direntry) {
 	uint16_t low_16 = *reinterpret_cast<uint16_t*>(direntry + 26);
 	uint16_t high_16 = *reinterpret_cast<uint16_t*>(direntry + 20);
 	uint32_t cluster = (high_16 << 16) | low_16;
-	return cluster;
+	return cluster == 0 ? root_cluster : 0;
 }
 
 uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t ino, uint32_t* parent_dircluster, uint32_t* first_parent_dircluster) {
@@ -796,11 +798,15 @@ uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS 
 			*sizeptr = properties->st_size;
 		}
 		if(properties->st_ino != -1) {
+			uint32_t ino = properties->st_ino;
+			if(ino == root_cluster) {
+				ino = 0;
+			}
 			uint16_t* low_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_LOW16);
 			uint16_t* high_clnumber = reinterpret_cast<uint16_t*>(ptr + OFF_ENTRY_HIGH16);
 
-			*low_clnumber = properties->st_ino;
-			*high_clnumber = (properties->st_ino >> 16);
+			*low_clnumber = ino;
+			*high_clnumber = (ino >> 16);
 		}
 	}
 	if(basename) {
@@ -826,8 +832,12 @@ uint8_t FAT32::set_sfn_entry_data(uint8_t* ptr, const char* basename, FAT_FLAGS 
 			uppbasename[last_char] = '~';
 			uppbasename[last_char+1] = random + '0';
 		} else {
-			// Copy first 8 characters into name
-			memcpy(uppbasename, basename, 8);
+			size_t len = strlen(basename);
+			// Copy first 6 characters into name
+			memcpy(uppbasename, basename, len > 6 ? 6 : len);
+			int random = ((rand() % 10) + 10) % 10;
+			uppbasename[6] = '~';
+			uppbasename[7] = random + '0';
 		}
 		for(size_t i = 0; i < 11; i++) {
 			uppbasename[i] = toupper(uppbasename[i]);

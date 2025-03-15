@@ -151,6 +151,9 @@ void gen(void*) {
 			if(fat.rmdir("/data/carpetaadios")) {
 				log(INFO, "Deleted directory /data/carpetaadios");
 			}
+			if(fat.mkdir("/home")) {
+				log(INFO, "Created /home");
+			}
 			if(fat.rename("/data/carpetahola", "/data/carpetahola2")) 
 				log(INFO, "Renamed directory /data/carpetahola /data/carpetahola2");
 			if(fat.rename("/data/carpetahola2", "/hello")) 
