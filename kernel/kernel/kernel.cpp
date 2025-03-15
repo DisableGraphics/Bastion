@@ -158,6 +158,16 @@ void gen(void*) {
 				log(INFO, "Renamed directory /data/carpetahola /data/carpetahola2");
 			if(fat.rename("/data/carpetahola2", "/hello")) 
 				log(INFO, "Renamed directory /data/carpetahola2 /hello");
+			DIR dir;
+			if(fat.opendir("/", &dir)) {
+				log(INFO, "Opened directory /");
+				dirent de;
+				while(fat.readdir(&dir, &de)) {
+					log(INFO, "Directory entry: %s %d %d", de.d_name, de.d_type, de.d_ino);
+				}
+
+				fat.closedir(&dir);
+			}
  		}
 	}
 }

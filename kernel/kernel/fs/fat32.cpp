@@ -1012,3 +1012,23 @@ bool FAT32::rename(const char* src, const char* dest) {
 	}
 	return true;
 }
+
+bool FAT32::opendir(const char* directory, DIR* dir) {
+	DIR check;
+	check.d_curentry = 0;
+	check.d_ino = find(directory, FAT_FLAGS::DIRECTORY);
+	check.d_curino = check.d_ino;
+	if(check.d_ino < FAT_ERROR) {
+		*dir = check;
+		return true;
+	}
+	return false;
+}
+
+bool FAT32::readdir(DIR* dir, dirent* dirent) {
+	
+}
+
+void FAT32::closedir(DIR* dir) {
+
+}

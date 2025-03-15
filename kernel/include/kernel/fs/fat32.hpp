@@ -24,8 +24,8 @@ class FAT32 {
 		bool rename(const char* src, const char* dest);
 		bool remove(const char* path);
 
-		DIR* opendir(const char* directory);
-		dirent* readdir(DIR* dir);
+		bool opendir(const char* directory, DIR* dir);
+		bool readdir(DIR* dir, dirent* dirent);
 		void closedir(DIR* dir);
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
