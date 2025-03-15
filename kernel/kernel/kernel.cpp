@@ -153,6 +153,8 @@ void gen(void*) {
 			}
 			if(fat.rename("/data/carpetahola", "/data/carpetahola2")) 
 				log(INFO, "Renamed directory /data/carpetahola /data/carpetahola2");
+			if(fat.rename("/data/carpetahola2", "/hello")) 
+				log(INFO, "Renamed directory /data/carpetahola2 /hello");
  		}
 	}
 }

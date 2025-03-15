@@ -973,6 +973,7 @@ bool FAT32::rename(const char* src, const char* dest) {
 	// Remove the entry
 	auto filecluster = remove_entry(buf, nentry, entry);
 	if(filecluster >= FAT_ERROR) return false;
+	save_cluster(dir_cluster, buf);
 	struct stat statbuf;
 	FAT_FLAGS entry_flags = FAT_FLAGS::NONE;
 	direntrystat(entry, &statbuf, &entry_flags);
