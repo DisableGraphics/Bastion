@@ -594,7 +594,7 @@ uint32_t FAT32::get_cluster_from_direntry(uint8_t* direntry) {
 	uint16_t low_16 = *reinterpret_cast<uint16_t*>(direntry + 26);
 	uint16_t high_16 = *reinterpret_cast<uint16_t*>(direntry + 20);
 	uint32_t cluster = (high_16 << 16) | low_16;
-	return cluster == 0 ? root_cluster : 0;
+	return cluster == 0 ? root_cluster : cluster;
 }
 
 uint32_t FAT32::create_entry(uint8_t* buffer, const char* filename, FAT_FLAGS flags, uint32_t ino, uint32_t* parent_dircluster, uint32_t* first_parent_dircluster) {
