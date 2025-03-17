@@ -878,6 +878,7 @@ uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry, uint8_t* entry) {
 }
 
 uint32_t FAT32::find(uint8_t* buffer, const char* path, FAT_FLAGS flags, struct stat* statbuf, int* nentry, int nfree, uint32_t* dir_cluster, uint32_t* prev_dir_cluster) {
+	if(path && !strcmp(path, "") && flags == FAT_FLAGS::DIRECTORY) return root_cluster;
 	const char* basename = path ? rfind(path, '/') : "";
 	if(!basename) return -1;
 	uint32_t dir = path ? get_parent_dir_cluster(path, basename) : *dir_cluster;
@@ -1026,7 +1027,10 @@ bool FAT32::opendir(const char* directory, DIR* dir) {
 }
 
 bool FAT32::readdir(DIR* dir, dirent* dirent) {
-	
+	if(dir->d_curino == -1) return false;
+	Buffer<uint8_t> buffer(cluster_size);
+	load_cluster(dir->d_curino, buffer);
+
 }
 
 void FAT32::closedir(DIR* dir) {
