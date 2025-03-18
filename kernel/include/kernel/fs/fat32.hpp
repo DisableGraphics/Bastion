@@ -88,6 +88,10 @@ class FAT32 {
 
 		bool remove_generic(const char* path, FAT_FLAGS flags);
 
+		bool iter(DIR* dir, dirent* dirent);
+		void get_lfn_name(uint8_t* entryptr, char buffer[256]);
+		void get_sfn_name(uint8_t* entryptr, char buffer[14]);
+
 		size_t partid;
 		char partname[12];
 		

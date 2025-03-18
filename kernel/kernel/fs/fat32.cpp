@@ -487,31 +487,46 @@ int FAT32::stat(const char* filename, struct stat* buf) {
 	return 0;
 }
 
+void FAT32::get_lfn_name(uint8_t* entryptr, char buffer[256]) {
+	uint8_t pos = *entryptr & 0x3F;
+	uint8_t lfn_order = (pos - 1) * 13;
+	// First 5 2-byte characters of the entry
+	uint16_t *first5 = reinterpret_cast<uint16_t*>(entryptr + 1);
+	uint16_t *second6 = reinterpret_cast<uint16_t*>(entryptr + 14);
+	uint16_t *third2 = reinterpret_cast<uint16_t*>(entryptr + 28);
+	for (int j = 0; j < 5; j++) buffer[lfn_order + j] = first5[j];
+	for (int j = 0; j < 6; j++) buffer[lfn_order + j + 5] = second6[j];
+	for (int j = 0; j < 2; j++) buffer[lfn_order + j + 11] = third2[j];
+}
+
+void FAT32::get_sfn_name(uint8_t* entryptr, char buffer[14]) {
+	memset(buffer, 0, 14);
+	size_t i;
+	// Get length of filename
+	for(i = 0; i < 8; i++) {
+		if(entryptr[i] == 0x20) break;
+		buffer[i] = entryptr[i];
+	}
+	buffer[i++] = '.';
+	for(size_t j = 8; j < 11; j++) {
+		if(entryptr[j] == 0x20) break;
+		buffer[i++] = entryptr[j];
+	}
+	buffer[i] = 0;
+}
+
 uint32_t FAT32::match_cluster(uint8_t* buffer, const char* basename, FAT_FLAGS flags, struct stat* buf, int* nentry, int nfree) {
-	uint8_t lfn_order = 0;
 	char lfn_buffer[256] = {0};
 	bool has_lfn = false;
 	const size_t entries_per_cluster = cluster_size / ENTRY_SIZE;
 	const int free = nfree;
 	for(size_t i = 0; i < entries_per_cluster; i++) {
-		char name[14];
-		memset(name, 0, sizeof(name));
 		uint8_t* ptr_to_i = buffer + (ENTRY_SIZE*i);
 		FAT_FLAGS attr = static_cast<FAT_FLAGS>(ptr_to_i[11]);
 		if(attr == FAT_FLAGS::LFN) {
 			nfree = free;
 			has_lfn = true;
-			uint8_t pos = *ptr_to_i & 0x3F;
-			lfn_order = (pos - 1) * 13;
-			// First 5 2-byte characters of the entry
-			uint16_t *first5 = reinterpret_cast<uint16_t*>(ptr_to_i + 1);
-			uint16_t *second6 = reinterpret_cast<uint16_t*>(ptr_to_i + 14);
-			uint16_t *third2 = reinterpret_cast<uint16_t*>(ptr_to_i + 28);
-			for (int j = 0; j < 5; j++) lfn_buffer[lfn_order + j] = first5[j];
-			for (int j = 0; j < 6; j++) lfn_buffer[lfn_order + j + 5] = second6[j];
-			for (int j = 0; j < 2; j++) lfn_buffer[lfn_order + j + 11] = third2[j];
-	
-			lfn_order += 13;
+			get_lfn_name(ptr_to_i, lfn_buffer);
 		} else if(attr != FAT_FLAGS::NONE) {
 			nfree = free;
 			char sfn_name[12] = {0};
@@ -878,7 +893,7 @@ uint32_t FAT32::remove_entry(uint8_t* buffer, int nentry, uint8_t* entry) {
 }
 
 uint32_t FAT32::find(uint8_t* buffer, const char* path, FAT_FLAGS flags, struct stat* statbuf, int* nentry, int nfree, uint32_t* dir_cluster, uint32_t* prev_dir_cluster) {
-	if(path && !strcmp(path, "") && flags == FAT_FLAGS::DIRECTORY) return root_cluster;
+	if(path && !strcmp(path, "/") && flags == FAT_FLAGS::DIRECTORY) return root_cluster;
 	const char* basename = path ? rfind(path, '/') : "";
 	if(!basename) return -1;
 	uint32_t dir = path ? get_parent_dir_cluster(path, basename) : *dir_cluster;
@@ -1026,11 +1041,53 @@ bool FAT32::opendir(const char* directory, DIR* dir) {
 	return false;
 }
 
+bool FAT32::iter(DIR* dir, dirent* dirent) {
+	Buffer<uint8_t> buffer(cluster_size);
+	if(!load_cluster(dir->d_curino, buffer)) return false;
+	const size_t nentriespercluster = cluster_size / ENTRY_SIZE;
+	bool has_lfn = false;
+	memset(dirent->d_name, 0, sizeof(dirent->d_name));
+	for(size_t i = dir->d_curentry; ; i++) {
+		if(i >= nentriespercluster) {
+			dir->d_curino = next_cluster(dir->d_curino);
+			if(dir->d_curino >= FAT_ERROR) {
+				dir->d_curino = -1;
+				dir->d_curentry = -1;
+				return false;
+			}
+			load_cluster(dir->d_curino, buffer);
+			dir->d_curentry = 0;
+			i = 0;
+		}
+		uint8_t* entryptr = buffer + ENTRY_SIZE*i;
+		FAT_FLAGS entryattr = static_cast<FAT_FLAGS>(entryptr[OFF_ENTRY_ATTR]);
+		if(entryattr != FAT_FLAGS::NONE) {
+			if(entryattr == FAT_FLAGS::LFN) {
+				has_lfn = true;
+				get_lfn_name(entryptr, dirent->d_name);
+			} else if(entryattr == FAT_FLAGS::DIRECTORY || entryattr == FAT_FLAGS::ARCHIVE || entryattr == FAT_FLAGS::READ_ONLY) {
+				// Ignore all other types of entries. HIDDEN, SYSTEM, VOLUME_ID "do not exist"
+				// (note the scare quotes, they do exist but are useless here)
+				if(!has_lfn) {
+					// In this case we copy the name into the dirent->d_name buffer
+					get_sfn_name(entryptr, dirent->d_name);
+					struct stat props;
+					direntrystat(entryptr, &props);
+					dirent->d_ino = props.st_ino;
+					dirent->d_type = (entryattr == FAT_FLAGS::DIRECTORY) ? DT_DIR : (entryattr == FAT_FLAGS::ARCHIVE ? DT_REG : DT_UNKNOWN);
+				}
+				dir->d_curentry = i + 1;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool FAT32::readdir(DIR* dir, dirent* dirent) {
 	if(dir->d_curino == -1) return false;
-	Buffer<uint8_t> buffer(cluster_size);
-	load_cluster(dir->d_curino, buffer);
-
+	return iter(dir, dirent);
 }
 
 void FAT32::closedir(DIR* dir) {
