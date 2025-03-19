@@ -8,4 +8,5 @@ fs::BlockCache& fs::BlockCache::get() {
 
 bool fs::BlockCache::read(uint8_t* buffer, int64_t lba, size_t size, size_t diskid) {
 	auto sector_size = hal::DiskManager::get().get_driver(diskid)->get_sector_size();
+	size_t nsectors = size / sector_size;
 }
