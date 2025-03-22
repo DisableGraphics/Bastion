@@ -1,19 +1,21 @@
 #pragma once
 #include <stdint.h>
 #include <kernel/datastr/bcache/bcache.hpp>
+#include <kernel/datastr/buffer.hpp>
+#include <kernel/datastr/uptr.hpp>
 
 #define CAPACITY 512
 
 struct CacheKey {
 	size_t diskid;
-	int64_t lba;
+	uint64_t lba;
 };
 
 namespace fs {
 	class BlockCache {
 		public:
 			static BlockCache& get();
-			bool read(uint8_t* buffer, int64_t lba, size_t size, size_t diskid);
+			bool read(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid);
 
 		private:
 			BlockCache(){};
@@ -22,6 +24,6 @@ namespace fs {
 
 			void operator=(const BlockCache& other) = delete;
 			void operator=(BlockCache&& other) = delete;
-			LRUCache<CacheKey, uint8_t*> cache{CAPACITY};
+			LRUCache<CacheKey, UniquePtr<Buffer<uint8_t>>> cache{CAPACITY};
 	};
 }

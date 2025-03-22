@@ -7,59 +7,58 @@
 template<typename K, typename V>
 class LRUCache {
 	public:
-		HashMap<K,Pair<V,Node<K, V>*>>mp;
+		HashMap<K,Pair<V,Node<K*, V*>*>>mp;
 		int cap;
-		Node<K, V>* head;
-		Node<K, V>* tail;
+		Node<K*, V*>* head;
+		Node<K*, V*>* tail;
 		LRUCache(int capacity) {
 			cap=capacity;
-			head=new Node<K, V>();
-			tail=new Node<K, V>();
+			head=new Node<K*, V*>();
+			tail=new Node<K*, V*>();
 			head->next=tail;
 			tail->prev=head;
 		}
 		
-		V get(const K& key) {
-			Pair<V, Node<K, V>*> pair;
+		V* get(const K& key) {
+			Pair<V, Node<K*, V*>*> pair;
 			if(!mp.get(key, pair)) //not present in cache
 			{
-				return -1;
+				return nullptr;
 			}
 			else
 			{
-				V ans=pair.first;
-				Node<K, V>* temp=pair.second;
+				Node<K*, V*>* temp=pair.second;
 				remove(temp);
 				pair.second=insert(pair.first, key);
-				return ans;
+				return &pair.first;
 			}
 		}
 		
-		void put(const K& key, const V& value) {
-			Pair<V, Node<K, V>*> pair;
+		void put(const K& key, V&& value) {
+			Pair<V, Node<K*, V*>*> pair;
 			if(!mp.get(key, pair))
 			{
 				if(mp.size()<cap)
 				{
-					mp.put(key, {value, insert(value, key)});
+					mp.put(key, {value, insert(&value, &key)});
 				}
 				else
 				{
 					K k=tail->prev->key;
 					remove(tail->prev);
 					mp.remove(k);
-					mp.put(key, {value, insert(value, key)});
+					mp.put(key, {value, insert(&value, &key)});
 				}
 			}
 			else
 			{
-				Node<K, V>* temp=pair.second;
+				Node<K*, V*>* temp=pair.second;
 				remove(temp);
-				mp.put(key, {value, insert(value, key)});
+				mp.put(key, {value, insert(&value, &key)});
 			}
 			
 		}
-		void remove(Node<K, V>* temp)
+		void remove(Node<K*, V*>* temp)
 		{
 			temp->prev->next=temp->next;
 			temp->next->prev=temp->prev;
@@ -67,10 +66,10 @@ class LRUCache {
 			temp->next=NULL;
 			delete(temp);
 		}
-		Node<K, V>* insert(int val,int key)
+		Node<K*, V*>* insert(V* val, K* key)
 		{
-			Node<K, V>* newnode=new Node(val,key);
-			Node<K, V>* temp=head->next;
+			Node<K*, V*>* newnode=new Node(val,key);
+			Node<K*, V*>* temp=head->next;
 			head->next=newnode;
 			newnode->next=temp;
 			newnode->prev=head;
