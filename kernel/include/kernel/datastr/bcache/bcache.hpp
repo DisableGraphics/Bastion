@@ -19,7 +19,7 @@ class LRUCache {
 			tail->prev=head;
 		}
 		
-		V* get(const K& key) {
+		V* get(K& key) {
 			Pair<V, Node<K*, V*>*> pair;
 			if(!mp.get(key, pair)) //not present in cache
 			{
@@ -29,32 +29,32 @@ class LRUCache {
 			{
 				Node<K*, V*>* temp=pair.second;
 				remove(temp);
-				pair.second=insert(pair.first, key);
+				pair.second=insert(&pair.first, &key);
 				return &pair.first;
 			}
 		}
 		
-		void put(const K& key, V&& value) {
+		void put(K& key, V&& value) {
 			Pair<V, Node<K*, V*>*> pair;
 			if(!mp.get(key, pair))
 			{
 				if(mp.size()<cap)
 				{
-					mp.put(key, {value, insert(&value, &key)});
+					mp.put(key, {move(value), insert(&value, &key)});
 				}
 				else
 				{
 					K k=tail->prev->key;
 					remove(tail->prev);
 					mp.remove(k);
-					mp.put(key, {value, insert(&value, &key)});
+					mp.put(key, {move(value), insert(&value, &key)});
 				}
 			}
 			else
 			{
 				Node<K*, V*>* temp=pair.second;
 				remove(temp);
-				mp.put(key, {value, insert(&value, &key)});
+				mp.put(key, {move(value), insert(&value, &key)});
 			}
 			
 		}
@@ -68,7 +68,7 @@ class LRUCache {
 		}
 		Node<K*, V*>* insert(V* val, K* key)
 		{
-			Node<K*, V*>* newnode=new Node(val,key);
+			Node<K*, V*>* newnode=new Node(key, val);
 			Node<K*, V*>* temp=head->next;
 			head->next=newnode;
 			newnode->next=temp;
@@ -76,4 +76,4 @@ class LRUCache {
 			temp->prev=newnode;
 			return newnode;
 		}
-	};
+};
