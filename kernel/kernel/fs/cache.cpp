@@ -17,7 +17,7 @@ bool fs::BlockCache::read(uint8_t* buffer, uint64_t lba, size_t size, size_t dis
 			auto unq = UniquePtr<Buffer<uint8_t>>(new Buffer<uint8_t>(sector_size));
 			volatile hal::DiskJob job{*unq, lba + i, 1, false};
 			hal::DiskManager::get().sleep_job(diskid, &job);
-			cache.put(key, move(unq));
+			cache.emplace(key, move(unq));
 			data = cache.get(key);
 		}
 		memcpy(buffer + i * sector_size, data, sector_size);

@@ -1,108 +1,78 @@
-#pragma once
-#include "hashnode.hpp"
-#include "hash.hpp"
 #include <stddef.h>
-template <typename K, typename V, typename F = KeyHash<K>>
+#include <kernel/datastr/vector.hpp>
+#include <kernel/datastr/pair.hpp>
+#include <kernel/datastr/linkedlist/linkedlist.hpp>
+#include "hash.hpp"
+
+template <typename Key, typename Value>
 class HashMap {
-public:
-    HashMap() {
-        // construct zero initialized hash table of size
-        table = new HashNode<K, V> *[TABLE_SIZE]();
-    }
-
-    ~HashMap() {
-        // destroy all buckets one by one
-        for (int i = 0; i < TABLE_SIZE; ++i) {
-            HashNode<K, V> *entry = table[i];
-            while (entry != nullptr) {
-                HashNode<K, V> *prev = entry;
-                entry = entry->getNext();
-                delete prev;
-            }
-            table[i] = nullptr;
-        }
-        // destroy the hash table
-        delete [] table;
-    }
-
-    bool get(const K &key, V &value) {
-        unsigned long hashValue = hashFunc(key);
-        HashNode<K, V> *entry = table[hashValue];
-
-        while (entry != nullptr) {
-            if (entry->getKey() == key) {
-                value = entry->getValue();
-                return true;
-            }
-            entry = entry->getNext();
-        }
-        return false;
-    }
-
-    void put(const K &key, const V &value) {
-        unsigned long hashValue = hashFunc(key);
-        HashNode<K, V> *prev = nullptr;
-        HashNode<K, V> *entry = table[hashValue];
-
-        while (entry != nullptr && entry->getKey() != key) {
-            prev = entry;
-            entry = entry->getNext();
-        }
-
-        if (entry == nullptr) {
-            entry = new HashNode<K, V>(key, value);
-            if (prev == nullptr) {
-                // insert as first bucket
-                table[hashValue] = entry;
-            } else {
-                prev->setNext(entry);
-            }
-        } else {
-            // just update the value
-            entry->setValue(value);
-        }
-    }
-
-    void remove(const K &key) {
-        unsigned long hashValue = hashFunc(key);
-        HashNode<K, V> *prev = nullptr;
-        HashNode<K, V> *entry = table[hashValue];
-
-        while (entry != nullptr && entry->getKey() != key) {
-            prev = entry;
-            entry = entry->getNext();
-        }
-
-        if (entry == nullptr) {
-            // key not found
-            return;
-        }
-        else {
-            if (prev == nullptr) {
-                // remove first bucket of the list
-                table[hashValue] = entry->getNext();
-            } else {
-                prev->setNext(entry->getNext());
-            }
-            delete entry;
-        }
-    }
-
-	size_t size() const {
-		size_t ret = 0;
-		for (int i = 0; i < TABLE_SIZE; ++i) {
-            HashNode<K, V> *entry = table[i];
-            while (entry != nullptr) {
-                HashNode<K, V> *prev = entry;
-                entry = entry->getNext();
-                ret++;
-            }
-        }
-		return ret;
-	}
-
-private:
-    // hash table
-    HashNode<K, V> **table;
-    F hashFunc;
+	public:
+		HashMap() : table(DEFAULT_BUCKETS), size_(0) {}
+		void insert(const Key& key, const Value& value);
+		Value& operator[](const Key& key);
+		bool erase(const Key& key);
+		Value* find(const Key& key);
+		size_t size() const { return size_; }
+		bool empty() const { return size_ == 0; }
+	private:
+		static const size_t DEFAULT_BUCKETS = 16;
+		Vector<LinkedList<Pair<Key, Value>>> table;
+		size_t size_;
+		size_t hash(const Key& key) const;
 };
+
+template<typename Key, typename Value>
+void HashMap<Key, Value>::insert(const Key& key, const Value& value) {
+	size_t idx = hash(key);
+	for (auto& pair : table[idx]) {
+		if (pair.first == key) {
+			pair.second = value;
+			return;
+		}
+	}
+	table[idx].emplace_back(Pair(key, value));
+	++size_;
+}
+
+template <typename Key, typename Value>
+Value& HashMap<Key, Value>::operator[](const Key& key) {
+	size_t idx = hash(key);
+	for (auto& pair : table[idx]) {
+		if (pair.first == key) {
+			return pair.second;
+		}
+	}
+	table[idx].emplace_back(Pair(key, Value()));
+	++size_;
+	return table[idx].back().second;
+}
+
+template <typename Key, typename Value>
+bool HashMap<Key, Value>::erase(const Key& key) {
+	size_t idx = hash(key);
+	auto& bucket = table[idx];
+	for (auto it = bucket.begin(); it != bucket.end(); ++it) {
+		if (it->first == key) {
+			bucket.erase(it);
+			--size_;
+			return true;
+		}
+	}
+	return false;
+}
+
+template<typename Key, typename Value>
+Value* HashMap<Key, Value>::find(const Key& key) {
+	size_t idx = hash(key);
+	for (auto& pair : table[idx]) {
+		if (pair.first == key) {
+			return &pair.second;
+		}
+	}
+	return nullptr;
+}
+
+template<typename Key, typename Value>
+size_t HashMap<Key, Value>::hash(const Key& key) const {
+	return Hash<Key>{}(key) % table.size();
+}

@@ -18,7 +18,8 @@ class UniquePtr {
 			\brief Constructor. Creates a new constructor from another UniquePtr
 		 */
 		UniquePtr(UniquePtr<T> &&other);
-
+		/// Get this uniqueptr's pointer
+		T* get();
 		/// Dereference operator
 		T &operator*();
 		/// Pointer attribute accessing operator
@@ -75,5 +76,10 @@ T& UniquePtr<T>::operator*() {
 
 template<typename T> 
 T* UniquePtr<T>::operator->() {
+	return ptr;
+}
+
+template<typename T> 
+T* UniquePtr<T>::get() {
 	return ptr;
 }

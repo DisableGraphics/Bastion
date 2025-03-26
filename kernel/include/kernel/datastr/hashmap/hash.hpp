@@ -1,10 +1,9 @@
 #pragma once
-#define TABLE_SIZE 2048
+#include <stddef.h>
 
-template <typename K>
-struct KeyHash {
-    unsigned long operator()(const K& key) const
-    {
-        return reinterpret_cast<unsigned long>(key) % TABLE_SIZE;
-    }
+template<typename T>
+class Hash {
+	size_t operator()(const T& key) {
+		return reinterpret_cast<size_t>(key);
+	}
 };

@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdlib.h>
-#include <kernel/kernel/utility.hpp>
+#include <kernel/cpp/move.hpp>
 #include <string.h>
 
 /**
@@ -16,6 +16,10 @@ class Vector {
 			\brief Basic constructor
 		 */
 		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); };
+		/**
+			\brief Constructor that reserves elements
+		*/
+		Vector(size_t nelem) { alloc_size = nelem; arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); }
 		/**
 			\brief Destructor. Frees resources.
 		 */
@@ -116,8 +120,10 @@ T& Vector<T>::back() {
 template <typename T>
 void Vector<T>::reserve(size_t n) {
 	void * tmp = krealloc(arr, n*sizeof(T));
-	if(tmp)
+	if(tmp) {
 		arr = reinterpret_cast<T*>(tmp);
+		alloc_size = n;
+	}
 }
 
 template<typename T>
