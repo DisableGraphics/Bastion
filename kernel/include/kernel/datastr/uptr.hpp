@@ -11,7 +11,7 @@ class UniquePtr {
 		 */
 		UniquePtr(T *ptr);
 		template <typename... Args>
-		UniquePtr(Args... args);
+		UniquePtr(Args&&... args);
 		/**
 			\brief Constructor. Creates a new constructor from another UniquePtr
 		 */
@@ -41,7 +41,7 @@ class UniquePtr {
 
 template<typename T> 
 template<typename... Args>
-UniquePtr<T>::UniquePtr(Args... args) {
+UniquePtr<T>::UniquePtr(Args&&... args) {
 	ptr = new T(forward(args)...);
 }
 
