@@ -1,4 +1,5 @@
 #include <kernel/datastr/uptr.hpp>
+#include <kernel/cpp/forward.hpp>
 
 // Node for doubly linked list
 template <typename K, typename V>

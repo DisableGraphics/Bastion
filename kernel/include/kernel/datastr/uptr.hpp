@@ -6,14 +6,12 @@ template <typename T>
 class UniquePtr {
 	public:
 		/**
-			\brief Constructor. Creates a new object.
-		 */
-		UniquePtr();
-		/**
 			\brief Constructor. Reuses an already created pointer. 
 			The pointer has to be allocated with new.
 		 */
 		UniquePtr(T *ptr);
+		template <typename... Args>
+		UniquePtr(Args... args);
 		/**
 			\brief Constructor. Creates a new constructor from another UniquePtr
 		 */
@@ -42,8 +40,9 @@ class UniquePtr {
 };
 
 template<typename T> 
-UniquePtr<T>::UniquePtr() {
-	ptr = new T();
+template<typename... Args>
+UniquePtr<T>::UniquePtr(Args... args) {
+	ptr = new T(forward(args)...);
 }
 
 template<typename T> 
