@@ -4,6 +4,7 @@
 #include <kernel/datastr/buffer.hpp>
 #include <kernel/datastr/uptr.hpp>
 #include <kernel/datastr/hashmap/hash.hpp>
+#include <kernel/fs/cacheblock.hpp>
 
 #define CAPACITY 512
 
@@ -29,15 +30,22 @@ namespace fs {
 	class BlockCache {
 		public:
 			static BlockCache& get();
+			/// Read from disk into a buffer
 			bool read(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid);
-
+			/// Write from a buffer into the cache.
+			/// \warning This operation DOES NOT write into disk, only to the cache.
+			/// Use flush() if you want to actually commit the changes to disk.
+			bool write(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid);
+			/// Commits all changes of non-evicted dirty sectors in the cache
+			bool flush();
 		private:
+			bool disk_op(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size));
 			BlockCache(){};
 			BlockCache(const BlockCache& other) = delete;
 			BlockCache(BlockCache&& other) = delete;
 
 			void operator=(const BlockCache& other) = delete;
 			void operator=(BlockCache&& other) = delete;
-			LRUCache<CacheKey, Buffer<uint8_t>> cache{CAPACITY};
+			LRUCache<CacheKey, CacheBlock> cache{CAPACITY};
 	};
 }
