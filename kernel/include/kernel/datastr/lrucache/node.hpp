@@ -9,10 +9,9 @@ struct Node {
 	Node* prev;
 	Node* next;
 
-	template <typename... Args>
-	Node(K k, Args&&... args) :
+	Node(K k, V&& args) :
 		key(move(k)), 
-		value(forward<Args>(args)...), 
+		value(move(make_unique<V>())), 
 		prev(nullptr), 
 		next(nullptr) 
 		{}

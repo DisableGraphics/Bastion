@@ -37,6 +37,6 @@ namespace fs {
 
 			void operator=(const BlockCache& other) = delete;
 			void operator=(BlockCache&& other) = delete;
-			LRUCache<CacheKey, UniquePtr<Buffer<uint8_t>>> cache{CAPACITY};
+			LRUCache<CacheKey, Buffer<uint8_t>> cache{CAPACITY};
 	};
 }
