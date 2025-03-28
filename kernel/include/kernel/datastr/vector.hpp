@@ -15,11 +15,11 @@ class Vector {
 		/**
 			\brief Basic constructor
 		 */
-		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); };
+		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size));};
 		/**
 			\brief Constructor that reserves elements
 		*/
-		Vector(size_t nelem) { alloc_size = nelem; arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); }
+		Vector(size_t nelem) { alloc_size = nelem; arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); arrsize = alloc_size; }
 		/**
 			\brief Destructor. Frees resources.
 		 */

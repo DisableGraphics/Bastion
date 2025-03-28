@@ -67,7 +67,7 @@ bool hal::DiskManager::enqueue_job(size_t diskid, volatile DiskJob* job) {
 		job->state = DiskJob::ERROR;
 		return false;
 	}
-	
+	log(INFO, "Enqueued job into disk %d", diskid);
 	return disk_controllers[diskid].second->enqueue_job(job);
 }
 

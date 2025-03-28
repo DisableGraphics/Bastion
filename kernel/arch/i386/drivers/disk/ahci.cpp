@@ -328,6 +328,7 @@ void AHCI::enable_ahci_mode() {
 }
 
 bool AHCI::enqueue_job(volatile hal::DiskJob* job) {
+	log(INFO, "Enqueued job for sector %p", job->lba);
 	return dma_transfer(job);
 }
 
@@ -360,11 +361,12 @@ bool AHCI::dma_transfer(volatile hal::DiskJob* job) {
 	int spin = 0; // Spin lock timeout counter
 	int slot = find_cmdslot(port);
 	if (slot == -1) {
+		log(INFO, "Delaying job for sector %p", job->lba);
 		// In this case we save the job for the next available slot
 		jobs.push_back(job);
-		return false;
+		return true;
 	}
-
+	int calc = port->sact | port->ci;
 	active_jobs[slot] = job;
 
 	volatile HBA_CMD_HEADER *cmdheader = (HBA_CMD_HEADER*)(port->clb+HIGHER_HALF_OFFSET);

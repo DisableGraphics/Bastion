@@ -67,12 +67,9 @@ FAT32::~FAT32() {
 
 bool FAT32::disk_op(uint8_t* buffer, uint64_t sector, uint32_t sector_count, bool write) {
 	auto lba = partmanager.get_lba(partid, sector);
-	/*volatile hal::DiskJob job{buffer, lba, sector_count, write};
-	hal::DiskManager::get().sleep_job(partmanager.get_disk_id(), &job);
-	return job.state == hal::DiskJob::FINISHED;*/
 	return write ? 
-	fs::BlockCache::get().write(buffer, lba, sector_count, partmanager.get_disk_id()) :
-	fs::BlockCache::get().read(buffer, lba, sector_count, partmanager.get_disk_id());
+		fs::BlockCache::get().write(buffer, lba, sector_count, partmanager.get_disk_id()) :
+		fs::BlockCache::get().read(buffer, lba, sector_count, partmanager.get_disk_id());
 }
 
 uint32_t FAT32::next_cluster(uint32_t active_cluster) {
