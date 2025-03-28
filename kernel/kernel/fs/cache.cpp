@@ -16,20 +16,18 @@ static void writefn(CacheBlock* cache, uint8_t* buffer, size_t sector_size) {
 	cache->dirty = true;
 }
 
-bool fs::BlockCache::read(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid) {
-	log(INFO, "Reading into buffer %p with lba %p, size %p and disk #%d", buffer, lba, size, diskid);
-	return disk_op(buffer, lba, size, diskid, readfn);
+bool fs::BlockCache::read(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid) {
+	log(INFO, "Reading into buffer %p with lba %p, size %p and disk #%d", buffer, lba, nsectors, diskid);
+	return disk_op(buffer, lba, nsectors, diskid, readfn);
 }
 
-bool fs::BlockCache::write(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid) {
-	log(INFO, "Writing from buffer %p with lba %p, size %p and disk #%d", buffer, lba, size, diskid);
-	return disk_op(buffer, lba, size, diskid, writefn);
+bool fs::BlockCache::write(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid) {
+	log(INFO, "Writing from buffer %p with lba %p, size %p and disk #%d", buffer, lba, nsectors, diskid);
+	return disk_op(buffer, lba, nsectors, diskid, writefn);
 }
 
-bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size)) {
+bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size)) {
 	auto sector_size = hal::DiskManager::get().get_driver(diskid)->get_sector_size();
-	size_t nsectors = size / sector_size;
-	if(size % sector_size) nsectors++;
 	for(size_t i = 0; i < nsectors; i++) {
 		CacheKey key{diskid, lba + i};
 		auto data = cache.get(key);
@@ -53,6 +51,7 @@ bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t size, size_t 
 bool fs::BlockCache::flush() {
 	for(CacheBlock& block : cache) {
 		if(block.dirty) {
+			log(INFO, "Saving sector %p", block.lba);
 			volatile hal::DiskJob job{block.buffer, block.lba, block.size_in_sectors, true};
 			hal::DiskManager::get().enqueue_job(block.diskid, &job);
 			block.dirty = false;

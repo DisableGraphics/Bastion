@@ -22,7 +22,7 @@ struct Hash<CacheKey>
 {
 	size_t operator()(const CacheKey& key) {
 		// Cursed hash that kinda works
-		return key.diskid ^ (key.lba + 0x9e3779b9 + (key.diskid << 6) + (key.diskid >> 2));
+		return key.diskid ^ ((size_t)key.lba + 0x9e3779b9 + (key.diskid << 6) + (key.diskid >> 2));
 	}
 };
 
@@ -31,16 +31,16 @@ namespace fs {
 		public:
 			static BlockCache& get();
 			/// Read from disk into a buffer
-			bool read(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid);
+			bool read(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid);
 			/// Write from a buffer into the cache.
 			/// \warning This operation DOES NOT write into disk, only to the cache.
 			/// Use flush() if you want to actually commit the changes to disk.
-			bool write(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid);
+			bool write(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid);
 			/// Commits all changes of non-evicted dirty sectors in the cache
 			/// Non-blocking operation.
 			bool flush();
 		private:
-			bool disk_op(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size));
+			bool disk_op(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size));
 			BlockCache(){};
 			BlockCache(const BlockCache& other) = delete;
 			BlockCache(BlockCache&& other) = delete;

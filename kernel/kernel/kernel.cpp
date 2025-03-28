@@ -31,6 +31,7 @@
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
+#include <kernel/fs/cache.hpp>
 // Scheduler
 #include <kernel/scheduler/scheduler.hpp>
 // Synchronization
@@ -168,6 +169,7 @@ void gen(void*) {
 
 				fat.closedir(&dir);
 			}
+			fs::BlockCache::get().flush();
  		}
 	}
 }

@@ -10,8 +10,8 @@ struct CacheBlock {
 	size_t diskid;
 	Buffer<uint8_t> buffer;
 	bool dirty = false;
-	CacheBlock(size_t size, uint64_t lba, size_t size_in_sectors, size_t diskid) : 
-		buffer(size),
+	CacheBlock(size_t sector_size, uint64_t lba, size_t size_in_sectors, size_t diskid) : 
+		buffer(sector_size*size_in_sectors),
 		lba(lba),
 		size_in_sectors(size_in_sectors),
 		diskid(diskid)

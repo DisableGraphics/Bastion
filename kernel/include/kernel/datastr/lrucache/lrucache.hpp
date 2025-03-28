@@ -18,7 +18,7 @@ class LRUCache {
 					return node != other.node;
 				}
 				V& operator*() {
-					return node->value;
+					return *(node->value.get());
 				}
 			private:
 				Node<K, V>* node;
