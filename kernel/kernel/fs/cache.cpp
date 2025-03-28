@@ -19,6 +19,10 @@ bool fs::BlockCache::read(uint8_t* buffer, uint64_t lba, size_t size, size_t dis
 			if(data) {
 				volatile hal::DiskJob job{*data, lba + i, 1, false};
 				hal::DiskManager::get().sleep_job(diskid, &job);
+			} else {
+				// Massive error here. If we don't have an entry after emplacing
+				// in the cache, we're absolutely fucked
+				return false;
 			}
 		}
 		memcpy(buffer + i * sector_size, *data, sector_size);
