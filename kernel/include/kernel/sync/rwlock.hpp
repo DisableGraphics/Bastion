@@ -10,6 +10,7 @@ class RWLock {
 		void unlockread();
 		void unlockwrite();
 	private:
+		void unblock();
 		int nreaders = 0;
 		int nwriters = 0;
 		Vector<Task*> waiting_readers;

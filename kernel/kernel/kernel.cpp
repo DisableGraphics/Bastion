@@ -36,6 +36,7 @@
 #include <kernel/scheduler/scheduler.hpp>
 // Synchronization
 #include <kernel/sync/semaphore.hpp>
+#include <kernel/sync/rwlock.hpp>
 // C Library headers
 #include <stdio.h>
 // Tests
@@ -46,6 +47,53 @@
 
 void idle(void*) {
 	for(;;) halt();
+}
+
+RWLock lock;
+
+void test1(void*) {
+	for(int i = 0; i < 20; i++) {
+		Scheduler::get().sleep(10);
+		lock.read();
+		log(INFO, "read(test1);");
+		Scheduler::get().sleep(10);
+		lock.unlockread();
+		log(INFO, "unlockread(test1);");
+	}
+}
+
+void test2(void*) {
+	for(int i = 0; i < 20; i++) {
+		Scheduler::get().sleep(10);
+		lock.read();
+		log(INFO, "read(test2);");
+		Scheduler::get().sleep(10);
+		lock.unlockread();
+		log(INFO, "unlockread(test2);");
+	}
+}
+
+void test3(void*) {
+	for(int i = 0; i < 20; i++) {
+		Scheduler::get().sleep(10);
+		lock.read();
+		log(INFO, "read(test3);");
+		Scheduler::get().sleep(10);
+		lock.unlockread();
+		log(INFO, "unlockread(test3);");
+	}
+}
+
+void test4(void*) {
+	for(int i = 0; i < 20; i++) {
+		Scheduler::get().sleep(10);
+		lock.write();
+		log(INFO, "write();");
+		Scheduler::get().sleep(10);
+		
+		lock.unlockwrite();
+		log(INFO, "unlockwrite();");
+	}
 }
 
 void gen(void*) {
@@ -198,8 +246,16 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	Task *idleTask = new Task{idle, nullptr};
 	Task *generic = new Task{gen, nullptr};
+	Task* test1t = new Task{test1, nullptr};
+	Task* test2t = new Task{test2, nullptr};
+	Task* test3t = new Task{test3, nullptr};
+	Task* test4t = new Task{test4, nullptr};
 	Scheduler::get().append_task(idleTask);
-	Scheduler::get().append_task(generic);
+	//Scheduler::get().append_task(generic);
+	Scheduler::get().append_task(test1t);
+	Scheduler::get().append_task(test2t);
+	Scheduler::get().append_task(test3t);
+	Scheduler::get().append_task(test4t);
 
 	hal::PS2SubsystemManager::get().init();
 

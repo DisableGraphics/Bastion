@@ -89,7 +89,7 @@ size_t Scheduler::choose_task() {
 			tasks.push_back(task);
 			return tasks.size() - 1;
 		} else {
-			log(INFO, "Status of task %d: %d", i, tasks[i]->status);
+			log(INFO, "Status of task %d: %d", tasks[i]->id, tasks[i]->status);
 		}
 	}
 
