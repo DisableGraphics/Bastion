@@ -20,7 +20,8 @@ template<>
 struct Hash<CacheKey>
 {
 	size_t operator()(const CacheKey& key) {
-		return key.diskid ^ key.lba;
+		// Cursed hash that kinda works
+		return key.diskid ^ (key.lba + 0x9e3779b9 + (key.diskid << 6) + (key.diskid >> 2));
 	}
 };
 
