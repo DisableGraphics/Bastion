@@ -14,13 +14,14 @@ bool fs::BlockCache::read(uint8_t* buffer, uint64_t lba, size_t size, size_t dis
 		CacheKey key{diskid, lba + i};
 		auto data = cache.get(key);
 		if(!data) {
-			auto unq = Buffer<uint8_t>(sector_size);
-			volatile hal::DiskJob job{unq, lba + i, 1, false};
-			hal::DiskManager::get().sleep_job(diskid, &job);
-			cache.emplace(key, move(unq));
+			cache.emplace(key, sector_size);
 			data = cache.get(key);
+			if(data) {
+				volatile hal::DiskJob job{*data, lba + i, 1, false};
+				hal::DiskManager::get().sleep_job(diskid, &job);
+			}
 		}
-		memcpy(buffer + i * sector_size, data, sector_size);
+		memcpy(buffer + i * sector_size, *data, sector_size);
 	}
 	return true;
 }

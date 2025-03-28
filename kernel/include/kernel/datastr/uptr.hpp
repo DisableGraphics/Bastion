@@ -1,4 +1,5 @@
 #pragma once
+#include <kernel/cpp/forward.hpp>
 /**
 	\brief Unique Ptr that simulates an owning pointer
  */
@@ -61,6 +62,6 @@
 
 
 template <typename T, typename... Args>
-UniquePtr<T> make_unique(Args&& ... args) {
-	return UniquePtr<T>(new T(forward(args)...));
+UniquePtr<T> make_unique(Args&&... args) {
+	return UniquePtr<T>(new T(forward<Args>(args)...));
 }
