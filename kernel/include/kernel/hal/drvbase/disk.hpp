@@ -33,6 +33,6 @@ namespace hal {
 			virtual uint32_t get_sector_size() const { return 512; };
 		protected:
 			// Pending disk jobs
-			Vector<DiskJob*> jobs;
+			Vector<volatile DiskJob*> jobs;
 	};
 }

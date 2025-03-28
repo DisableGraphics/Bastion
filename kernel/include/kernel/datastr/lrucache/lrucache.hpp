@@ -5,12 +5,33 @@
 template <typename K, typename V>
 class LRUCache {
 	public:
+		class iterator {
+			public:
+				iterator(Node<K, V>* node) : node(node) {}
+				void operator++() {
+					node = node->next;
+				}
+				bool operator==(const iterator& other) {
+					return node == other.node;
+				}
+				bool operator!=(const iterator& other) {
+					return node != other.node;
+				}
+				V& operator*() {
+					return node->value;
+				}
+			private:
+				Node<K, V>* node;
+		};
 		explicit LRUCache(size_t cap) : capacity(cap), head(nullptr), tail(nullptr) {}
 		~LRUCache();
 		V* get(const K& key);
 		size_t size() const;
 		template <typename... Args>
 		void emplace(K key, Args&&... args);
+
+		iterator begin() { return iterator{head}; };
+		iterator end() { return iterator{nullptr}; };
 	private:
 		size_t capacity;
 		HashMap<K, Node<K, V>*> cache;

@@ -51,5 +51,12 @@ bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t size, size_t 
 }
 
 bool fs::BlockCache::flush() {
-	
+	for(CacheBlock& block : cache) {
+		if(block.dirty) {
+			volatile hal::DiskJob job{block.buffer, block.lba, block.size_in_sectors, true};
+			hal::DiskManager::get().enqueue_job(block.diskid, &job);
+			block.dirty = false;
+		}
+	}
+	return true;
 }

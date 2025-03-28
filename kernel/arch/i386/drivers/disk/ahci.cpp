@@ -261,6 +261,13 @@ void AHCI::handle_interrupt() {
 			}
 			hba->ports[port].is = port_is;  // Clear port-specific status
 		}
+		// Enqueue remaining jobs in all free slots
+		int pos = -1;
+		while(((pos = find_cmdslot(prt)) != -1) && !jobs.empty()) {
+			volatile hal::DiskJob* job = jobs[0];
+			jobs.erase(0);
+			enqueue_job(job);
+		}
 	}
 	// Clear global interrupt status
 	hba->is = global_is;
@@ -352,8 +359,11 @@ bool AHCI::dma_transfer(volatile hal::DiskJob* job) {
 	port->is = (uint32_t) -1;		// Clear pending interrupt bits
 	int spin = 0; // Spin lock timeout counter
 	int slot = find_cmdslot(port);
-	if (slot == -1)
+	if (slot == -1) {
+		// In this case we save the job for the next available slot
+		jobs.push_back(job);
 		return false;
+	}
 
 	active_jobs[slot] = job;
 

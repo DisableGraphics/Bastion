@@ -37,6 +37,7 @@ namespace fs {
 			/// Use flush() if you want to actually commit the changes to disk.
 			bool write(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid);
 			/// Commits all changes of non-evicted dirty sectors in the cache
+			/// Non-blocking operation.
 			bool flush();
 		private:
 			bool disk_op(uint8_t* buffer, uint64_t lba, size_t size, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size));
