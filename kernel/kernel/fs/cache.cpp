@@ -53,8 +53,8 @@ bool fs::BlockCache::flush() {
 		if(block.dirty) {
 			log(INFO, "Saving sector %p", block.lba);
 			///TODO: See why the fuck AHCI devices have a race condition in which I cannot input more than one command at a time
-			volatile hal::DiskJob *job = new hal::DiskJob{block.buffer, block.lba, block.size_in_sectors, true};
-			hal::DiskManager::get().sleep_job(block.diskid, job);
+			volatile hal::DiskJob job{block.buffer, block.lba, block.size_in_sectors, true};
+			hal::DiskManager::get().sleep_job(block.diskid, &job);
 			block.dirty = false;
 		}
 	}
