@@ -38,7 +38,7 @@ void PIT::start(uint32_t interval_ms) {
 	outb(0x40, (PIT_reload_value >> 8) & 0xFF); // Send high byte
 
 	IDT::get().enable_interrupts();
-	basic_setup(hal::PIT);
+	basic_setup(hal::TIMER);
 }
 
 size_t PIT::ellapsed() {

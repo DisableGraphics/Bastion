@@ -5,7 +5,6 @@ namespace hal {
 	class KeyboardDriver : public Driver {
 		public:
 			~KeyboardDriver() = default;
-			
 		private:
 	};
 }

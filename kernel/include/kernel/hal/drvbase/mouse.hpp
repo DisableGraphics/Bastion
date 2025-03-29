@@ -3,6 +3,6 @@
 
 namespace hal {
 	class Mouse : public Driver {
-
+		
 	};
 }

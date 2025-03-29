@@ -11,13 +11,9 @@ namespace hal {
 
 			virtual size_t get_irqline();
 			virtual bool is_exclusive_irq();
-
-			virtual Device get_device_type();
-
 			virtual void basic_setup(hal::Device);
 		protected:
 			size_t irqline = -1;
 			bool exclusive_irq = false;
-			Device device_type;
 	};
 }

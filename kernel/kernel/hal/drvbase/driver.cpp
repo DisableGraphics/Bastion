@@ -10,10 +10,6 @@ bool hal::Driver::is_exclusive_irq() {
 	return exclusive_irq;
 }
 
-hal::Device hal::Driver::get_device_type() {
-	return device_type;
-}
-
 void hal::Driver::basic_setup(hal::Device device) {
 	irqline = hal::IRQControllerManager::get().get_default_irq(device);
 	if(irqline == -1)

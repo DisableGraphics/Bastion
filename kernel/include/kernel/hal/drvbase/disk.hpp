@@ -31,6 +31,8 @@ namespace hal {
 				\return Sector size or default 512B
 			*/
 			virtual uint32_t get_sector_size() const { return 512; };
+
+			Device get_device_type() { return Device::STORAGE; }
 		protected:
 			// Pending disk jobs
 			Vector<volatile DiskJob*> jobs;

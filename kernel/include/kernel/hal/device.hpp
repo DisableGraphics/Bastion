@@ -1,12 +1,12 @@
 #pragma once
 namespace hal {
 	enum Device {
-		PIT,
-		RTC,
+		TIMER,
+		CLOCK,
 		KEYBOARD,
 		MOUSE,
 		STORAGE,
 		NETWORK,
-		SCREEN
+		VIDEO
 	};
 }

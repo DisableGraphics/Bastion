@@ -40,7 +40,9 @@ class TTYManager {
 			the last one is selected.
 		 */
 		void set_current_tty(size_t tty);
-
+		/**
+			\brief Clear current tty.
+		*/
 		void clear();
 	private:
 		/**

@@ -176,7 +176,6 @@ void gen(void*) {
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	TTYManager::get().init();
-	Cursor::get().init();
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
 	Serial::get().init();

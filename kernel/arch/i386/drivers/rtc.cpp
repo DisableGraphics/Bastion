@@ -25,7 +25,7 @@ void RTC::init() {
 	
 	read_register_c();
 
-	basic_setup(hal::RTC);
+	basic_setup(hal::CLOCK);
 
 	NMI::enable();
 	IDT::enable_interrupts();

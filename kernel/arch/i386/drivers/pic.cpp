@@ -114,9 +114,9 @@ uint8_t PIC::get_offset() {
 
 size_t PIC::get_default_irq(hal::Device dev) {
 	switch(dev) {
-		case hal::PIT:
+		case hal::TIMER:
 			return 0;
-		case hal::RTC:
+		case hal::CLOCK:
 			return 8;
 		case hal::KEYBOARD:
 			return 1;
@@ -126,7 +126,7 @@ size_t PIC::get_default_irq(hal::Device dev) {
 			return -1;
 		case hal::NETWORK:
 			return -1;
-		case hal::SCREEN:
+		case hal::VIDEO:
 			return -1;
 	}
 	return -1;
