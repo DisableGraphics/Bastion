@@ -55,14 +55,16 @@ bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t nsectors, siz
 }
 
 bool fs::BlockCache::flush() {
+	mutx.lock();
 	for(CacheBlock& block : cache) {
 		if(block.dirty) {
 			log(INFO, "Saving sector %p", block.lba);
 			///TODO: See why the fuck AHCI devices have a race condition in which I cannot input more than one command at a time
 			volatile hal::DiskJob job{block.buffer, block.lba, block.size_in_sectors, true};
 			hal::DiskManager::get().sleep_job(block.diskid, &job);
-			block.dirty = false;
+			if(job.state == hal::DiskJob::FINISHED) block.dirty = false;
 		}
 	}
+	mutx.unlock();
 	return true;
 }
