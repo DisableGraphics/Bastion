@@ -18,12 +18,18 @@ static void writefn(CacheBlock* cache, uint8_t* buffer, size_t sector_size) {
 
 bool fs::BlockCache::read(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid) {
 	log(INFO, "Reading into buffer %p with lba %p, size %p and disk #%d", buffer, lba, nsectors, diskid);
-	return disk_op(buffer, lba, nsectors, diskid, readfn);
+	mutx.lock();
+	bool ret = disk_op(buffer, lba, nsectors, diskid, readfn);
+	mutx.unlock();
+	return ret;
 }
 
 bool fs::BlockCache::write(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid) {
 	log(INFO, "Writing from buffer %p with lba %p, size %p and disk #%d", buffer, lba, nsectors, diskid);
-	return disk_op(buffer, lba, nsectors, diskid, writefn);
+	mutx.lock();
+	bool ret = disk_op(buffer, lba, nsectors, diskid, writefn);
+	mutx.unlock();
+	return ret;
 }
 
 bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t nsectors, size_t diskid, void (*fn)(CacheBlock* cache, uint8_t* buffer, size_t sector_size)) {

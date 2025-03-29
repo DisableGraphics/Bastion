@@ -1,1 +1,1 @@
-target_sources(kernel_obj PRIVATE semaphore.cpp mutex.cpp rwlock.cpp)
+target_sources(kernel_obj PRIVATE semaphore.cpp mutex.cpp)

@@ -5,6 +5,7 @@
 #include <kernel/datastr/uptr.hpp>
 #include <kernel/datastr/hashmap/hash.hpp>
 #include <kernel/fs/cacheblock.hpp>
+#include <kernel/sync/mutex.hpp>
 
 #define CAPACITY 512
 
@@ -48,5 +49,6 @@ namespace fs {
 			void operator=(const BlockCache& other) = delete;
 			void operator=(BlockCache&& other) = delete;
 			LRUCache<CacheKey, CacheBlock> cache{CAPACITY};
+			Mutex mutx;
 	};
 }
