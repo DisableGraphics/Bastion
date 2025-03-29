@@ -1072,11 +1072,11 @@ bool FAT32::iter(DIR* dir, dirent* dirent) {
 				if(!has_lfn) {
 					// In this case we copy the name into the dirent->d_name buffer
 					get_sfn_name(entryptr, dirent->d_name);
-					struct stat props;
-					direntrystat(entryptr, &props);
-					dirent->d_ino = props.st_ino;
-					dirent->d_type = (entryattr == FAT_FLAGS::DIRECTORY) ? DT_DIR : (entryattr == FAT_FLAGS::ARCHIVE ? DT_REG : DT_UNKNOWN);
 				}
+				struct stat props;
+				direntrystat(entryptr, &props);
+				dirent->d_ino = props.st_ino;
+				dirent->d_type = (entryattr == FAT_FLAGS::DIRECTORY) ? DT_DIR : (entryattr == FAT_FLAGS::ARCHIVE ? DT_REG : DT_UNKNOWN);
 				dir->d_curentry = i + 1;
 				return true;
 			}
