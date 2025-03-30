@@ -12,33 +12,25 @@ hal::VideoDriver::VideoDriver(uint8_t* framebuffer,
 	width(width),
 	height(height),
 	pitch(pitch),
-	scrsize(height*pitch*(depth/8)) {
+	scrsize(height*pitch*(depth/8)),
+	nblocks(scrsize/BLOCK_SIZE) {
 	backbuffer = reinterpret_cast<uint8_t*>(kcalloc(scrsize, sizeof(*backbuffer)));
+	dirty_blocks = reinterpret_cast<bool*>(kcalloc(nblocks, sizeof(bool)));
 }
 
 void hal::VideoDriver::init(tc::timertime interval) {
-	volatile void** args = new volatile void*[3]{this, nullptr, nullptr};
-	void (*lambda)(volatile void*) = [](volatile void* args) {
-		void** argsn = reinterpret_cast<void**>(const_cast<void*>(reinterpret_cast<volatile void*>(args)));
-		log(INFO, "args[0] = %p, args[1] = %p, args[2] = %p", argsn);
-		tc::timertime interval = reinterpret_cast<tc::timertime>(argsn[2]);
-		void (*lambda)(volatile void*) = reinterpret_cast<void(*)(volatile void*)>(argsn[1]);
-		hal::VideoDriver* self = reinterpret_cast<hal::VideoDriver*>(argsn[0]);
-		hal::TimerManager::get().exec_at(interval, lambda, args);
-		self->copy();
-	};
-	args[0] = this;
-	args[1] = reinterpret_cast<void*>(lambda);
-	args[2] = reinterpret_cast<void*>(interval);
 
-	// Ask the timermanager to call copy() each interval to refresh the screen
-	hal::TimerManager::get()
-		.exec_at(interval, lambda, args);
 }
 
-void hal::VideoDriver::copy() {
+void hal::VideoDriver::flush() {
 	if(dirty) {
-		memcpar(framebuffer, backbuffer, scrsize);
+		for(size_t i = 0; i < nblocks; i+=4) {
+			memcpar(framebuffer + (i << DISP_BLOCK_SIZE), backbuffer + (i << DISP_BLOCK_SIZE), BLOCK_SIZE);
+			memcpar(framebuffer + ((i+1) << DISP_BLOCK_SIZE), backbuffer + ((i+1) << DISP_BLOCK_SIZE), BLOCK_SIZE);
+			memcpar(framebuffer + ((i+2) << DISP_BLOCK_SIZE), backbuffer + ((i+2) << DISP_BLOCK_SIZE), BLOCK_SIZE);
+			memcpar(framebuffer + ((i+3) << DISP_BLOCK_SIZE), backbuffer + ((i+3) << DISP_BLOCK_SIZE), BLOCK_SIZE);
+			dirty_blocks[i] = false;
+		}
 		dirty = false;
 	}
 }

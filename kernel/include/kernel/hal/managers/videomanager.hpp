@@ -13,6 +13,7 @@ namespace hal {
 			void draw_pixel(size_t screen, int x, int y, color c);
 			void draw_rectangle(size_t screen, int x, int y, int w, int h, color c);
 			void clear(size_t screen);
+			void flush(size_t screen);
 
 		private:
 			VideoManager(){};

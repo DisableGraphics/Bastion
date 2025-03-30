@@ -3,6 +3,10 @@
 #include <kernel/kernel/timeconst.hpp>
 #include <stdint.h>
 
+// Shift length of a block size (for optimizations)
+constexpr uint32_t DISP_BLOCK_SIZE = 12;
+constexpr uint32_t BLOCK_SIZE = (1 << DISP_BLOCK_SIZE);
+
 namespace hal {
 	struct color {
 		int r, g, b, a;
@@ -24,15 +28,16 @@ namespace hal {
 			virtual void clear() = 0;
 
 			/// Copy backbuffer into framebuffer if backbuffer is dirty
-			virtual void copy();
+			virtual void flush();
 		protected:
 			bool dirty = false;
+			bool* dirty_blocks;
 			uint8_t* framebuffer;
 			uint32_t width;
 			uint32_t height;
 			uint32_t pitch;
 			uint32_t depth;
-			const uint32_t scrsize;
+			const uint32_t scrsize, nblocks;
 			uint8_t* backbuffer;
 	};
 }

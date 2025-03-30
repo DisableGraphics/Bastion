@@ -39,7 +39,7 @@ namespace hal {
 			volatile void* exec_future_args = nullptr;
 			bool is_scheduler_timer = false;
 			size_t us_per_tick = 0;
-			size_t accum_ms = 0;
+			size_t accum_us = 0;
 			volatile int sleep_us = 0, exec_future_us = 0;
 	};
 }

@@ -6,6 +6,7 @@ void hal::Timer::handle_interrupt() {
 	hal::IRQControllerManager::get().eoi(this->irqline);
 	// Handle sleep + the future execution
 	sleep_us -= us_per_tick;
+	accum_us += us_per_tick;
 	exec_future_us -= us_per_tick;
 	if(exec_future_fn && exec_future_us <= 0) {
 		exec_future_fn(exec_future_args);

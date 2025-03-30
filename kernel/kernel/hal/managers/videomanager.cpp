@@ -29,3 +29,6 @@ void hal::VideoManager::draw_rectangle(size_t screen, int x, int y, int w, int h
 void hal::VideoManager::clear(size_t screen) {
 	drivers[screen]->clear();
 }
+void hal::VideoManager::flush(size_t screen) {
+	drivers[screen]->flush();
+}

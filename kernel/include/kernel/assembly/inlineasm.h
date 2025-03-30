@@ -7,6 +7,10 @@
 extern "C" {
 #endif
 
+#define MSR_MTRRphysBase0 0x200
+#define MSR_MTRRphysMask0 0x201
+#define IA32_MTRR_DEF_TYPE 0x2FF
+
 // FAR PEEKx
 uint32_t farpeekl(uint16_t sel, void *off);
 // FAR POKEx

@@ -1,6 +1,7 @@
 #include <kernel/drivers/vesa.hpp>
 #include <string.h>
 #include <kernel/kernel/log.hpp>
+#include <kernel/assembly/inlineasm.h>
 
 VESADriver::VESADriver(uint8_t* framebuffer,
 	uint32_t width,
@@ -68,12 +69,14 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	green_size,
 	blue_size);
 	log(INFO, "Back buffer: %p", backbuffer);
-
+	uint64_t mask = ~(scrsize - 1) | 0x800;
+	uint64_t base = reinterpret_cast<uint64_t>(framebuffer) | 0x0C;
+	// Set as write-combining for more performance
+	wrmsr(MSR_MTRRphysBase0, base);
+	wrmsr(MSR_MTRRphysMask0, mask);
 }
 
 void VESADriver::init() {
-	// Reasonable default of 60 Hz (16.667 ms)
-	hal::VideoDriver::init(16667*tc::us);
 }
 
 void VESADriver::handle_interrupt() {
@@ -95,6 +98,7 @@ void VESADriver::draw_string(char* str, int x, int y) {
 void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty = true;
 	unsigned where = x*bytedepth + y*pitch;
+	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
 	(this->*draw_raw)(backbuffer+where, c);
 }
 
@@ -103,6 +107,8 @@ void VESADriver::draw_rectangle(int x, int y, int w, int h, hal::color c) {
 }
 
 void VESADriver::clear() {
+	dirty = true;
+	memset(dirty_blocks, true, nblocks);
 	memset(backbuffer, 0, scrsize);
 }
 

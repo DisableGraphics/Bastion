@@ -42,7 +42,7 @@ void PIT::start(uint32_t interval_us) {
 }
 
 size_t PIT::ellapsed() {
-	return accum_ms;
+	return accum_us;
 }
 
 void PIT::sleep(uint32_t millis) {

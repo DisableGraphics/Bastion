@@ -222,13 +222,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 			void* fbaddroff = reinterpret_cast<void*>(mbd2->framebuffer_addr + region*REGION_SIZE);
 			PagingManager::get().new_page_table(newpagetable, 
 				fbaddroff);
-			for(auto pages = 0; pages < (fbsize_pages < PAGE_SIZE? fbsize_pages : PAGE_SIZE); pages++) {
+			for(auto pages = 0; pages < PAGE_SIZE; pages++) {
 				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
 				PagingManager::get().map_page(fbaddroff_p, 
 					fbaddroff_p, 
 					READ_WRITE | CACHE_DISABLE);
 			}
-			fbsize_pages -= PAGE_SIZE;
 		}
 	}
 	
@@ -247,12 +246,18 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	};
 	vesa.init();
 	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
-
-	for(size_t i = 0; i < mbd2->framebuffer_width * mbd2->framebuffer_height; i++) {
-		int x = i % mbd2->framebuffer_width;
-		int y = i / mbd2->framebuffer_width;
-		hal::VideoManager::get().draw_pixel(vesaid, x, y, {255, 255, 255});
+	size_t ellapsed = hal::TimerManager::get().get_timer(0).ellapsed();
+	for(size_t j = 0; j < 60; j++) {
+		for(size_t i = 0; i < mbd2->framebuffer_width * mbd2->framebuffer_height; i++) {
+			int x = i % mbd2->framebuffer_width;
+			int y = i / mbd2->framebuffer_width;
+			hal::VideoManager::get().draw_pixel(vesaid, x, y, {255, 255, 255});
+		}
+		hal::VideoManager::get().flush(vesaid);
+		hal::VideoManager::get().clear(vesaid);
 	}
+	size_t ellapsed2 = hal::TimerManager::get().get_timer(0).ellapsed();
+	log(INFO, "Before: %d vs After: %d", ellapsed, ellapsed2);
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
