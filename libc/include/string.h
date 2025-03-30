@@ -11,6 +11,8 @@ extern "C" {
 
 int memcmp(const void*, const void*, size_t);
 void* memcpy(void* __restrict, const void* __restrict, size_t);
+// Faster memcpy that copies in 8-byte multiples at once
+void* memcpar(void* __restrict, const void* __restrict, size_t);
 void* memmove(void*, const void*, size_t);
 void* memset(void*, int, size_t);
 // memset but for volatile regions of memory
