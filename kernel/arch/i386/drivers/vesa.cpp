@@ -28,15 +28,9 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 {
 	switch(depth) {
 		case 32:
-			this->blue_pos/=8;
-			this->red_pos/=8;
-			this->green_pos/=8;
 			draw_raw = &VESADriver::draw_32;
 			break;
 		case 24:
-			this->blue_pos/=8;
-			this->red_pos/=8;
-			this->green_pos/=8;
 			draw_raw = &VESADriver::draw_24;
 			break;
 		case 16:
@@ -113,15 +107,13 @@ void VESADriver::clear() {
 }
 
 void VESADriver::draw_32(uint8_t* where, hal::color c) {
-	where[red_pos] = c.r;
-	where[green_pos] = c.g;
-	where[blue_pos] = c.b;
+	uint32_t data = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
+	*reinterpret_cast<uint32_t*>(where) = data;
 }
 
 void VESADriver::draw_24(uint8_t* where, hal::color c) {
-	where[red_pos] = c.r;
-	where[green_pos] = c.g;
-	where[blue_pos] = c.b;
+	uint32_t data = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
+	*reinterpret_cast<uint32_t*>(where) = data;
 }
 
 void VESADriver::draw_16(uint8_t* where, hal::color c) {
@@ -135,7 +127,7 @@ void VESADriver::draw_16(uint8_t* where, hal::color c) {
 	};
 	uint16_t dest = 0;
 	dest |= squished.r << red_pos;
-	dest |= squished.g << red_pos;
+	dest |= squished.g << green_pos;
 	dest |= squished.b << blue_pos;
 	where[0] = dest;
 	where[1] = (dest >> 8);
