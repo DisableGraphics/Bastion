@@ -5,19 +5,19 @@ hal::TimerManager& hal::TimerManager::get() {
 	return instance;
 }
 
-void hal::TimerManager::register_timer(Timer* timer, uint32_t ms, void (*callback)()) {
+void hal::TimerManager::register_timer(Timer* timer, uint32_t us, void (*callback)()) {
 	timers.push_back(timer);
-	timers.back()->start(ms);
+	timers.back()->start(us);
 }
 
 hal::Timer& hal::TimerManager::get_timer(size_t pos) {
 	return *timers[pos];
 }
 
-void hal::TimerManager::exec_at(uint32_t ms, void (*fn)(volatile void*), volatile void* args) {
+void hal::TimerManager::exec_at(uint32_t us, void (*fn)(volatile void*), volatile void* args) {
 	static int seltimer = 0;
 	if(timers.size() > 0) {
-		timers[seltimer]->exec_at(ms, fn, args);
+		timers[seltimer]->exec_at(us, fn, args);
 	}
 
 	seltimer++;

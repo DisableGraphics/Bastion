@@ -1,7 +1,9 @@
 #pragma once
 #include <kernel/scheduler/task.hpp>
 #include <kernel/datastr/vector.hpp>
-#define TIME_QUANTUM_MS 20
+#include <kernel/kernel/timeconst.hpp>
+
+constexpr tc::timertime TIME_QUANTUM = 20*tc::ms;
 
 class Scheduler {
 	public:
@@ -28,13 +30,13 @@ class Scheduler {
 		 */
 		void schedule();
 		/**
-			\brief Sleep for at least millis milliseconds.
-			\param millis The minimum amount of time this task will sleep in milliseconds.
+			\brief Sleep for at least the specified amount of time.
+			\param us The minimum amount of time this task will sleep in microseconds.
 			\warning The scheduler can't guarantee the exact time the task will wake up.
 			However, it can guarantee that the task will sleep for at least the specified
 			amount of time.
 		 */
-		void sleep(unsigned millis);
+		void sleep(tc::timertime us);
 		/**
 			\brief Block task for a reason (e.g waiting for IO, sleeping)
 			\param reason The reason the task is sleeping
@@ -68,9 +70,9 @@ class Scheduler {
 		 */
 		void preemptive_scheduling();
 		/**
-			\brief Set lenght of clock tick in milliseconds for preemptive scheduling.
+			\brief Set lenght of clock tick in microseconds for preemptive scheduling.
 		 */
-		void set_clock_tick(int ms);
+		void set_clock_tick(int us);
 
 		/**
 			\brief Lock scheduler.
@@ -94,13 +96,13 @@ class Scheduler {
 		 */
 		size_t choose_task();
 		// Time slice of the currently running task
-		int time_slice = TIME_QUANTUM_MS;
+		int time_slice = TIME_QUANTUM;
 		// Number of times lock() has been called
 		int nlock = 0;
 		// Whether run() has been called
 		bool init = false;
 		// Length of clock tick of the timer
-		int ms_clock_tick = 0;
+		int us_clock_tick = 0;
 		// Schedule early (when preempting the idle task)
 		bool early_sched = false;
 };

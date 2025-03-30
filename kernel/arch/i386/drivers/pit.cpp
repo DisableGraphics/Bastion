@@ -26,9 +26,9 @@ void PIT::stop() {
 	outb(0x40, 0x00);
 }
 
-void PIT::start(uint32_t interval_ms) {
-	int PIT_reload_value = (1193182 * interval_ms) / 1000;
-	ms_per_tick = interval_ms;
+void PIT::start(uint32_t interval_us) {
+	int PIT_reload_value = (1193182 * interval_us) / tc::s;
+	us_per_tick = interval_us;
 	
 	// Program the PIT channel
 	IDT::get().disable_interrupts(); // Function to disable interrupts
@@ -46,8 +46,8 @@ size_t PIT::ellapsed() {
 }
 
 void PIT::sleep(uint32_t millis) {
-	sleep_ms = millis;
-	while (sleep_ms > 0) {
+	sleep_us = millis;
+	while (sleep_us > 0) {
 		halt();
 	}
 }

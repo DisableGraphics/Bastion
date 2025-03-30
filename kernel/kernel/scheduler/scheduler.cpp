@@ -46,17 +46,17 @@ void Scheduler::schedule() {
 	switch_task(current_task, tasks[next]);
 }
 
-void Scheduler::sleep(unsigned millis) {
-	(*current_task)->time_until_wake = millis;
+void Scheduler::sleep(tc::timertime us) {
+	(*current_task)->time_until_wake = us;
 	(*current_task)->status = TaskState::SLEEPING;
 	schedule();
 }
 
 void Scheduler::preemptive_scheduling() {
-	time_slice -= ms_clock_tick;
+	time_slice -= us_clock_tick;
 	if(time_slice < 0 || early_sched) {
 		early_sched = false;
-		time_slice = TIME_QUANTUM_MS;
+		time_slice = TIME_QUANTUM;
 		schedule();
 	}
 }
@@ -64,7 +64,7 @@ void Scheduler::preemptive_scheduling() {
 void Scheduler::handle_sleeping_tasks() {
 	for(size_t i = 1; i < tasks.size(); i++) {
 		if(tasks[i]->status == TaskState::SLEEPING) {
-			tasks[i]->time_until_wake -= ms_clock_tick;
+			tasks[i]->time_until_wake -= us_clock_tick;
 			if(tasks[i]->time_until_wake <= 0) {
 				tasks[i]->status = TaskState::RUNNING;
 			}
@@ -106,8 +106,8 @@ void Scheduler::unlock() {
 	if(nlock == 0) IDT::enable_interrupts();
 }
 
-void Scheduler::set_clock_tick(int ms) {
-	ms_clock_tick = ms;
+void Scheduler::set_clock_tick(int us) {
+	us_clock_tick = us;
 }
 
 void Scheduler::block(TaskState reason) {

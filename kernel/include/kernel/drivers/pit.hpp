@@ -1,14 +1,10 @@
 #pragma once
 #include <kernel/drivers/interrupts.hpp>
-#include <stdint.h>
-#include <string.h>
 #include <kernel/hal/drvbase/timer.hpp>
 #ifdef __i386
 #include "../arch/i386/defs/pit/pit.hpp"
 #endif
 
-// Number of max kernel countdowns available
-constexpr uint32_t K_N_COUNTDOWNS = 32;
 /**
 	\brief Programmable Interrupt Timer driver
 	Implemented as a singleton
@@ -20,14 +16,10 @@ class PIT final : public hal::Timer {
 		PIT();
 		virtual ~PIT();
 		void init() override;
-		void start(uint32_t ms) override;
+		void start(tc::timertime us) override;
 		void stop() override;
-		size_t ellapsed() override;
-		/**
-			\brief Sleep for millis milliseconds
-			\param millis The number of milliseconds to sleep
-		 */
-		void sleep(uint32_t millis) override;
+		tc::timertime ellapsed() override;
+		void sleep(tc::timertime us) override;
 	private:
 		/**
 			\brief Initialise timer

@@ -188,7 +188,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	PIT pit;
 	pit.init();
-	hal::TimerManager::get().register_timer(&pit, 1);
+	hal::TimerManager::get().register_timer(&pit, 1*tc::ms);
 	pit.set_is_scheduler_timer(true);
 
 	RTC rtc;
@@ -212,7 +212,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::DiskManager::get().init();
 	// Seed RNG
 	srand(time(NULL));
-	
 	Scheduler::get().run();
 	for(;;) {
 		__asm__ __volatile__("hlt");

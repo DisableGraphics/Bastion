@@ -136,7 +136,7 @@ void hal::PS2SubsystemManager::reset_and_detect_devices() {
 	uint32_t handle;
 	for(int i = 0; i < (has_two_channels ? 2 : 1); i++) {
 		int port = i+1;
-		hal::TimerManager::get().exec_at(2000, on_timeout_expire, this);
+		hal::TimerManager::get().exec_at(2*tc::s, on_timeout_expire, this);
 		while(!timeout_expired) {
 			uint8_t status_register = inb(STATUS_REGISTER);
 			if(!(status_register & (1 << 1))) {
