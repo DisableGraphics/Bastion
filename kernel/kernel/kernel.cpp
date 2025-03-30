@@ -248,7 +248,11 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	vesa.init();
 	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
 
-	hal::VideoManager::get().draw_pixel(vesaid, 12, 12, {0, 255, 0});
+	for(size_t i = 0; i < mbd2->framebuffer_width * mbd2->framebuffer_height; i++) {
+		int x = i % mbd2->framebuffer_width;
+		int y = i / mbd2->framebuffer_width;
+		hal::VideoManager::get().draw_pixel(vesaid, x, y, {255, 255, 255});
+	}
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();

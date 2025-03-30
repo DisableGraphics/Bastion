@@ -38,6 +38,8 @@ void hal::VideoDriver::init(tc::timertime interval) {
 
 void hal::VideoDriver::copy() {
 	log(INFO, "Framebuffer: %p, backbuffer: %p", framebuffer, backbuffer);
-	if(dirty)
+	if(dirty) {
 		memcpy(framebuffer, backbuffer, scrsize);
+		dirty = false;
+	}
 }

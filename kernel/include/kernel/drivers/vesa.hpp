@@ -26,9 +26,9 @@ class VESADriver final : public hal::VideoDriver {
 		typedef void (VESADriver::*draw_fn)(uint8_t* where, hal::color c);
 		draw_fn draw_raw = nullptr;
 
-		void draw_32(uint8_t* where, hal::color c);
-		void draw_24(uint8_t* where, hal::color c);
-		void draw_16(uint8_t* where, hal::color c);
+		inline void draw_32(uint8_t* where, hal::color c);
+		inline void draw_24(uint8_t* where, hal::color c);
+		inline void draw_16(uint8_t* where, hal::color c);
 
 		inline uint8_t squish8_to_size(int val, uint8_t destsize);
 
@@ -38,4 +38,6 @@ class VESADriver final : public hal::VideoDriver {
 		uint32_t red_size;
 		uint32_t blue_size;
 		uint32_t green_size;
+
+		uint8_t bytedepth;
 };
