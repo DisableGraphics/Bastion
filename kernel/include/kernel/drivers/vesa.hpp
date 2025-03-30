@@ -39,5 +39,5 @@ class VESADriver final : public hal::VideoDriver {
 		uint32_t blue_size;
 		uint32_t green_size;
 
-		uint8_t bytedepth;
+		uint8_t depth_disp;
 };

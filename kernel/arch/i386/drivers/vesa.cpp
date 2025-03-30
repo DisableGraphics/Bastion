@@ -24,21 +24,24 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 		blue_pos(blue_pos),
 		red_size(red_size),
 		green_size(green_size),
-		blue_size(blue_size),
-		bytedepth(depth >> 3)
+		blue_size(blue_size)
 {
 	switch(depth) {
 		case 32:
+			depth_disp = 2;
 			draw_raw = &VESADriver::draw_32;
 			break;
 		case 24:
+			depth_disp = 1;
 			draw_raw = &VESADriver::draw_24;
 			break;
 		case 16:
 		case 15:
+			depth_disp = 1;
 			draw_raw = &VESADriver::draw_16;
 			break;
 		default:
+			depth_disp = 2;
 			// Shitty default
 			draw_raw = &VESADriver::draw_24;
 	}
@@ -97,7 +100,7 @@ void VESADriver::draw_string(char* str, int x, int y) {
 
 void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty = true;
-	unsigned where = x*bytedepth + y*pitch;
+	unsigned where = (x<<depth_disp) + y*pitch;
 	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
 	(this->*draw_raw)(backbuffer+where, c);
 }
