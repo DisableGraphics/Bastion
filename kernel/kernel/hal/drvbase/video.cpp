@@ -24,8 +24,8 @@ void hal::VideoDriver::init(tc::timertime interval) {
 		tc::timertime interval = reinterpret_cast<tc::timertime>(argsn[2]);
 		void (*lambda)(volatile void*) = reinterpret_cast<void(*)(volatile void*)>(argsn[1]);
 		hal::VideoDriver* self = reinterpret_cast<hal::VideoDriver*>(argsn[0]);
-		self->copy();
 		hal::TimerManager::get().exec_at(interval, lambda, args);
+		self->copy();
 	};
 	args[0] = this;
 	args[1] = reinterpret_cast<void*>(lambda);
