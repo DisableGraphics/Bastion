@@ -5,7 +5,7 @@ namespace hal {
 		\brief PS/2 Driver.
 		Implemented as a singleton.
 	*/
-	class PS2SubsystemManager {
+	class PS2SubsystemManager final {
 		public:
 			enum DeviceType {
 				MOUSE = 0x00,

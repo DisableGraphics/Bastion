@@ -8,7 +8,7 @@ namespace hal {
 		\brief PCI Driver.
 		\details Implemented as a singleton.
 	*/
-	class PCISubsystemManager {
+	class PCISubsystemManager final {
 		public:
 			static PCISubsystemManager& get();
 

@@ -10,7 +10,7 @@ namespace hal {
 		Manages disk drivers.
 		Can enqueue disk jobs.
 	*/
-	class DiskManager {
+	class DiskManager final {
 		public:
 			/**
 				\brief Get singleton instance.

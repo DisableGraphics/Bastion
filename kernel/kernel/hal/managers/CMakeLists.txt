@@ -1,1 +1,1 @@
-target_sources(kernel_obj PRIVATE timermanager.cpp diskmanager.cpp irqcmanager.cpp clockmanager.cpp)
+target_sources(kernel_obj PRIVATE timermanager.cpp diskmanager.cpp irqcmanager.cpp clockmanager.cpp videomanager.cpp)

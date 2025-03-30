@@ -5,7 +5,7 @@
 #include <kernel/kernel/timeconst.hpp>
 
 namespace hal {
-	class TimerManager {
+	class TimerManager final {
 		public:
 			static TimerManager& get();
 			void register_timer(Timer* timer, tc::timertime us, void (*callback)() = nullptr);

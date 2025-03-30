@@ -2,7 +2,7 @@
 #include <kernel/hal/drvbase/clock.hpp>
 
 namespace hal {
-	class ClockManager {
+	class ClockManager final {
 		public:
 			static ClockManager& get();
 			void set_clock(Clock* clock);

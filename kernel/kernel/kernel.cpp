@@ -18,8 +18,7 @@
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/drivers/rtc.hpp>
-#include <kernel/assembly/inlineasm.h>
-#include <kernel/kernel/log.hpp>
+#include <kernel/drivers/vesa.hpp>
 // HAL
 #include <kernel/hal/managers/ps2manager.hpp>
 #include <kernel/hal/managers/diskmanager.hpp>
@@ -27,6 +26,7 @@
 #include <kernel/hal/managers/timermanager.hpp>
 #include <kernel/hal/managers/clockmanager.hpp>
 #include <kernel/hal/managers/pci.hpp>
+#include <kernel/hal/managers/videomanager.hpp>
 
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
@@ -38,6 +38,9 @@
 #include <kernel/sync/semaphore.hpp>
 // C Library headers
 #include <stdio.h>
+// Other
+#include <kernel/assembly/inlineasm.h>
+#include <kernel/kernel/log.hpp>
 // Tests
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -185,10 +188,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	IDT::get().init();	
 	hal::IRQControllerManager::get().init();
 	hal::IRQControllerManager::get().register_controller(&pic);
-
 	PIT pit;
 	pit.init();
-	hal::TimerManager::get().register_timer(&pit, 1*tc::ms);
+	hal::TimerManager::get().register_timer(&pit, 100*tc::us);
 	pit.set_is_scheduler_timer(true);
 
 	RTC rtc;
@@ -204,9 +206,49 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	PS2Keyboard keyb;
 	PS2Mouse mouse;
-
 	keyb.init();
 	mouse.init();
+
+	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
+
+	log(INFO, "MBD address: %p", mbd2);
+	auto fbsize = (mbd2->framebuffer_bpp/8) * mbd2->framebuffer_height * mbd2->framebuffer_pitch;
+	log(INFO, "Framebuffer size: %p", fbsize);
+	auto fbsize_pages = (fbsize + PAGE_SIZE - 1)/PAGE_SIZE;
+	auto fbsize_regions = (fbsize + REGION_SIZE - 1)/REGION_SIZE;
+	if(!PagingManager::get().page_table_exists(reinterpret_cast<void*>(mbd2->framebuffer_addr))) {
+		for(size_t region = 0; region < fbsize_regions; region++) {
+			void* newpagetable = MemoryManager::get().alloc_pages(1, CACHE_DISABLE | READ_WRITE);
+			void* fbaddroff = reinterpret_cast<void*>(mbd2->framebuffer_addr + region*REGION_SIZE);
+			PagingManager::get().new_page_table(newpagetable, 
+				fbaddroff);
+			for(auto pages = 0; pages < (fbsize_pages < PAGE_SIZE? fbsize_pages : PAGE_SIZE); pages++) {
+				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
+				PagingManager::get().map_page(fbaddroff_p, 
+					fbaddroff_p, 
+					READ_WRITE | CACHE_DISABLE);
+			}
+			fbsize_pages -= PAGE_SIZE;
+		}
+	}
+	
+	VESADriver vesa{
+		reinterpret_cast<uint8_t*>(mbd2->framebuffer_addr),
+		mbd2->framebuffer_width,
+		mbd2->framebuffer_height,
+		mbd2->framebuffer_pitch,
+		mbd2->framebuffer_bpp,
+		mbd2->framebuffer_red_field_position,
+		mbd2->framebuffer_green_field_position,
+		mbd2->framebuffer_blue_field_position,
+		mbd2->framebuffer_red_mask_size,
+		mbd2->framebuffer_green_mask_size,
+		mbd2->framebuffer_blue_mask_size
+	};
+	vesa.init();
+	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
+
+	hal::VideoManager::get().draw_pixel(vesaid, 12, 12, {0, 255, 0});
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
