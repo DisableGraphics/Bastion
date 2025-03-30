@@ -17,10 +17,10 @@ class VESADriver final : public hal::VideoDriver {
 		void init() override;
 		void handle_interrupt() override;
 		bool is_text_only() override;
-		void draw_char(char c, int x, int y) override;
-		void draw_string(char* str, int x, int y) override;
-		void draw_pixel(int x, int y, hal::color c) override;
-		void draw_rectangle(int x, int y, int w, int h, hal::color c) override;
+		inline void draw_char(char c, int x, int y) override;
+		inline void draw_string(char* str, int x, int y) override;
+		inline void draw_pixel(int x, int y, hal::color c) override;
+		inline void draw_rectangle(int x, int y, int w, int h, hal::color c) override;
 		void clear() override;
 	private:
 		typedef void (VESADriver::*draw_fn)(uint8_t* where, hal::color c);

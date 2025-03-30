@@ -24,12 +24,11 @@ void hal::VideoDriver::init(tc::timertime interval) {
 
 void hal::VideoDriver::flush() {
 	if(dirty) {
-		for(size_t i = 0; i < nblocks; i+=4) {
-			memcpar(framebuffer + (i << DISP_BLOCK_SIZE), backbuffer + (i << DISP_BLOCK_SIZE), BLOCK_SIZE);
-			memcpar(framebuffer + ((i+1) << DISP_BLOCK_SIZE), backbuffer + ((i+1) << DISP_BLOCK_SIZE), BLOCK_SIZE);
-			memcpar(framebuffer + ((i+2) << DISP_BLOCK_SIZE), backbuffer + ((i+2) << DISP_BLOCK_SIZE), BLOCK_SIZE);
-			memcpar(framebuffer + ((i+3) << DISP_BLOCK_SIZE), backbuffer + ((i+3) << DISP_BLOCK_SIZE), BLOCK_SIZE);
-			dirty_blocks[i] = false;
+		for(size_t i = 0; i < nblocks; i++) {
+			if(dirty_blocks[i]) {
+				memcpar(framebuffer + (i << DISP_BLOCK_SIZE), backbuffer + (i << DISP_BLOCK_SIZE), BLOCK_SIZE);
+				dirty_blocks[i] = false;
+			}
 		}
 		dirty = false;
 	}
