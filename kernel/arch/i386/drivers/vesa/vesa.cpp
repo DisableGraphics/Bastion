@@ -130,8 +130,16 @@ void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	DRAW_RAW(backbuffer+where, c);
 }
 
+#include <kernel/cpp/min.hpp>
+#include <kernel/cpp/max.hpp>
+
 void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 	dirty = true;
+
+	x1 = max<int>(0, min<int>(x1, width-1));
+	y1 = max<int>(0, min<int>(y1, height-1));
+	x2 = max<int>(0, min<int>(x2, width-1));
+	y2 = max<int>(0, min<int>(y2, height-1));
     
     unsigned first_block = (row_pointers[y1] + (x1 << depth_disp)) >> DISP_BLOCK_SIZE;
     unsigned last_block = (row_pointers[y2] + (x2 << depth_disp)) >> DISP_BLOCK_SIZE;
