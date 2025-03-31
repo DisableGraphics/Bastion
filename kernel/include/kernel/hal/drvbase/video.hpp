@@ -21,11 +21,11 @@ namespace hal {
 			void init(tc::timertime interval);
 			virtual bool is_text_only() = 0;
 			
-			virtual void draw_char(char c, int x, int y) = 0;
-			virtual void draw_string(char* str, int x, int y) = 0;
-			virtual void draw_pixel(int x, int y, color c) = 0;
-			virtual void draw_rectangle(int x, int y, int w, int h, color c) = 0;
-			virtual void clear() = 0;
+			inline virtual void draw_char(char c, int x, int y) = 0;
+			inline virtual void draw_string(char* str, int x, int y) = 0;
+			inline virtual void draw_pixel(int x, int y, color c) = 0;
+			inline virtual void draw_rectangle(int x, int y, int w, int h, color c) = 0;
+			inline virtual void clear() = 0;
 
 			/// Copy backbuffer into framebuffer if backbuffer is dirty
 			virtual void flush();

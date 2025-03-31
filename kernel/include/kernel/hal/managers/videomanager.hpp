@@ -8,13 +8,24 @@ namespace hal {
 			static VideoManager& get();
 			size_t register_driver(VideoDriver* driver);
 			size_t get_first_screen();
-			void draw_char(size_t screen, char c, int x, int y);
-			void draw_string(size_t screen, char* str, int x, int y);
-			void draw_pixel(size_t screen, int x, int y, color c);
-			void draw_rectangle(size_t screen, int x, int y, int w, int h, color c);
-			void clear(size_t screen);
-			void flush(size_t screen);
-
+			inline void draw_char(size_t screen, char c, int x, int y) {
+				drivers[screen]->draw_char(c, x, y);
+			}
+			inline void draw_string(size_t screen, char* str, int x, int y) {
+				drivers[screen]->draw_string(str, x, y);
+			}
+			inline void draw_pixel(size_t screen, int x, int y, color c) {
+				drivers[screen]->draw_pixel(x, y, c);
+			}
+			inline void draw_rectangle(size_t screen, int x, int y, int w, int h, color c) {
+				drivers[screen]->draw_rectangle(x, y, w, h, c);
+			}
+			inline void clear(size_t screen) {
+				drivers[screen]->clear();
+			}
+			inline void flush(size_t screen) {
+				drivers[screen]->flush();
+			};
 		private:
 			VideoManager(){};
 			VideoManager(const VideoManager&) = delete;

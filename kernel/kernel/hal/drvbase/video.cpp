@@ -23,7 +23,7 @@ void hal::VideoDriver::init(tc::timertime interval) {
 
 }
 
-void hal::VideoDriver::flush() {
+inline void hal::VideoDriver::flush() {
 	if(dirty) {
 		for(size_t i = 0; i < nblocks; i++) {
 			if(dirty_blocks[i]) {
