@@ -251,7 +251,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		for(size_t i = 0; i < mbd2->framebuffer_width * mbd2->framebuffer_height; i++) {
 			int x = i % mbd2->framebuffer_width;
 			int y = i / mbd2->framebuffer_width;
-			hal::VideoManager::get().draw_pixel(vesaid, x, y, {255, 255, 255});
+			hal::VideoManager::get().draw_pixel(vesaid, x, y, {(int)i, (int)j, (int)(i+j)});
 		}
 		hal::VideoManager::get().flush(vesaid);
 		hal::VideoManager::get().clear(vesaid);
