@@ -15,6 +15,7 @@ void* memcpy(void* __restrict, const void* __restrict, size_t);
 void* memcpar(void* __restrict, const void* __restrict, size_t);
 void* memmove(void*, const void*, size_t);
 void* memset(void*, int, size_t);
+void* memspar(void*, int, size_t);
 // memset but for volatile regions of memory
 // Obviously it's not in the standard
 volatile void* vmemset(volatile void*, int, size_t);
