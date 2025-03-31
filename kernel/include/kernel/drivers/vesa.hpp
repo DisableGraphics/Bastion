@@ -23,9 +23,6 @@ class VESADriver final : public hal::VideoDriver {
 		inline void draw_rectangle(int x, int y, int w, int h, hal::color c) override;
 		void clear() override;
 	private:
-		typedef void (VESADriver::*draw_fn)(uint8_t* where, hal::color c);
-		draw_fn draw_raw = nullptr;
-
 		inline void draw_32(uint8_t* where, hal::color c);
 		inline void draw_24(uint8_t* where, hal::color c);
 		inline void draw_16(uint8_t* where, hal::color c);

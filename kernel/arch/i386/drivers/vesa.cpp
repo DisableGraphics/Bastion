@@ -3,6 +3,19 @@
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
 
+#define DRAW_RAW(buffer, color) switch(depth) { \
+	case 32: \
+		draw_32(backbuffer+where, c); \
+		break; \
+	case 16: \
+	case 15: \
+		draw_16(backbuffer+where, c); \
+		break; \
+	case 24: \
+	default: \
+		draw_24(backbuffer+where, c); \
+}
+
 VESADriver::VESADriver(uint8_t* framebuffer,
 	uint32_t width,
 	uint32_t height,
@@ -29,21 +42,17 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	switch(depth) {
 		case 32:
 			depth_disp = 2;
-			draw_raw = &VESADriver::draw_32;
 			break;
 		case 24:
 			depth_disp = 1;
-			draw_raw = &VESADriver::draw_24;
 			break;
 		case 16:
 		case 15:
 			depth_disp = 1;
-			draw_raw = &VESADriver::draw_16;
 			break;
 		default:
-			depth_disp = 2;
 			// Shitty default
-			draw_raw = &VESADriver::draw_24;
+			depth_disp = 1;
 	}
 
 	log(INFO, R"(VESA Framebuffer with:
@@ -102,7 +111,7 @@ void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty = true;
 	unsigned where = (x<<depth_disp) + y*pitch;
 	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
-	(this->*draw_raw)(backbuffer+where, c);
+	DRAW_RAW(backbuffer+where, c);
 }
 
 void VESADriver::draw_rectangle(int x, int y, int w, int h, hal::color c) {
@@ -117,13 +126,11 @@ void VESADriver::clear() {
 }
 
 void VESADriver::draw_32(uint8_t* where, hal::color c) {
-	uint32_t data = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
-	*reinterpret_cast<uint32_t*>(where) = data;
+	*reinterpret_cast<uint32_t*>(where) = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
 }
 
 void VESADriver::draw_24(uint8_t* where, hal::color c) {
-	uint32_t data = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
-	*reinterpret_cast<uint32_t*>(where) = data;
+	*reinterpret_cast<uint32_t*>(where) = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
 }
 
 void VESADriver::draw_16(uint8_t* where, hal::color c) {
