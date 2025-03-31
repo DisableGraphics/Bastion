@@ -29,12 +29,12 @@ class VESADriver final : public hal::VideoDriver {
 
 		inline uint8_t squish8_to_size(int val, uint8_t destsize);
 
-		uint32_t red_pos;
-		uint32_t blue_pos;
-		uint32_t green_pos;
-		uint32_t red_size;
-		uint32_t blue_size;
-		uint32_t green_size;
+		const uint32_t red_pos;
+		const uint32_t blue_pos;
+		const uint32_t green_pos;
+		const uint32_t red_size;
+		const uint32_t blue_size;
+		const uint32_t green_size;
 
 		uint8_t depth_disp;
 };

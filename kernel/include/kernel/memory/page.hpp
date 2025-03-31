@@ -67,6 +67,11 @@ class PagingManager {
 			\brief Whether a page table exists for a given address.
 		 */
 		bool page_table_exists(void *addr);
+		/**
+			\brief Enable PAT if it's available.
+			\return Whether PAT is available
+		*/
+		bool enable_pat_if_it_exists();
 	private:
 		// Kernel page directory
 		page_t *page_directory = nullptr;

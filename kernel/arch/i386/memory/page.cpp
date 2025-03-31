@@ -1,3 +1,4 @@
+#include <cpuid.h>
 #include <stdint.h>
 #include <kernel/memory/page.hpp>
 #include <kernel/assembly/inlineasm.h>
@@ -95,4 +96,30 @@ void PagingManager::set_pagevec(page_t * pagevec) {
 bool PagingManager::page_table_exists(void *addr) {
 	unsigned long pdindex = (unsigned long)addr >> 22;
 	return page_directory[pdindex] & PRESENT;
+}
+
+#define PAT_TYPE_WB  0x06  // Write-Back
+#define PAT_TYPE_WC  0x01  // Write-Combining
+#define PAT_TYPE_UC  0x00  // Uncached
+
+bool check_pat_support() {
+    uint32_t eax, edx, unused;
+    __cpuid(1, eax, unused, unused, edx);
+    return (edx & (1 << 16)); // CPUID.01h:EDX.PAT[bit 16]
+}
+
+bool PagingManager::enable_pat_if_it_exists() {
+	if(check_pat_support()) {
+		uint64_t pat_msr = 0;
+    
+		// Set up custom PAT entries
+		pat_msr |= (PAT_TYPE_WB) << (0 * 8);  // PAT0: WB (normal memory)
+		pat_msr |= (PAT_TYPE_WC) << (1 * 8);  // PAT1: WC (framebuffer)
+		pat_msr |= (PAT_TYPE_UC) << (2 * 8);  // PAT2: UC (MMIO)
+		
+		// Write to IA32_PAT MSR (0x277)
+		wrmsr(0x277, pat_msr);
+		return true;
+	}
+	return false;
 }

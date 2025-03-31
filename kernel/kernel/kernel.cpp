@@ -18,7 +18,7 @@
 #include <kernel/drivers/mouse.hpp>
 #include <kernel/drivers/cursor.hpp>
 #include <kernel/drivers/rtc.hpp>
-#include <kernel/drivers/vesa.hpp>
+#include <kernel/drivers/vesa/vesa.hpp>
 // HAL
 #include <kernel/hal/managers/ps2manager.hpp>
 #include <kernel/hal/managers/diskmanager.hpp>
@@ -183,6 +183,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	if(sse2_available()) init_sse2();
 	TTYManager::get().init();
 	PagingManager::get().init();
+	bool is_pat_enabled = PagingManager::get().enable_pat_if_it_exists();
 	MemoryManager::get().init(mbd, magic);
 	Serial::get().init();
 	GDT::get().init();
@@ -229,7 +230,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
 				PagingManager::get().map_page(fbaddroff_p, 
 					fbaddroff_p, 
-					READ_WRITE);
+					(is_pat_enabled ? PAT : 0) | READ_WRITE);
 			}
 		}
 	}

@@ -1,4 +1,5 @@
-#include <kernel/drivers/vesa.hpp>
+#include <kernel/drivers/vesa/vesa.hpp>
+#include <kernel/drivers/vesa/vesahelp.h>
 #include <string.h>
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
@@ -126,7 +127,7 @@ void VESADriver::draw_rectangle(int x, int y, int w, int h, hal::color c) {
 void VESADriver::clear() {
 	dirty = true;
 	sse2_memset(dirty_blocks, true, nblocks);
-	sse2_memset(backbuffer, 0, scrsize);
+	fast_clear(0, backbuffer, scrsize);
 }
 
 void VESADriver::draw_32(uint8_t* where, hal::color c) {

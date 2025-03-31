@@ -2,6 +2,7 @@ add_subdirectory(disk)
 add_subdirectory(tty)
 add_subdirectory(keyboard)
 add_subdirectory(pci)
+add_subdirectory(vesa)
 
 target_sources(kernel_platform_dependent PRIVATE cursor.cpp 
 	handlers.cpp
@@ -12,5 +13,4 @@ target_sources(kernel_platform_dependent PRIVATE cursor.cpp
 	ps2.cpp
 	serial.cpp
 	mouse.cpp
-	rtc.cpp
-	vesa.cpp)
+	rtc.cpp)
