@@ -20,13 +20,9 @@ class VESADriver final : public hal::VideoDriver {
 		inline void draw_char(char c, int x, int y) override;
 		inline void draw_string(char* str, int x, int y) override;
 		inline void draw_pixel(int x, int y, hal::color c) override;
-		inline void draw_rectangle(int x, int y, int w, int h, hal::color c) override;
-		void clear() override;
+		inline void draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) override;
+		void clear(hal::color c) override;
 	private:
-		inline void draw_32(uint8_t* where, hal::color c);
-		inline void draw_24(uint8_t* where, hal::color c);
-		inline void draw_16(uint8_t* where, hal::color c);
-
 		inline uint8_t squish8_to_size(int val, uint8_t destsize);
 
 		const uint32_t red_pos;

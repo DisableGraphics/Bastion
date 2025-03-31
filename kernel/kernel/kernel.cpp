@@ -253,13 +253,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	size_t ellapsed = hal::TimerManager::get().get_timer(0)->ellapsed();
 	for(size_t j = 0; j < 60; j++) {
 		size_t frame_time = hal::TimerManager::get().get_timer(0)->ellapsed();
-		for(size_t y = 0; y < mbd2->framebuffer_height; y++) {
-			for(size_t x = 0; x < mbd2->framebuffer_width; x++) {
-				hal::VideoManager::get().draw_pixel(vesaid, x, y, {(int)x, (int)y, (int)(x+y+(1<<(j & 31)))});
-			}
-		}
+		hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 800, {(int)(j+j+j), (int)j, (int)(j+j)});
 		hal::VideoManager::get().flush(vesaid);
-		hal::VideoManager::get().clear(vesaid);
+		hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
 	}
 	size_t ellapsed2 = hal::TimerManager::get().get_timer(0)->ellapsed();
 	log(INFO, "Before: %d vs After: %d", ellapsed, ellapsed2);

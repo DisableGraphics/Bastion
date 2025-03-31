@@ -4,17 +4,27 @@
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
 
-#define DRAW_RAW(buffer, color) switch(depth) { \
+#define DRAW_RAW(buffer, c) switch(depth) { \
 	case 32: \
-		draw_32(backbuffer+where, c); \
+		*reinterpret_cast<uint32_t*>(buffer) = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos); \
 		break; \
 	case 16: \
-	case 15: \
-		draw_16(backbuffer+where, c); \
+	case 15: {\
+		hal::color squished { \
+			squish8_to_size(c.r, red_size), \
+			squish8_to_size(c.g, green_size), \
+			squish8_to_size(c.b, blue_size), \
+		}; \
+		uint16_t dest = 0; \
+		dest |= squished.r << red_pos; \
+		dest |= squished.g << green_pos; \
+		dest |= squished.b << blue_pos; \
+		*reinterpret_cast<uint16_t*>(where) = dest; \
 		break; \
+	}\
 	case 24: \
 	default: \
-		draw_24(backbuffer+where, c); \
+		*reinterpret_cast<uint32_t*>(buffer) = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos); \
 }
 
 VESADriver::VESADriver(uint8_t* framebuffer,
@@ -120,39 +130,24 @@ void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	DRAW_RAW(backbuffer+where, c);
 }
 
-void VESADriver::draw_rectangle(int x, int y, int w, int h, hal::color c) {
+void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
+	dirty = true;
+    
+    unsigned first_block = (row_pointers[y1] + (x1 << depth_disp)) >> DISP_BLOCK_SIZE;
+    unsigned last_block = (row_pointers[y2] + (x2 << depth_disp)) >> DISP_BLOCK_SIZE;
+    
+    for (unsigned b = first_block; b <= last_block; b++) {
+        dirty_blocks[b] = true;
+    }
+	uint32_t packed_color = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
+	::draw_rectangle(x1, y1, x2, y2, packed_color, backbuffer, row_pointers, depth_disp);
 
 }
 
-void VESADriver::clear() {
+void VESADriver::clear(hal::color c) {
 	dirty = true;
 	sse2_memset(dirty_blocks, true, nblocks);
-	fast_clear(0, backbuffer, scrsize);
-}
-
-void VESADriver::draw_32(uint8_t* where, hal::color c) {
-	*reinterpret_cast<uint32_t*>(where) = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
-}
-
-void VESADriver::draw_24(uint8_t* where, hal::color c) {
-	*reinterpret_cast<uint32_t*>(where) = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
-}
-
-void VESADriver::draw_16(uint8_t* where, hal::color c) {
-	// Now this is where the fun part begins
-	// Usually the format for these types of buffers
-	// are 5 R 5 G 5 B but not always.
-	hal::color squished {
-		squish8_to_size(c.r, red_size),
-		squish8_to_size(c.g, green_size),
-		squish8_to_size(c.b, blue_size),
-	};
-	uint16_t dest = 0;
-	dest |= squished.r << red_pos;
-	dest |= squished.g << green_pos;
-	dest |= squished.b << blue_pos;
-	where[0] = dest;
-	where[1] = (dest >> 8);
+	fast_clear((c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos), backbuffer, scrsize);
 }
 
 uint8_t VESADriver::squish8_to_size(int val, uint8_t destsize) {
