@@ -28,14 +28,14 @@ void draw_rectangle(int x1, int y1, int x2, int y2, uint32_t packed_color, uint8
         }
         
         // Process 4 pixels at a time (16 bytes for 32bpp)
-        int simd_pixels = pixels_left >> 4;
+        int simd_pixels = pixels_left >> 2;
         for (int i = 0; i < simd_pixels; i++) {
             _mm_store_si128((__m128i*)(ptr), color_vec);
             ptr += bytes_pp << 2;
         }
         
         // Remaining pixels
-        pixels_left &= 3;
+        pixels_left &= 0x3;
         while (pixels_left-- > 0) {
             *(uint32_t*)(ptr) = packed_color;
             ptr += bytes_pp;
