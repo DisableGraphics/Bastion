@@ -98,7 +98,6 @@ bool PagingManager::page_table_exists(void *addr) {
 	return page_directory[pdindex] & PRESENT;
 }
 
-#define PAT_TYPE_WB  0x06  // Write-Back
 #define PAT_TYPE_WC  0x01  // Write-Combining
 #define PAT_TYPE_UC  0x00  // Uncached
 
@@ -113,9 +112,7 @@ bool PagingManager::enable_pat_if_it_exists() {
 		uint64_t pat_msr = 0;
     
 		// Set up custom PAT entries
-		pat_msr |= (PAT_TYPE_WB) << (0 * 8);  // PAT0: WB (normal memory)
-		pat_msr |= (PAT_TYPE_WC) << (1 * 8);  // PAT1: WC (framebuffer)
-		pat_msr |= (PAT_TYPE_UC) << (2 * 8);  // PAT2: UC (MMIO)
+		pat_msr |= (0b001 << 3);
 		
 		// Write to IA32_PAT MSR (0x277)
 		wrmsr(0x277, pat_msr);

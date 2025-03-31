@@ -230,7 +230,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
 				PagingManager::get().map_page(fbaddroff_p, 
 					fbaddroff_p, 
-					(is_pat_enabled ? PAT : 0) | READ_WRITE);
+					(is_pat_enabled ? (PAT | WRITE_THROUGH) : 0) | READ_WRITE);
 			}
 		}
 	}
