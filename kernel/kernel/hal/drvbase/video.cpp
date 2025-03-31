@@ -14,6 +14,7 @@ hal::VideoDriver::VideoDriver(uint8_t* framebuffer,
 	pitch(pitch),
 	scrsize(height*pitch*(depth/8)),
 	nblocks(scrsize/BLOCK_SIZE) {
+	row_pointers = reinterpret_cast<size_t*>(kcalloc(height, sizeof(size_t)));
 	backbuffer = reinterpret_cast<uint8_t*>(kcalloc(scrsize, sizeof(*backbuffer)));
 	dirty_blocks = reinterpret_cast<bool*>(kcalloc(nblocks, sizeof(bool)));
 }

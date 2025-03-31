@@ -37,6 +37,8 @@ namespace hal {
 			uint32_t height;
 			uint32_t pitch;
 			uint32_t depth;
+			// Desperate times call for desperate measures
+			size_t* row_pointers;
 			const uint32_t scrsize, nblocks;
 			uint8_t* backbuffer;
 	};

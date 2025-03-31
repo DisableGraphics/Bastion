@@ -86,6 +86,11 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	// Set as write-combining for more performance
 	wrmsr(MSR_MTRRphysBase0, base);
 	wrmsr(MSR_MTRRphysMask0, mask);
+
+	// Precompute row pointers
+	for(size_t i = 0; i < height; i++) {
+		row_pointers[i] = pitch*i;
+	}
 }
 
 void VESADriver::init() {
@@ -109,7 +114,7 @@ void VESADriver::draw_string(char* str, int x, int y) {
 
 void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty = true;
-	unsigned where = (x<<depth_disp) + y*pitch;
+	unsigned where = (x<<depth_disp) + row_pointers[y];
 	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
 	DRAW_RAW(backbuffer+where, c);
 }
