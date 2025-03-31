@@ -13,7 +13,10 @@ int memcmp(const void*, const void*, size_t);
 void* memcpy(void* __restrict, const void* __restrict, size_t);
 // Faster memcpy that copies in 8-byte multiples at once
 void* memcpar(void* __restrict, const void* __restrict, size_t);
+void rep_movsb_memcpy(void *dest, const void *src, size_t n);
+void sse2_memcpy(void *dest, const void *src, size_t n);
 void* memmove(void*, const void*, size_t);
+void* sse2_memset(void*, int, size_t);
 void* memset(void*, int, size_t);
 void* memspar(void*, uint32_t, size_t);
 // memset but for volatile regions of memory

@@ -9,7 +9,7 @@ namespace hal {
 		public:
 			static TimerManager& get();
 			void register_timer(Timer* timer, tc::timertime us, void (*callback)() = nullptr);
-			Timer& get_timer(size_t pos);
+			Timer* get_timer(size_t pos);
 			void exec_at(tc::timertime us, void (*fn)(volatile void*), volatile void* args);
 		private:
 			TimerManager() = default;

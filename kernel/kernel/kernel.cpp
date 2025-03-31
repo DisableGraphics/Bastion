@@ -41,6 +41,8 @@
 // Other
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/kernel/log.hpp>
+// Vector instructions
+#include <kernel/vector/sse2.h>
 // Tests
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -178,6 +180,7 @@ void gen(void*) {
 }
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
+	if(sse2_available()) init_sse2();
 	TTYManager::get().init();
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
@@ -226,7 +229,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
 				PagingManager::get().map_page(fbaddroff_p, 
 					fbaddroff_p, 
-					READ_WRITE | CACHE_DISABLE);
+					CACHE_DISABLE | READ_WRITE);
 			}
 		}
 	}
@@ -246,17 +249,18 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	};
 	vesa.init();
 	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
-	size_t ellapsed = hal::TimerManager::get().get_timer(0).ellapsed();
+	size_t ellapsed = hal::TimerManager::get().get_timer(0)->ellapsed();
 	for(size_t j = 0; j < 60; j++) {
-		for(size_t i = 0; i < mbd2->framebuffer_width * mbd2->framebuffer_height; i++) {
-			int x = i % mbd2->framebuffer_width;
-			int y = i / mbd2->framebuffer_width;
-			hal::VideoManager::get().draw_pixel(vesaid, x, y, {(int)i, (int)j, (int)(i+j)});
+		size_t frame_time = hal::TimerManager::get().get_timer(0)->ellapsed();
+		for(size_t y = 0; y < mbd2->framebuffer_height; y++) {
+			for(size_t x = 0; x < mbd2->framebuffer_width; x++) {
+				hal::VideoManager::get().draw_pixel(vesaid, x, y, {(int)x, (int)y, (int)(x+y+(1<<(j & 31)))});
+			}
 		}
 		hal::VideoManager::get().flush(vesaid);
 		hal::VideoManager::get().clear(vesaid);
 	}
-	size_t ellapsed2 = hal::TimerManager::get().get_timer(0).ellapsed();
+	size_t ellapsed2 = hal::TimerManager::get().get_timer(0)->ellapsed();
 	log(INFO, "Before: %d vs After: %d", ellapsed, ellapsed2);
 
 	hal::PCISubsystemManager::get().init();

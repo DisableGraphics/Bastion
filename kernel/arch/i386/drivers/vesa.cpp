@@ -119,10 +119,9 @@ void VESADriver::draw_rectangle(int x, int y, int w, int h, hal::color c) {
 }
 
 void VESADriver::clear() {
-	constexpr uint32_t true4 = (1 << 24) | (1 << 16) | (1 << 8) | 1;
 	dirty = true;
-	memspar(dirty_blocks, true4, nblocks);
-	memspar(backbuffer, 0, scrsize);
+	sse2_memset(dirty_blocks, true, nblocks);
+	sse2_memset(backbuffer, 0, scrsize);
 }
 
 void VESADriver::draw_32(uint8_t* where, hal::color c) {

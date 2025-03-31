@@ -13,4 +13,8 @@ target_sources(libc_obj PRIVATE
 	substr.c 
 	strncpy.c 
 	memcpar.c
-	memspar.c)
+	memspar.c
+	sse_memcpy.c
+	sse_memset.c
+	rep_movsb_memcpy.c
+	)

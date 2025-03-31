@@ -1,0 +1,1 @@
+target_sources(kernel_platform_dependent PRIVATE sse2.c init_sse2.S)

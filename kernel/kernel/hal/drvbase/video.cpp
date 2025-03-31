@@ -26,7 +26,7 @@ void hal::VideoDriver::flush() {
 	if(dirty) {
 		for(size_t i = 0; i < nblocks; i++) {
 			if(dirty_blocks[i]) {
-				memcpar(framebuffer + (i << DISP_BLOCK_SIZE), backbuffer + (i << DISP_BLOCK_SIZE), BLOCK_SIZE);
+				sse2_memcpy(framebuffer + (i << DISP_BLOCK_SIZE), backbuffer + (i << DISP_BLOCK_SIZE), BLOCK_SIZE);
 				dirty_blocks[i] = false;
 			}
 		}

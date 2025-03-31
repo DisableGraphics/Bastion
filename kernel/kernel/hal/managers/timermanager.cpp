@@ -10,8 +10,8 @@ void hal::TimerManager::register_timer(Timer* timer, uint32_t us, void (*callbac
 	timers.back()->start(us);
 }
 
-hal::Timer& hal::TimerManager::get_timer(size_t pos) {
-	return *timers[pos];
+hal::Timer* hal::TimerManager::get_timer(size_t pos) {
+	return timers[pos];
 }
 
 void hal::TimerManager::exec_at(uint32_t us, void (*fn)(volatile void*), volatile void* args) {
