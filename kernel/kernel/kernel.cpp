@@ -183,7 +183,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	if(sse2_available()) init_sse2();
 	TTYManager::get().init();
 	PagingManager::get().init();
-	bool is_pat_enabled = PagingManager::get().enable_pat_if_it_exists();
 	MemoryManager::get().init(mbd, magic);
 	Serial::get().init();
 	GDT::get().init();
@@ -214,26 +213,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	mouse.init();
 
 	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
-
-	log(INFO, "MBD address: %p", mbd2);
-	auto fbsize = (mbd2->framebuffer_bpp/8) * mbd2->framebuffer_height * mbd2->framebuffer_pitch;
-	log(INFO, "Framebuffer size: %p", fbsize);
-	auto fbsize_pages = (fbsize + PAGE_SIZE - 1)/PAGE_SIZE;
-	auto fbsize_regions = (fbsize + REGION_SIZE - 1)/REGION_SIZE;
-	if(!PagingManager::get().page_table_exists(reinterpret_cast<void*>(mbd2->framebuffer_addr))) {
-		for(size_t region = 0; region < fbsize_regions; region++) {
-			void* newpagetable = MemoryManager::get().alloc_pages(1, CACHE_DISABLE | READ_WRITE);
-			void* fbaddroff = reinterpret_cast<void*>(mbd2->framebuffer_addr + region*REGION_SIZE);
-			PagingManager::get().new_page_table(newpagetable, 
-				fbaddroff);
-			for(auto pages = 0; pages < PAGE_SIZE; pages++) {
-				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
-				PagingManager::get().map_page(fbaddroff_p, 
-					fbaddroff_p, 
-					(is_pat_enabled ? (PAT | WRITE_THROUGH) : 0) | READ_WRITE);
-			}
-		}
-	}
 	
 	VESADriver vesa{
 		reinterpret_cast<uint8_t*>(mbd2->framebuffer_addr),

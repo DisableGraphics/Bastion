@@ -3,6 +3,8 @@
 #include <string.h>
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
+#include <kernel/memory/page.hpp>
+#include <kernel/memory/mmanager.hpp>
 
 #define DRAW_RAW(buffer, c) switch(depth) { \
 	case 32: \
@@ -50,6 +52,27 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 		green_size(green_size),
 		blue_size(blue_size)
 {
+	// Map all framebuffer pages.
+	// The reason for the WRITE_THROUGH bit is that the PAT region is the region #1,
+	// which requires bit 1 for PAT active (WRITE_THROUGH)
+	bool is_pat_enabled = PagingManager::get().enable_pat_if_it_exists();
+	auto fbsize_pages = (scrsize + PAGE_SIZE - 1)/PAGE_SIZE;
+	auto fbsize_regions = (scrsize + REGION_SIZE - 1)/REGION_SIZE;
+	if(!PagingManager::get().page_table_exists(reinterpret_cast<void*>(framebuffer))) {
+		for(size_t region = 0; region < fbsize_regions; region++) {
+			void* newpagetable = MemoryManager::get().alloc_pages(1, CACHE_DISABLE | READ_WRITE);
+			void* fbaddroff = reinterpret_cast<void*>(framebuffer + region*REGION_SIZE);
+			PagingManager::get().new_page_table(newpagetable, 
+				fbaddroff);
+			for(auto pages = 0; pages < PAGE_SIZE; pages++) {
+				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
+				PagingManager::get().map_page(fbaddroff_p, 
+					fbaddroff_p, 
+					(is_pat_enabled ? (PAT | WRITE_THROUGH) : 0) | READ_WRITE);
+			}
+		}
+	}
+
 	switch(depth) {
 		case 32:
 			depth_disp = 2;
@@ -92,11 +115,13 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	green_size,
 	blue_size);
 	log(INFO, "Back buffer: %p", backbuffer);
-	uint64_t mask = ~(scrsize - 1) | 0x800;
-	uint64_t base = reinterpret_cast<uint64_t>(framebuffer) | 0x0C;
-	// Set as write-combining for more performance
-	wrmsr(MSR_MTRRphysBase0, base);
-	wrmsr(MSR_MTRRphysMask0, mask);
+	// Write-combine when PAT is not available
+	if(!is_pat_enabled) {
+		uint64_t mask = ~(scrsize - 1) | 0x800;
+		uint64_t base = reinterpret_cast<uint64_t>(framebuffer) | 0x0C;
+		wrmsr(MSR_MTRRphysBase0, base);
+		wrmsr(MSR_MTRRphysMask0, mask);
+	}
 
 	// Precompute row pointers
 	for(size_t i = 0; i < height; i++) {
