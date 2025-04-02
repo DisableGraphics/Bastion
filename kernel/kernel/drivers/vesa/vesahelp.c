@@ -62,7 +62,7 @@ void draw_pixels(int x1, int y1, int x2, int y2, uint8_t* pixels, uint8_t* backb
 		// Process 4 pixels at a time (16 bytes for 32bpp)
 		int simd_pixels = pixels_left >> 2;
 		for (int i = 0; i < simd_pixels; i++) {
-			_mm_stream_si128(ptr + i, *(__m128i*)pixels);
+			_mm_stream_si128((__m128i*)(ptr + i), *(__m128i*)pixels);
 			ptr += bytes_pp_simd;
 			pixels += bytes_pp_simd;
 		}
