@@ -25,6 +25,7 @@ class VESADriver final : public hal::VideoDriver {
 		void clear(hal::color c) override;
 	private:
 		inline uint8_t squish8_to_size(int val, uint8_t destsize);
+		void set_blocks_as_dirty(int& x1, int& y1, int& x2, int& y2);
 
 		const uint32_t red_pos;
 		const uint32_t blue_pos;

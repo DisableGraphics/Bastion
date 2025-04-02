@@ -160,18 +160,7 @@ void VESADriver::draw_pixel(int x, int y, hal::color c) {
 
 void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 	dirty = true;
-
-	x1 = max<int>(0, min<int>(x1, width-1));
-	y1 = max<int>(0, min<int>(y1, height-1));
-	x2 = max<int>(0, min<int>(x2, width-1));
-	y2 = max<int>(0, min<int>(y2, height-1));
-	
-	unsigned first_block = (row_pointers[y1] + (x1 << depth_disp)) >> DISP_BLOCK_SIZE;
-	unsigned last_block = (row_pointers[y2] + (x2 << depth_disp)) >> DISP_BLOCK_SIZE;
-	
-	for (unsigned b = first_block; b <= last_block; b++) {
-		dirty_blocks[b] = true;
-	}
+	set_blocks_as_dirty(x1, y1, x2, y2);
 	uint32_t packed_color = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
 	::draw_rectangle(x1, y1, x2, y2, packed_color, backbuffer, row_pointers, depth_disp);
 
@@ -179,7 +168,11 @@ void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 
 void VESADriver::draw_pixels(int x1, int y1, int x2, int y2, uint8_t* data) {
 	dirty = true;
+	set_blocks_as_dirty(x1, y1, x2, y2);
+	::draw_pixels(x1, y1, x2, y2, data, backbuffer, row_pointers, depth_disp);
+}
 
+void VESADriver::set_blocks_as_dirty(int& x1, int& y1, int& x2, int& y2) {
 	x1 = max<int>(0, min<int>(x1, width-1));
 	y1 = max<int>(0, min<int>(y1, height-1));
 	x2 = max<int>(0, min<int>(x2, width-1));
@@ -191,7 +184,6 @@ void VESADriver::draw_pixels(int x1, int y1, int x2, int y2, uint8_t* data) {
 	for (unsigned b = first_block; b <= last_block; b++) {
 		dirty_blocks[b] = true;
 	}
-	::draw_pixels(x1, y1, x2, y2, data, backbuffer, row_pointers, depth_disp);
 }
 
 void VESADriver::clear(hal::color c) {
