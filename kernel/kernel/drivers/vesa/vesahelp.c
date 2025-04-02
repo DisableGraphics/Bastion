@@ -45,13 +45,11 @@ void draw_rectangle(int x1, int y1, int x2, int y2, uint32_t packed_color, uint8
 
 void draw_pixels(int x1, int y1, int width, int height, 
                      uint8_t* pixels, uint8_t* backbuffer, 
-                     size_t* row_pointers, uint32_t depth_disp, uint32_t pitch) {
+                     size_t* row_pointers, uint32_t depth_disp, uint32_t src_stride) {
     // Input validation
     if (width < 1 || height < 1 || !pixels || !backbuffer || !row_pointers) return;
-    
-    const int src_stride = pitch;
     // Process each row
-    for (int y = y1; y <= (height + y1); y++) {
+    for (int y = y1; y < (height + y1); y++) {
         const uint8_t* src_row = pixels + (y - y1) * src_stride;
         uint8_t* dst_row = backbuffer + row_pointers[y] + (x1 << depth_disp);
         
