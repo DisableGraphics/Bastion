@@ -49,9 +49,7 @@ void draw_pixels(int x1, int y1, int width, int height,
     // Input validation
     if (width < 1 || height < 1 || !pixels || !backbuffer || !row_pointers) return;
     
-    const int bytes_per_pixel = 4; // Assuming 32bpp
-    const int src_stride = (width << depth_disp);
-    
+    const int src_stride = (width<< depth_disp);
     // Process each row
     for (int y = y1; y <= (height + y1); y++) {
         const uint8_t* src_row = pixels + (y - y1) * src_stride;
@@ -63,14 +61,14 @@ void draw_pixels(int x1, int y1, int width, int height,
         
         // Copy unaligned beginning pixels
         for (int x = 0; x < aligned_x && x < width; x++) {
-            *(uint32_t*)(dst_row + x * bytes_per_pixel) = 
-                *(const uint32_t*)(src_row + x * bytes_per_pixel);
+            *(uint32_t*)(dst_row + (aligned_x << depth_disp)) = 
+                *(const uint32_t*)(src_row + (aligned_x << depth_disp));
         }
         
         // SSE2-optimized main copy (16 bytes = 4 pixels at a time)
         const int sse_pixels = (width - aligned_x) >> 2;
-        const __m128i* sse_src = (const __m128i*)(src_row + aligned_x * bytes_per_pixel);
-        __m128i* sse_dst = (__m128i*)(dst_row + aligned_x * bytes_per_pixel);
+        const __m128i* sse_src = (const __m128i*)(src_row + (aligned_x << depth_disp));
+        __m128i* sse_dst = (__m128i*)(dst_row + (aligned_x << depth_disp));
         
         for (int i = 0; i < sse_pixels; i++) {
             _mm_storeu_si128(sse_dst + i, _mm_loadu_si128(sse_src + i));
@@ -79,8 +77,8 @@ void draw_pixels(int x1, int y1, int width, int height,
         // Handle remaining pixels
         const int processed = aligned_x + (sse_pixels << 2);
         for (int x = processed; x < width; x++) {
-            *(uint32_t*)(dst_row + x * bytes_per_pixel) = 
-                *(const uint32_t*)(src_row + x * bytes_per_pixel);
+            *(uint32_t*)(dst_row + (x << depth_disp)) = 
+                *(const uint32_t*)(src_row + (x << depth_disp));
         }
     }
     
