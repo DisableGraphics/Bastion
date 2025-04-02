@@ -191,7 +191,7 @@ void VESADriver::draw_pixels(int x1, int y1, int x2, int y2, uint8_t* data) {
 	for (unsigned b = first_block; b <= last_block; b++) {
 		dirty_blocks[b] = true;
 	}
-
+	::draw_pixels(x1, y1, x2, y2, data, backbuffer, row_pointers, depth_disp);
 }
 
 void VESADriver::clear(hal::color c) {
