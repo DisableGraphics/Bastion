@@ -169,7 +169,7 @@ void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 void VESADriver::draw_pixels(int x1, int y1, int x2, int y2, uint8_t* data) {
 	dirty = true;
 	set_blocks_as_dirty(x1, y1, x2, y2);
-	::draw_pixels(x1, y1, x2, y2, data, backbuffer, row_pointers, depth_disp);
+	::draw_pixels(x1, y1, x2, y2, data, backbuffer, row_pointers, depth_disp, pitch);
 }
 
 void VESADriver::set_blocks_as_dirty(int& x1, int& y1, int& x2, int& y2) {
