@@ -75,7 +75,7 @@ const char * table(int code) {
 
 void IDT::general_protection_fault_handler(interrupt_frame*, unsigned int ecode) {
 	clear();
-	printf("General Protection Fault:\n - External: %d\n - Tbl: %s\n - Index: %p\n", 
+	log(ERROR, "General Protection Fault:\n - External: %d\n - Tbl: %s\n - Index: %p\n", 
 		ecode & 0x1, 
 		table((ecode & 0x6) >> 1),
 		(ecode & 0xFFF8) >> 3);

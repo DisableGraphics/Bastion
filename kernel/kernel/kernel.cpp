@@ -230,8 +230,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	vesa.init();
 	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
 	size_t ellapsed = hal::TimerManager::get().get_timer(0)->ellapsed();
+	uint32_t pixels[] {
+		0x00FF00FF, 0xFFFFFF00, 0xFFFFFFFF,
+		0x00F0000F, 0xFF880088, 0x77777777
+	};
 	for(size_t j = 0; j < 60; j++) {
-		hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
+		//hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
+		hal::VideoManager::get().draw_pixels(vesaid, 56, 56, 59, 58, reinterpret_cast<uint8_t*>(pixels));
 		hal::VideoManager::get().flush(vesaid);
 		hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
 	}

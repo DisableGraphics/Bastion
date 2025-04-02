@@ -42,3 +42,37 @@ void draw_rectangle(int x1, int y1, int x2, int y2, uint32_t packed_color, uint8
 		}
 	}
 }
+
+void draw_pixels(int x1, int y1, int x2, int y2, uint8_t* pixels, uint8_t* backbuffer, size_t* row_pointers, uint32_t depth_disp) {  
+	const size_t bytes_pp = sizeof(uint32_t);
+	const size_t bytes_pp_simd = bytes_pp << 2;
+	
+	for (int y = y1; y <= y2; y++) {
+		uint8_t* ptr = backbuffer + row_pointers[y] + (x1 << depth_disp);
+		int pixels_left = x2 - x1 + 1;
+		
+		// Align to 16-byte boundary
+		while (((uintptr_t)ptr & 0xf) != 0 && pixels_left > 0) {
+			*(uint32_t*)(ptr) = *(uint32_t*)pixels;
+			ptr += bytes_pp;
+			pixels += bytes_pp;
+			pixels_left--;
+		}
+		
+		// Process 4 pixels at a time (16 bytes for 32bpp)
+		int simd_pixels = pixels_left >> 2;
+		for (int i = 0; i < simd_pixels; i++) {
+			_mm_stream_si128(ptr + i, *(__m128i*)pixels);
+			ptr += bytes_pp_simd;
+			pixels += bytes_pp_simd;
+		}
+		
+		// Remaining pixels
+		pixels_left &= 0x3;
+		while (pixels_left-- > 0) {
+			*(uint32_t*)(ptr) = *(uint32_t*)pixels;
+			pixels += bytes_pp;
+			ptr += bytes_pp;
+		}
+	}
+}

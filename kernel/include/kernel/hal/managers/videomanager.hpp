@@ -17,6 +17,9 @@ namespace hal {
 			inline void draw_pixel(size_t screen, int x, int y, color c) {
 				drivers[screen]->draw_pixel(x, y, c);
 			}
+			inline void draw_pixels(size_t screen, int x1, int y1, int x2, int y2, uint8_t* pixels) {
+				drivers[screen]->draw_pixels(x1, y1, x2, y2, pixels);
+			}
 			inline void draw_rectangle(size_t screen, int x1, int y1, int x2, int y2, color c) {
 				drivers[screen]->draw_rectangle(x1, y1, x2, y2, c);
 			}

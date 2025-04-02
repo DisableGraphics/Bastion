@@ -24,6 +24,7 @@ namespace hal {
 			inline virtual void draw_char(char c, int x, int y) = 0;
 			inline virtual void draw_string(char* str, int x, int y) = 0;
 			inline virtual void draw_pixel(int x, int y, color c) = 0;
+			inline virtual void draw_pixels(int x1, int y1, int x2, int y2, uint8_t* array) = 0;
 			inline virtual void draw_rectangle(int x1, int y1, int x2, int y2, color c) = 0;
 			inline virtual void clear(color c) = 0;
 
