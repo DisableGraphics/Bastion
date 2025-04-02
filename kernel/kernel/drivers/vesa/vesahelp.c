@@ -49,7 +49,7 @@ void draw_pixels(int x1, int y1, int width, int height,
     // Input validation
     if (width < 1 || height < 1 || !pixels || !backbuffer || !row_pointers) return;
     
-    const int src_stride = (width<< depth_disp);
+    const int src_stride = pitch;
     // Process each row
     for (int y = y1; y <= (height + y1); y++) {
         const uint8_t* src_row = pixels + (y - y1) * src_stride;
