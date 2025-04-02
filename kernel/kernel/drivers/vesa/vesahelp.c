@@ -50,7 +50,7 @@ void draw_pixels(int x1, int y1, int width, int height,
     if (width < 1 || height < 1 || !pixels || !backbuffer || !row_pointers) return;
     
     const int bytes_per_pixel = 4; // Assuming 32bpp
-    const int src_stride = pitch;
+    const int src_stride = (width << depth_disp);
     
     // Process each row
     for (int y = y1; y <= (height + y1); y++) {

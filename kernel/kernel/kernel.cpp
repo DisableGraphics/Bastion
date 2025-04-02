@@ -179,6 +179,15 @@ void gen(void*) {
 	}
 }
 
+void taste_the_rainbow(uint32_t* pixels) {
+	for(size_t y = 0; y < 800; y++) {
+		for(size_t x = 0; x < 1280; x++) {
+			*pixels = ((y << 16) | (x << 8) | (x+y));
+			pixels++;
+		}
+	}
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	if(sse2_available()) init_sse2();
 	TTYManager::get().init();
@@ -230,15 +239,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	vesa.init();
 	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
 	size_t ellapsed = hal::TimerManager::get().get_timer(0)->ellapsed();
-	uint32_t pixels[] {
-		0xFFFF0000, 0x00FFFF00, 0x00FFFF00,
-		0x00F0F000, 0x00880000, 0x00777700
-	};
+	uint32_t* pixels = new uint32_t[1280*800];
+	taste_the_rainbow(pixels);
 	for(size_t j = 0; j < 60; j++) {
-		hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
-		hal::VideoManager::get().draw_pixels(vesaid, 56, 56, 3, 2, reinterpret_cast<uint8_t*>(pixels));
+		//hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
+		hal::VideoManager::get().draw_pixels(vesaid, 0, 0, 1280, 800, reinterpret_cast<uint8_t*>(pixels));
 		hal::VideoManager::get().flush(vesaid);
-		hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
+		//hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
 	}
 	size_t ellapsed2 = hal::TimerManager::get().get_timer(0)->ellapsed();
 	log(INFO, "Before: %d vs After: %d", ellapsed, ellapsed2);
