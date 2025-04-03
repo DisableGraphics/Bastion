@@ -24,10 +24,18 @@ SET_TARGET_PROPERTIES(
 
 # Create object file from binary
 add_custom_command(
-    TARGET font_obj PRE_LINK
+    OUTPUT ${FONT_OBJ}
     # Change to source dir to get clean symbol names
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_LINKER} -r -b binary -o ${FONT_OBJ} ${FONT_SRC}
     COMMENT "Converting font to object: ${FONT_SRC} -> ${FONT_OBJ}"
 	VERBATIM
 )
+add_library(font_objlib STATIC ${FONT_OBJ})
+SET_TARGET_PROPERTIES(
+  font_objlib
+  PROPERTIES
+  LINKER_LANGUAGE C
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+target_link_libraries(kernel_platform_dependent PRIVATE font_objlib)

@@ -33,6 +33,8 @@ target_sources(${EXEC_NAME} PRIVATE
 	$<TARGET_OBJECTS:font_obj>
 )
 
+add_dependencies(${EXEC_NAME} font_objlib)
+
 # Specify the linker script
 target_link_options(${EXEC_NAME} PRIVATE -T ${CMAKE_SOURCE_DIR}/kernel/arch/i386/linker.ld)
 
