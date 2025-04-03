@@ -7,7 +7,6 @@
 #include <kernel/memory/mmanager.hpp>
 #include <kernel/cpp/min.hpp>
 #include <kernel/cpp/max.hpp>
-#include <ssfn/ssfn.h>
 #include "../../fonts/sfn_helper.h"
 
 #define DRAW_RAW(buffer, c) switch(depth) { \
@@ -147,7 +146,7 @@ bool VESADriver::is_text_only() {
 }
 
 void VESADriver::draw_char(char c, int x, int y) {
-	
+	sfn_putc(c);
 }
 
 void VESADriver::draw_string(char* str, int x, int y) {

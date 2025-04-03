@@ -14,3 +14,7 @@ void sfn_init(uint8_t* backbuffer, size_t pitch) {
 	ssfn_dst.x = 0;
 	ssfn_dst.y = 0;
 }
+
+void sfn_putc(unsigned int unicode) {
+	ssfn_putc(unicode);
+}

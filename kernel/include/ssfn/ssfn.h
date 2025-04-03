@@ -33,6 +33,8 @@
 
 #define SSFN_VERSION 0x0200
 
+#ifdef  __cplusplus
+extern "C" {
 # ifndef __THROW
 #  define __THROW throw()
 # endif
@@ -1528,3 +1530,9 @@ int ssfn_putc(uint32_t unicode)
 }
 
 #endif /* SSFN_CONSOLEBITMAP */
+
+#ifdef  __cplusplus
+}
+#endif
+/*               */
+#endif /* _SSFN_H_ */
