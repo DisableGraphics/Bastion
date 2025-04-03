@@ -1,5 +1,5 @@
 #define SSFN_CONSOLEBITMAP_TRUECOLOR
-#include "sfn_init.h"
+#include "sfn_helper.h"
 #include <ssfn/ssfn.h>
 
 extern unsigned char _binary_console_sfn_start;
