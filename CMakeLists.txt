@@ -30,6 +30,7 @@ target_sources(${EXEC_NAME} PRIVATE
     $<TARGET_OBJECTS:kernel_obj>
 	$<TARGET_OBJECTS:kernel_platform_dependent>
     $<TARGET_OBJECTS:libc_obj>
+	$<TARGET_OBJECTS:font_obj>
 )
 
 # Specify the linker script
