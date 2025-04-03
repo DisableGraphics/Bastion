@@ -8,6 +8,20 @@ if(NOT EXISTS "${ABS_FONT_SRC}")
     message(FATAL_ERROR "Font file not found: ${ABS_FONT_SRC}")
 endif()
 
+add_library(font_obj STATIC EXCLUDE_FROM_ALL ${FONT_OBJ})
+SET_SOURCE_FILES_PROPERTIES(
+  ${FONT_OBJ}
+  PROPERTIES
+  EXTERNAL_OBJECT true
+  GENERATED true
+)
+SET_TARGET_PROPERTIES(
+  font_obj
+  PROPERTIES
+  LINKER_LANGUAGE C
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
+)
+
 # Create object file from binary
 add_custom_command(
     OUTPUT ${FONT_OBJ}
@@ -19,18 +33,4 @@ add_custom_command(
     VERBATIM
 )
 
-# Custom target to ensure the object gets built
-add_custom_target(font_object DEPENDS ${FONT_OBJ})
-
-# Make sure kernel_obj knows about this object file
-if(TARGET kernel_platform_dependent)
-    # For OBJECT libraries:
-    target_sources(kernel_platform_dependent PRIVATE ${FONT_OBJ})
-    
-    # For regular libraries/executables, you might need:
-    target_link_libraries(kernel_platform_dependent PRIVATE ${FONT_OBJ})
-    
-    add_dependencies(kernel_platform_dependent font_object)
-else()
-    message(WARNING "Target kernel_platform_dependent not found - font object won't be linked")
-endif()
+target_link_libraries(kernel_platform_dependent PRIVATE font_obj)
