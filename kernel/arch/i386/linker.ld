@@ -17,6 +17,9 @@ SECTIONS
        }
 
 	. += 0xC0000000;
+	_binary_console_sfn_start = .;
+	_binary_console_sfn_end = .;
+	_binary_console_sfn_size = .;
 	/* Add a symbol that indicates the start address of the kernel. */
 	.text ALIGN (4K) : AT (ADDR (.text) - 0xC0000000)
 	{
@@ -30,6 +33,7 @@ SECTIONS
 	{
 		*(.data)
 	}
+	/* Font data */
 	.bss ALIGN (4K) : AT (ADDR (.bss) - 0xC0000000)
 	{
 		*(COMMON)

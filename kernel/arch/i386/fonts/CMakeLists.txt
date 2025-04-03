@@ -34,5 +34,3 @@ if(TARGET kernel_platform_dependent)
 else()
     message(WARNING "Target kernel_platform_dependent not found - font object won't be linked")
 endif()
-
-target_sources(kernel_platform_dependent PRIVATE sfn_helper.c)

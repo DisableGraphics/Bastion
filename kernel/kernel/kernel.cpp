@@ -242,10 +242,11 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	uint32_t* pixels = new uint32_t[1280*800];
 	taste_the_rainbow(pixels);
 	for(size_t j = 0; j < 60; j++) {
-		hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
-		hal::VideoManager::get().draw_pixels(vesaid, 0, 0, 1280, 800, reinterpret_cast<uint8_t*>(pixels));
-		hal::VideoManager::get().flush(vesaid);
-		hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
+		//hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
+		//hal::VideoManager::get().draw_pixels(vesaid, 0, 0, 1280, 800, reinterpret_cast<uint8_t*>(pixels));
+		hal::VideoManager::get().draw_char(vesaid, 'A', 0, 0);
+		//hal::VideoManager::get().flush(vesaid);
+		//hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
 	}
 	size_t ellapsed2 = hal::TimerManager::get().get_timer(0)->ellapsed();
 	log(INFO, "Before: %d vs After: %d", ellapsed, ellapsed2);

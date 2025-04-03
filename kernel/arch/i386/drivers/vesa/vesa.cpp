@@ -7,7 +7,9 @@
 #include <kernel/memory/mmanager.hpp>
 #include <kernel/cpp/min.hpp>
 #include <kernel/cpp/max.hpp>
-#include "../../fonts/sfn_helper.h"
+extern "C" uint8_t _binary_console_sfn_start;
+#define SSFN_CONSOLEBITMAP_TRUECOLOR
+#include <ssfn/ssfn.h>
 
 #define DRAW_RAW(buffer, c) switch(depth) { \
 	case 32: \
@@ -131,7 +133,13 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	for(size_t i = 0; i < height; i++) {
 		row_pointers[i] = pitch*i;
 	}
-	sfn_init(backbuffer, pitch);
+	ssfn_src = (ssfn_font_t*)&_binary_console_sfn_start;
+	ssfn_dst.ptr = framebuffer;
+	ssfn_dst.p = pitch;
+	ssfn_dst.fg = 0xFFFFFFFF;
+	ssfn_dst.bg = 0;
+	ssfn_dst.x = 100;
+	ssfn_dst.y = 200;
 }
 
 void VESADriver::init() {
@@ -146,7 +154,7 @@ bool VESADriver::is_text_only() {
 }
 
 void VESADriver::draw_char(char c, int x, int y) {
-	sfn_putc(c);
+	ssfn_putc(c);
 }
 
 void VESADriver::draw_string(char* str, int x, int y) {
