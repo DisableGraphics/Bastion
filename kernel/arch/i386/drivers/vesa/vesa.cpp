@@ -5,6 +5,10 @@
 #include <kernel/assembly/inlineasm.h>
 #include <kernel/memory/page.hpp>
 #include <kernel/memory/mmanager.hpp>
+#include <kernel/cpp/min.hpp>
+#include <kernel/cpp/max.hpp>
+#include <ssfn/ssfn.h>
+#include "../../fonts/sfn_helper.h"
 
 #define DRAW_RAW(buffer, c) switch(depth) { \
 	case 32: \
@@ -115,7 +119,8 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	green_size,
 	blue_size);
 	log(INFO, "Back buffer: %p", backbuffer);
-	// Write-combine when PAT is not available
+	// Write-combine when PAT is not available using
+	// MSRs
 	if(!is_pat_enabled) {
 		uint64_t mask = ~(scrsize - 1) | 0x800;
 		uint64_t base = reinterpret_cast<uint64_t>(framebuffer) | 0x0C;
@@ -127,6 +132,7 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	for(size_t i = 0; i < height; i++) {
 		row_pointers[i] = pitch*i;
 	}
+	sfn_init(backbuffer, pitch);
 }
 
 void VESADriver::init() {
@@ -141,7 +147,7 @@ bool VESADriver::is_text_only() {
 }
 
 void VESADriver::draw_char(char c, int x, int y) {
-
+	
 }
 
 void VESADriver::draw_string(char* str, int x, int y) {
@@ -154,9 +160,6 @@ void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
 	DRAW_RAW(backbuffer+where, c);
 }
-
-#include <kernel/cpp/min.hpp>
-#include <kernel/cpp/max.hpp>
 
 void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 	dirty = true;

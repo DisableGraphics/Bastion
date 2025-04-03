@@ -6,6 +6,7 @@ set(CMAKE_C_COMPILER   ${CMAKE_SOURCE_DIR}/cross/bin/i686-elf-gcc)
 set(CMAKE_CXX_COMPILER ${CMAKE_SOURCE_DIR}/cross/bin/i686-elf-g++)
 set(CMAKE_C_COMPILER_LINKER ${CMAKE_SOURCE_DIR}/cross/bin/i686-elf-gcc)
 set(CMAKE_CXX_COMPILER_LINKER ${CMAKE_SOURCE_DIR}/cross/bin/i686-elf-g++)
+set(CMAKE_LINKER ${CMAKE_SOURCE_DIR}/cross/bin/i686-elf-ld)
 
 # where is the target environment located
 set(CMAKE_FIND_ROOT_PATH  ${CMAKE_SOURCE_DIR}/cross)
