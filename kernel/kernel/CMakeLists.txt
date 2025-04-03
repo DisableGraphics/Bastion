@@ -6,5 +6,6 @@ add_subdirectory(sync)
 add_subdirectory(hal)
 add_subdirectory(fs)
 add_subdirectory(drivers)
+add_subdirectory(fonts)
 
 target_sources(kernel_obj PRIVATE kernel.cpp mmanager.cpp panic.cpp test.cpp key_event.cpp log.cpp)
