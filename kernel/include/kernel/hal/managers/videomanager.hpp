@@ -29,6 +29,9 @@ namespace hal {
 			inline void flush(size_t screen) {
 				drivers[screen]->flush();
 			};
+			inline VideoDriver* get_driver(size_t screen) {
+				return drivers[screen];
+			}
 		private:
 			VideoManager(){};
 			VideoManager(const VideoManager&) = delete;

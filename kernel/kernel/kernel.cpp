@@ -43,6 +43,8 @@
 #include <kernel/kernel/log.hpp>
 // Vector instructions
 #include <kernel/vector/sse2.h>
+// SSFN
+#include <ssfn/ssfn.h>
 // Tests
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -72,6 +74,17 @@ void gen(void*) {
 		log(INFO, "Partition: %d %dMiB, Type: %p, start_lba: %d", i, sizemb, type, parts[i].start_lba);
 		if(type == 0xc) {
 			FAT32 fat{p, i};
+			struct stat st;
+			// I HATE FONTS
+			fat.stat("/fonts/console.sfn", &st);
+			uint8_t* fonts = new uint8_t[st.st_size];
+			fat.read("/fonts/console.sfn", 0, st.st_size, reinterpret_cast<char*>(fonts));
+			VESADriver* vesa = reinterpret_cast<VESADriver*>(hal::VideoManager::get().get_driver(0));
+			vesa->set_fonts(fonts);
+			for(unsigned char c = 0; c < 255; c++) {
+				hal::VideoManager::get().draw_char(0, c, 0, 0);
+			}
+
 			char buffer[16];
 			const char* filename = "/data/test.txt";
 			log(INFO, "Reading %s", filename);
@@ -93,7 +106,6 @@ void gen(void*) {
 				log(INFO, "Could not read from /grub/grubenv");
 			}
 			log(INFO, "stat()ing %s", filename);
-			stat st;
 			if(fat.stat(filename, &st) != -1) {
 				log(INFO, "Size of %s: %d bytes", filename, st.st_size);
 				log(INFO, "Creation date: %d", st.st_ctime);
@@ -237,19 +249,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		mbd2->framebuffer_blue_mask_size
 	};
 	vesa.init();
-	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
-	size_t ellapsed = hal::TimerManager::get().get_timer(0)->ellapsed();
-	uint32_t* pixels = new uint32_t[1280*800];
-	taste_the_rainbow(pixels);
-	for(size_t j = 0; j < 60; j++) {
-		//hal::VideoManager::get().draw_rectangle(vesaid, 0, 0, 1280, 54, {(int)(j+j+j), (int)j, (int)(j+j)});
-		//hal::VideoManager::get().draw_pixels(vesaid, 0, 0, 1280, 800, reinterpret_cast<uint8_t*>(pixels));
-		hal::VideoManager::get().draw_char(vesaid, 'A', 0, 0);
-		//hal::VideoManager::get().flush(vesaid);
-		//hal::VideoManager::get().clear(vesaid, {(int)j, (int)(j+j), (int)(j+j+j)});
-	}
-	size_t ellapsed2 = hal::TimerManager::get().get_timer(0)->ellapsed();
-	log(INFO, "Before: %d vs After: %d", ellapsed, ellapsed2);
+	hal::VideoManager::get().register_driver(&vesa);
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();

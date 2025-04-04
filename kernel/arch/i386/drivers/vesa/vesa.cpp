@@ -133,13 +133,6 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	for(size_t i = 0; i < height; i++) {
 		row_pointers[i] = pitch*i;
 	}
-	ssfn_src = (ssfn_font_t*)&_binary_console_sfn_start;
-	ssfn_dst.ptr = framebuffer;
-	ssfn_dst.p = pitch;
-	ssfn_dst.fg = 0xFFFFFFFF;
-	ssfn_dst.bg = 0;
-	ssfn_dst.x = 100;
-	ssfn_dst.y = 200;
 }
 
 void VESADriver::init() {
@@ -203,4 +196,14 @@ void VESADriver::clear(hal::color c) {
 
 uint8_t VESADriver::squish8_to_size(int val, uint8_t destsize) {
 	return (val * destsize) / 255;
+}
+
+void VESADriver::set_fonts(uint8_t* fontsarr) {
+	ssfn_src = (ssfn_font_t*)fontsarr;
+	ssfn_dst.ptr = framebuffer;
+	ssfn_dst.p = pitch;
+	ssfn_dst.fg = 0xFFFFFFFF;
+	ssfn_dst.bg = 0;
+	ssfn_dst.x = 100;
+	ssfn_dst.y = 200;
 }

@@ -6,7 +6,9 @@ mkdir -p sysroot/bin
 mkdir -p sysroot/cfg
 mkdir -p sysroot/data
 mkdir -p sysroot/grub
+mkdir -p sysroot/fonts
 cp build/bastion sysroot/boot
+cp fonts/* sysroot/fonts
 
 executables=$(find build -iname "*.exe")
 
