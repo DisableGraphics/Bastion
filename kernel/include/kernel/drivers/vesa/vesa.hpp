@@ -18,7 +18,7 @@ class VESADriver final : public hal::VideoDriver {
 		void handle_interrupt() override;
 		bool is_text_only() override;
 		void set_fonts(uint8_t* fontsarr);
-		inline void draw_char(char c, int x, int y) override;
+		inline void draw_char(unsigned c, int x, int y) override;
 		inline void draw_string(char* str, int x, int y) override;
 		inline void draw_pixel(int x, int y, hal::color c) override;
 		inline void draw_pixels(int x1, int y1, int w, int h, uint8_t* array) override;

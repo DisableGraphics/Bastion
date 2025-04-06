@@ -8,7 +8,7 @@ namespace hal {
 			static VideoManager& get();
 			size_t register_driver(VideoDriver* driver);
 			size_t get_first_screen();
-			inline void draw_char(size_t screen, char c, int x, int y) {
+			inline void draw_char(size_t screen, unsigned c, int x, int y) {
 				drivers[screen]->draw_char(c, x, y);
 			}
 			inline void draw_string(size_t screen, char* str, int x, int y) {

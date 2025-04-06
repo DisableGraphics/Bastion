@@ -146,7 +146,7 @@ bool VESADriver::is_text_only() {
 	return false;
 }
 
-void VESADriver::draw_char(char c, int x, int y) {
+void VESADriver::draw_char(unsigned c, int x, int y) {
 	ssfn_putc(c);
 }
 

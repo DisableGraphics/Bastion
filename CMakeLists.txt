@@ -13,10 +13,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_ASM_FLAGS "-g")
 set(CMAKE_C_FLAGS "-g -static-libgcc -Ofast -ffreestanding -nostdlib -lgcc -msse -msse2 \
 -ffast-math -flto -funroll-loops -mfpmath=sse -fno-strict-aliasing -ftree-vectorize -fno-tree-slp-vectorize \
--fpredictive-commoning -fgcse-sm -fgcse-las -fipa-pta")
+-fgcse-sm -fgcse-las")
 set(CMAKE_CXX_FLAGS "-g -static-libgcc -Ofast -ffreestanding -nostdlib -lgcc -msse \
 -funroll-loops -mfpmath=sse -fno-strict-aliasing -ftree-vectorize -fno-tree-slp-vectorize \
--fpredictive-commoning -fgcse-sm -fgcse-las -fipa-pta")
+-fgcse-sm -fgcse-las")
 
 # Add subdirectories for kernel and libc
 add_subdirectory(kernel)
