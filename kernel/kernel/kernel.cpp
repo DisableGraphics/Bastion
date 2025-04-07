@@ -257,7 +257,12 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	for(size_t i = 0; i < sizeof(mensaje); i++) {
 		hal::VideoManager::get().draw_char(vesaid, mensaje[i], 0, i << 3);
 	}
-	char longmessage[] = "They came for him one winter's night, arrested he was bound. He said there'd been a robbery, his pistol had been found. They marched him to the station house. He waited till the dawn. And as they led him to the dock he knew that he'd been wronged. \"You stand accused of robbery\", he heard the bailiff say";
+	char longmessage[] = "They came for him one winter's night. Arrested, he was bound. "
+	"They said there'd been a robbery, his pistol had been found. "
+	"They marched him to the station house. He waited till the dawn. "
+	"And as they led him to the dock he knew that he'd been wronged. "
+	"\"You stand accused of robbery\", he heard the bailiff say."
+	"He knew, without an alibi, tomorrow's light would mourn his freedom.";
 	for(size_t i = 0; i < sizeof(longmessage); i++) {
 		hal::VideoManager::get().draw_char(vesaid, longmessage[i], i << 3, 0);
 	}
