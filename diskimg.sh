@@ -54,6 +54,12 @@ sudo cp -r sysroot/. "$MOUNT_DIR/"
 echo "Deleting sysroot"
 rm -rf sysroot
 
+echo "Creating RAMDISK"
+./ramdisk.sh
+sudo cp ramdisk.tar "$MOUNT_DIR/boot/"
+sync
+rm -f ramdisk.tar
+
 echo "Installing grub so disk is bootable"
 sudo grub-install --no-floppy --grub-mkdevicemap=device.map --target=i386-pc \
     --install-modules="normal multiboot" --themes="" --locales "" --boot-directory="$MOUNT_DIR" "$LOOP_DEVICE"
