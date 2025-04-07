@@ -32,6 +32,7 @@
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
 #include <kernel/fs/cache.hpp>
+#include <kernel/fs/ramustar.hpp>
 // Scheduler
 #include <kernel/scheduler/scheduler.hpp>
 // Synchronization
@@ -75,16 +76,6 @@ void gen(void*) {
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 			struct stat st;
-			// I HATE FONTS
-			fat.stat("/fonts/console.sfn", &st);
-			uint8_t* fonts = new uint8_t[st.st_size];
-			fat.read("/fonts/console.sfn", 0, st.st_size, reinterpret_cast<char*>(fonts));
-			VESADriver* vesa = reinterpret_cast<VESADriver*>(hal::VideoManager::get().get_driver(0));
-			vesa->set_fonts(fonts);
-			for(unsigned char c = 0; c < 255; c++) {
-				hal::VideoManager::get().draw_char(0, c, 0, 0);
-			}
-
 			char buffer[16];
 			const char* filename = "/data/test.txt";
 			log(INFO, "Reading %s", filename);
@@ -234,6 +225,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	mouse.init();
 
 	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
+	multiboot_module_t* mbd_module = reinterpret_cast<multiboot_module_t*>(mbd2->mods_addr + HIGHER_HALF_OFFSET);
+	// First module loaded is the ramdisk
+	RAMUSTAR ramdisk{reinterpret_cast<uint8_t*>(mbd_module->mod_start+ HIGHER_HALF_OFFSET)};
 	
 	VESADriver vesa{
 		reinterpret_cast<uint8_t*>(mbd2->framebuffer_addr),
@@ -249,7 +243,20 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		mbd2->framebuffer_blue_mask_size
 	};
 	vesa.init();
-	hal::VideoManager::get().register_driver(&vesa);
+
+	// Load font data from the ramdisk
+	struct stat fontstat;
+	ramdisk.stat("ramdisk/console.sfn", &fontstat);
+	uint8_t* fonts = new uint8_t[fontstat.st_size];
+	ramdisk.read("ramdisk/console.sfn", 0, fontstat.st_size, reinterpret_cast<char*>(fonts));
+	vesa.set_fonts(fonts);
+
+	// Test it:
+	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
+	char mensaje[] = "Hello how are we doing";
+	for(size_t i = 0; i < sizeof(mensaje); i++) {
+		hal::VideoManager::get().draw_char(vesaid, mensaje[i], 0, i);
+	}
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();

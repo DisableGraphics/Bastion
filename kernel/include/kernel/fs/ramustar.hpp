@@ -3,6 +3,7 @@
 
 // Ramdisk USTAR filesystem
 // Only for getting data at boot.
+// Therefore, some functionality (truncate, write, mkdir, touch, remove, rename) is not implemented.
 class RAMUSTAR : public FS {
 	public:
 		RAMUSTAR(const uint8_t* where) : where(where) {};
@@ -26,4 +27,5 @@ class RAMUSTAR : public FS {
 		void closedir(DIR* dir) override;
 	private:
 		const uint8_t* where;
+		int lookup(char *archive, char *filename, char **out);
 };
