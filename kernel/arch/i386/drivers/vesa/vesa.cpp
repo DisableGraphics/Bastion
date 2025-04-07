@@ -7,7 +7,6 @@
 #include <kernel/memory/mmanager.hpp>
 #include <kernel/cpp/min.hpp>
 #include <kernel/cpp/max.hpp>
-extern "C" uint8_t _binary_console_sfn_start;
 #define SSFN_CONSOLEBITMAP_TRUECOLOR
 #include <ssfn/ssfn.h>
 
@@ -147,6 +146,8 @@ bool VESADriver::is_text_only() {
 }
 
 void VESADriver::draw_char(unsigned c, int x, int y) {
+	ssfn_dst.x = x;
+	ssfn_dst.y = y;
 	ssfn_putc(c);
 }
 
