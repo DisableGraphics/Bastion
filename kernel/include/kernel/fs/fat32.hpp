@@ -1,32 +1,33 @@
+#pragma once
 #include <stdint.h>
 #include <kernel/fs/partmanager.hpp>
 #include "../arch/i386/defs/fs/fat32/bs.hpp"
 #include "../arch/i386/defs/fs/fat32/entryflags.hpp"
-#include "const.hpp"
+#include "fs.hpp"
 #include "kernel/datastr/vector.hpp"
 #include <kernel/datastr/buffer.hpp>
 
-class FAT32 {
+class FAT32 : public FS {
 	public:
 		FAT32(PartitionManager &partmanager, size_t partid);
 		~FAT32();
 
-		off_t read(const char* filename, unsigned offset, unsigned nbytes, char* buffer);
-		off_t write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer);
-		off_t truncate(const char* filename, unsigned nbytes);
-		int stat(const char* filename, stat* buf);
+		off_t read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) override;
+		off_t write(const char* filename, unsigned offset, unsigned nbytes, const char* buffer) override;
+		off_t truncate(const char* filename, unsigned nbytes) override;
+		int stat(const char* filename, struct stat* buf) override;
 
-		bool touch(const char* filename);
+		bool touch(const char* filename) override;
 
-		bool mkdir(const char* directory);
-		bool rmdir(const char* directory);
+		bool mkdir(const char* directory) override;
+		bool rmdir(const char* directory) override;
 		
-		bool rename(const char* src, const char* dest);
-		bool remove(const char* path);
+		bool rename(const char* src, const char* dest) override;
+		bool remove(const char* path) override;
 
-		bool opendir(const char* directory, DIR* dir);
-		bool readdir(DIR* dir, dirent* dirent);
-		void closedir(DIR* dir);
+		bool opendir(const char* directory, DIR* dir) override;
+		bool readdir(DIR* dir, dirent* dirent) override;
+		void closedir(DIR* dir) override;
 	private:
 		uint32_t get_sector_of_cluster(uint32_t cluster);
 		uint32_t next_cluster(uint32_t active_cluster);
