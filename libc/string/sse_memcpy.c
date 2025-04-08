@@ -1,11 +1,12 @@
 #include <emmintrin.h>
 #include <string.h>
+#include <kernel/vector/sse2.h>
 
 void sse2_memcpy(void *dest, const void *src, size_t n) {
-	// 1. Check for NULL pointers
 	if (!dest || !src) return;
 
-	// 2. Check for zero length
+	if(!sse2_available()) memcpy(dest, src, n);
+
 	if (n == 0) return;
 
 	uintptr_t align_offset = (uintptr_t)dest % 16;
