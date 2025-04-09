@@ -42,6 +42,12 @@ namespace hal {
 			uint8_t get_height(size_t screen) {
 				return drivers[screen]->get_height();
 			}
+			uint8_t get_pitch(size_t screen) {
+				return drivers[screen]->get_pitch();
+			}
+			uint8_t get_depth(size_t screen) {
+				return drivers[screen]->get_depth();
+			}
 		private:
 			VideoManager(){};
 			VideoManager(const VideoManager&) = delete;

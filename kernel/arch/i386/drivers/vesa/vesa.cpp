@@ -205,3 +205,22 @@ void VESADriver::set_fonts(uint8_t* fontsarr) {
 	ssfn_dst.x = 100;
 	ssfn_dst.y = 200;
 }
+
+uint8_t VESADriver::get_font_width() {
+	return ssfn_src->width;
+}
+uint8_t VESADriver::get_font_height() {
+	return ssfn_src->height;
+}
+uint32_t VESADriver::get_width() {
+	return width;
+}
+uint32_t VESADriver::get_height() {
+	return height;
+}
+uint32_t VESADriver::get_pitch() {
+	return pitch;
+}
+uint32_t VESADriver::get_depth() {
+	return depth;
+}

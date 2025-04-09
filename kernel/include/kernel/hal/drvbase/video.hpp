@@ -27,6 +27,13 @@ namespace hal {
 			inline virtual void draw_rectangle(int x1, int y1, int x2, int y2, color c) = 0;
 			inline virtual void clear(color c) = 0;
 
+			inline virtual uint8_t get_font_width() = 0;
+			inline virtual uint8_t get_font_height() = 0;
+			inline virtual uint32_t get_width() { return width; }
+			inline virtual uint32_t get_height() { return height; }
+			inline virtual uint32_t get_pitch() { return pitch; }
+			inline virtual uint32_t get_depth() { return depth; }
+
 			/// Copy backbuffer into framebuffer if backbuffer is dirty
 			virtual void flush();
 		protected:
