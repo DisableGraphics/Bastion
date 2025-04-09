@@ -11,9 +11,6 @@ namespace hal {
 			inline void draw_char(size_t screen, unsigned c, int x, int y) {
 				drivers[screen]->draw_char(c, x, y);
 			}
-			inline void draw_string(size_t screen, char* str, int x, int y) {
-				drivers[screen]->draw_string(str, x, y);
-			}
 			inline void draw_pixel(size_t screen, int x, int y, color c) {
 				drivers[screen]->draw_pixel(x, y, c);
 			}

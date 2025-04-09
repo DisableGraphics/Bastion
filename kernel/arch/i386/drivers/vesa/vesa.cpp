@@ -151,10 +151,6 @@ void VESADriver::draw_char(unsigned c, int x, int y) {
 	ssfn_putc(c);
 }
 
-void VESADriver::draw_string(char* str, int x, int y) {
-
-}
-
 void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty = true;
 	unsigned where = (x<<depth_disp) + row_pointers[y];
