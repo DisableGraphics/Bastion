@@ -3,16 +3,7 @@
 #include <string.h>
 
 TTY::TTY() {
-	terminal_row = 0;
-	terminal_column = 0;
-	terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 
-	for (size_t y = 0; y < VGA_HEIGHT; y++) {
-		for (size_t x = 0; x < VGA_WIDTH; x++) {
-			const size_t index = y * VGA_WIDTH + x;
-			terminal_buffer[index] = vga_entry(' ', terminal_color);
-		}
-	}
 }
 
 void TTY::putchar(char c) {
@@ -20,15 +11,15 @@ void TTY::putchar(char c) {
 	if(uc == '\b') {
 		handle_backspace();
 	} else if(uc == '\n'){
-		terminal_column = 0;
-		if(++terminal_row == VGA_HEIGHT)
-			terminal_row = 0;
+		x = 0;
+		if(++y == VGA_HEIGHT)
+			y = 0;
 	} else {
-		putentryat(uc, terminal_color, terminal_column, terminal_row);
-		if (++terminal_column == VGA_WIDTH) {
-			terminal_column = 0;
-			if (++terminal_row == VGA_HEIGHT)
-				terminal_row = 0;
+		putentryat(uc, x, y);
+		if (++x == VGA_WIDTH) {
+			x = 0;
+			if (++y == VGA_HEIGHT)
+				y = 0;
 		}
 	}
 }
@@ -42,18 +33,18 @@ void TTY::writestring(const char* data) {
 	write(data, strlen(data));
 }
 
-void TTY::putentryat(unsigned char c, uint8_t color, size_t x, size_t y) {
+void TTY::putentryat(unsigned char c, size_t x, size_t y) {
 	const size_t index = y * VGA_WIDTH + x;
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
 void TTY::handle_backspace() {
-	if(terminal_column == 0) {
-		terminal_column = VGA_WIDTH;
-		terminal_row--;
+	if(x == 0) {
+		x = VGA_WIDTH;
+		y--;
 	}
-	terminal_column--;
-	putentryat(' ', terminal_color, terminal_column, terminal_row);
+	x--;
+	putentryat(' ', terminal_color, x, y);
 }
 
 uint16_t * TTY::get_buffer() {
@@ -61,8 +52,8 @@ uint16_t * TTY::get_buffer() {
 }
 
 void TTY::clear() {
-	terminal_row = 0;
-	terminal_column = 0;
+	y = 0;
+	x = 0;
 	for(size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
 		putchar(' ');
 }

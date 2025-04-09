@@ -190,13 +190,47 @@ void taste_the_rainbow(uint32_t* pixels) {
 	}
 }
 
+void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
+	// Load font data from the ramdisk
+	struct stat fontstat;
+	ramdisk.stat("ramdisk/console.sfn", &fontstat);
+	uint8_t* fonts = new uint8_t[fontstat.st_size];
+	ramdisk.read("ramdisk/console.sfn", 0, fontstat.st_size, reinterpret_cast<char*>(fonts));
+	vesa.set_fonts(fonts);
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	if(sse2_available()) init_sse2();
-	TTYManager::get().init();
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
 	Serial::get().init();
 	GDT::get().init();
+	
+
+	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
+
+	VESADriver vesa{
+		reinterpret_cast<uint8_t*>(mbd2->framebuffer_addr),
+		mbd2->framebuffer_width,
+		mbd2->framebuffer_height,
+		mbd2->framebuffer_pitch,
+		mbd2->framebuffer_bpp,
+		mbd2->framebuffer_red_field_position,
+		mbd2->framebuffer_green_field_position,
+		mbd2->framebuffer_blue_field_position,
+		mbd2->framebuffer_red_mask_size,
+		mbd2->framebuffer_green_mask_size,
+		mbd2->framebuffer_blue_mask_size
+	};
+	vesa.init();
+	hal::VideoManager::get().register_driver(&vesa);
+
+	multiboot_module_t* mbd_module = reinterpret_cast<multiboot_module_t*>(mbd2->mods_addr + HIGHER_HALF_OFFSET);
+	// First module loaded is the ramdisk
+	RAMUSTAR ramdisk{reinterpret_cast<uint8_t*>(mbd_module->mod_start+ HIGHER_HALF_OFFSET)};
+	
+	init_fonts(ramdisk, vesa);
+	TTYManager::get().init(&vesa);
 	
 	PIC pic;
 	IDT::get().init();	
@@ -223,48 +257,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	keyb.init();
 	mouse.init();
 
-	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
-	multiboot_module_t* mbd_module = reinterpret_cast<multiboot_module_t*>(mbd2->mods_addr + HIGHER_HALF_OFFSET);
-	// First module loaded is the ramdisk
-	RAMUSTAR ramdisk{reinterpret_cast<uint8_t*>(mbd_module->mod_start+ HIGHER_HALF_OFFSET)};
-	
-	VESADriver vesa{
-		reinterpret_cast<uint8_t*>(mbd2->framebuffer_addr),
-		mbd2->framebuffer_width,
-		mbd2->framebuffer_height,
-		mbd2->framebuffer_pitch,
-		mbd2->framebuffer_bpp,
-		mbd2->framebuffer_red_field_position,
-		mbd2->framebuffer_green_field_position,
-		mbd2->framebuffer_blue_field_position,
-		mbd2->framebuffer_red_mask_size,
-		mbd2->framebuffer_green_mask_size,
-		mbd2->framebuffer_blue_mask_size
-	};
-	vesa.init();
-
-	// Load font data from the ramdisk
-	struct stat fontstat;
-	ramdisk.stat("ramdisk/console.sfn", &fontstat);
-	uint8_t* fonts = new uint8_t[fontstat.st_size];
-	ramdisk.read("ramdisk/console.sfn", 0, fontstat.st_size, reinterpret_cast<char*>(fonts));
-	vesa.set_fonts(fonts);
-
-	// Test it:
-	size_t vesaid = hal::VideoManager::get().register_driver(&vesa);
-	char mensaje[] = "Hello how are we doing";
-	for(size_t i = 0; i < sizeof(mensaje); i++) {
-		hal::VideoManager::get().draw_char(vesaid, mensaje[i], 0, i << 3);
-	}
-	char longmessage[] = "They came for him one winter's night. Arrested, he was bound. "
-	"They said there'd been a robbery, his pistol had been found. "
-	"They marched him to the station house. He waited till the dawn. "
-	"And as they led him to the dock he knew that he'd been wronged. "
-	"\"You stand accused of robbery\", he heard the bailiff say."
-	"He knew, without an alibi, tomorrow's light would mourn his freedom.";
-	for(size_t i = 0; i < sizeof(longmessage); i++) {
-		hal::VideoManager::get().draw_char(vesaid, longmessage[i], i << 3, 0);
-	}
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
 	// Seed RNG

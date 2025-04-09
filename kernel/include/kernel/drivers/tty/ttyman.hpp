@@ -1,6 +1,6 @@
-#include <stdint.h>
 #include <stddef.h>
 #include <kernel/drivers/tty/tty.hpp>
+#include <kernel/hal/drvbase/video.hpp>
 
 /**
 	\brief TTY Manager.
@@ -16,7 +16,7 @@ class TTYManager {
 		/**
 			\brief Initalisze the TTY Manager
 		 */
-		void init();
+		void init(hal::VideoDriver* screen);
 		/**
 			\brief Write a char into the current TTY
 			\param c Char to write
@@ -57,6 +57,6 @@ class TTYManager {
 		const static size_t N_TTYS = 5;
 		// Array of TTYs
 		TTY ttys[N_TTYS];
-		// VGA memory pointer
-		uint16_t* const VGA_MEMORY = (uint16_t*) 0xC03FF000;
+		// Pointer to the screen handled by this manager
+		hal::VideoDriver* screen;
 };

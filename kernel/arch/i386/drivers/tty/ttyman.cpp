@@ -2,8 +2,10 @@
 #include <kernel/drivers/tty/ttyman.hpp>
 #include <string.h>
 
-void TTYManager::init() {
-
+void TTYManager::init(hal::VideoDriver* screen) {
+	for(size_t i = 0; i < N_TTYS; i++) {
+		ttys[i].init(screen->get_font_width(), screen->get_font_height());
+	}
 }
 
 TTYManager &TTYManager::get() {
@@ -27,7 +29,7 @@ void TTYManager::writestring(const char * data) {
 }
 
 void TTYManager::display() {
-	memcpy(VGA_MEMORY, ttys[current_tty].get_buffer(), sizeof(uint16_t)*TTY::VGA_HEIGHT * TTY::VGA_WIDTH);
+	screen->flush();
 }
 
 void TTYManager::set_current_tty(size_t tty) {
