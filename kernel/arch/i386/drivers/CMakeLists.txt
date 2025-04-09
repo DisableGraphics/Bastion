@@ -4,7 +4,7 @@ add_subdirectory(keyboard)
 add_subdirectory(pci)
 add_subdirectory(vesa)
 
-target_sources(kernel_platform_dependent PRIVATE cursor.cpp 
+target_sources(kernel_platform_dependent PRIVATE
 	handlers.cpp
 	interrupts.cpp
 	nmi.cpp

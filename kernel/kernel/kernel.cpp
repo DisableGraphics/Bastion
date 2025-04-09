@@ -16,7 +16,6 @@
 #include <kernel/drivers/pit.hpp>
 #include <kernel/drivers/keyboard/keyboard.hpp>
 #include <kernel/drivers/mouse.hpp>
-#include <kernel/drivers/cursor.hpp>
 #include <kernel/drivers/rtc.hpp>
 #include <kernel/drivers/vesa/vesa.hpp>
 // HAL

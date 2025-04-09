@@ -1,6 +1,5 @@
 #include <kernel/drivers/tty/tty.hpp>
 #include "../../defs/vga/vga.hpp"
-#include <kernel/drivers/cursor.hpp>
 #include <string.h>
 
 TTY::TTY() {
@@ -32,7 +31,6 @@ void TTY::putchar(char c) {
 				terminal_row = 0;
 		}
 	}
-	Cursor::get().move(terminal_column, terminal_row);
 }
 
 void TTY::write(const char* data, size_t size) {
