@@ -29,6 +29,19 @@ namespace hal {
 			inline VideoDriver* get_driver(size_t screen) {
 				return drivers[screen];
 			}
+
+			uint8_t get_font_width(size_t screen) {
+				return drivers[screen]->get_font_width();
+			}
+			uint8_t get_font_height(size_t screen) {
+				return drivers[screen]->get_font_height();
+			}
+			uint8_t get_width(size_t screen) {
+				return drivers[screen]->get_width();
+			}
+			uint8_t get_height(size_t screen) {
+				return drivers[screen]->get_height();
+			}
 		private:
 			VideoManager(){};
 			VideoManager(const VideoManager&) = delete;
