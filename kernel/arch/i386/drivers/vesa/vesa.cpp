@@ -192,7 +192,8 @@ void VESADriver::clear(hal::color c) {
 }
 
 uint8_t VESADriver::squish8_to_size(int val, uint8_t destsize) {
-	return (val * destsize) / 255;
+	int value = val * destsize;
+	return (value + (value >> 8) + 1) >> 8;
 }
 
 void VESADriver::set_fonts(uint8_t* fontsarr) {
