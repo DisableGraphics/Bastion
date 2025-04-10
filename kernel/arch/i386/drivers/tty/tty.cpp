@@ -1,9 +1,22 @@
 #include <kernel/drivers/tty/tty.hpp>
-#include "../../defs/vga/vga.hpp"
 #include <string.h>
 
 TTY::TTY() {
 
+}
+
+TTY::~TTY() {
+	delete[] buffer;
+	delete[] dirty_blocks;
+}
+
+void TTY::init(size_t charwidth, size_t charheight) {
+	max_x = charwidth;
+	max_y = charheight;
+	bufsize = max_x * max_y;
+	buffer = new uint8_t[bufsize];
+	sse2_memset(buffer, ' ', bufsize);
+	dirty_blocks = new bool[bufsize >> TTY_BLOCK_DISP];
 }
 
 void TTY::putchar(char c) {
@@ -12,13 +25,13 @@ void TTY::putchar(char c) {
 		handle_backspace();
 	} else if(uc == '\n'){
 		x = 0;
-		if(++y == VGA_HEIGHT)
+		if(++y == max_y)
 			y = 0;
 	} else {
 		putentryat(uc, x, y);
-		if (++x == VGA_WIDTH) {
+		if (++x == max_x) {
 			x = 0;
-			if (++y == VGA_HEIGHT)
+			if (++y == max_y)
 				y = 0;
 		}
 	}
@@ -34,26 +47,32 @@ void TTY::writestring(const char* data) {
 }
 
 void TTY::putentryat(unsigned char c, size_t x, size_t y) {
-	const size_t index = y * VGA_WIDTH + x;
-	terminal_buffer[index] = vga_entry(c, color);
+	const size_t index = (y * max_x) + x;
+	buffer[index] = c;
+	dirty_blocks[index >> TTY_BLOCK_DISP] = true;
 }
 
 void TTY::handle_backspace() {
 	if(x == 0) {
-		x = VGA_WIDTH;
+		x = max_x;
+		if(y == 0) y = max_y;
 		y--;
 	}
 	x--;
-	putentryat(' ', terminal_color, x, y);
+	putentryat(' ', x, y);
 }
 
-uint16_t * TTY::get_buffer() {
-	return terminal_buffer;
+uint8_t * TTY::get_buffer() {
+	return buffer;
 }
 
 void TTY::clear() {
 	y = 0;
 	x = 0;
-	for(size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
+	for(size_t i = 0; i < bufsize; i++)
 		putchar(' ');
+}
+
+bool* TTY::get_dirty_blocks() {
+	return dirty_blocks;
 }

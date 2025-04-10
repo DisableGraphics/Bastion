@@ -88,7 +88,6 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	uint32_t* ife = reinterpret_cast<uint32_t*>(ifr);
 	eip = ife[-2];
 
-	clear();
 	uint32_t faulting_address = read_cr2();
 	const char * prot_type = (ecode & 1) ? "page protection" : "not present";
 	const char * rw = (ecode & 0x2) ? "Write" : "Read";

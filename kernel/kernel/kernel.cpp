@@ -257,6 +257,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	keyb.init();
 	mouse.init();
 
+	printf("a");
+
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
 	// Seed RNG

@@ -55,6 +55,7 @@ class TTYManager {
 		size_t current_tty = 0;
 		// Maximum number of ttys
 		const static size_t N_TTYS = 5;
+		size_t font_width, font_height, width, height, char_width, char_height, charsize;
 		// Array of TTYs
 		TTY ttys[N_TTYS];
 		// Pointer to the screen handled by this manager

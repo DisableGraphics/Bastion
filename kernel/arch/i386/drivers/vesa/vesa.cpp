@@ -148,6 +148,8 @@ bool VESADriver::is_text_only() {
 void VESADriver::draw_char(unsigned c, int x, int y) {
 	ssfn_dst.x = x;
 	ssfn_dst.y = y;
+	unsigned where = (x<<depth_disp) + row_pointers[y];
+	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
 	ssfn_putc(c);
 }
 
@@ -198,7 +200,7 @@ uint8_t VESADriver::squish8_to_size(int val, uint8_t destsize) {
 
 void VESADriver::set_fonts(uint8_t* fontsarr) {
 	ssfn_src = (ssfn_font_t*)fontsarr;
-	ssfn_dst.ptr = framebuffer;
+	ssfn_dst.ptr = backbuffer;
 	ssfn_dst.p = pitch;
 	ssfn_dst.fg = 0xFFFFFFFF;
 	ssfn_dst.bg = 0;
