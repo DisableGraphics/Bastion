@@ -12,11 +12,13 @@ hal::VideoDriver::VideoDriver(uint8_t* framebuffer,
 	width(width),
 	height(height),
 	pitch(pitch),
-	scrsize(height*pitch*(depth/8)),
-	nblocks(scrsize/BLOCK_SIZE) {
+	tiles_x((width + TILE_SIZE - 1) >> TILE_SIZE_DISP),
+	tiles_y((height + TILE_SIZE - 1) >> TILE_SIZE_DISP),
+	scrsize(height*pitch*(depth>>3)),
+	ntiles(tiles_x*tiles_y) {
 	row_pointers = reinterpret_cast<size_t*>(kcalloc(height, sizeof(size_t)));
 	backbuffer = reinterpret_cast<uint8_t*>(kcalloc(scrsize, sizeof(*backbuffer)));
-	dirty_blocks = reinterpret_cast<bool*>(kcalloc(nblocks, sizeof(bool)));
+	dirty_tiles = reinterpret_cast<bool*>(kcalloc(ntiles, sizeof(bool)));
 }
 
 void hal::VideoDriver::init(tc::timertime interval) {
@@ -25,10 +27,10 @@ void hal::VideoDriver::init(tc::timertime interval) {
 
 inline void hal::VideoDriver::flush() {
 	if(dirty) {
-		for(size_t i = 0; i < nblocks; i++) {
-			if(dirty_blocks[i]) {
+		for(size_t i = 0; i < ntiles; i++) {
+			if(dirty_tiles[i]) {
 				sse2_memcpy(framebuffer + (i << DISP_BLOCK_SIZE), backbuffer + (i << DISP_BLOCK_SIZE), BLOCK_SIZE);
-				dirty_blocks[i] = false;
+				dirty_tiles[i] = false;
 			}
 		}
 		dirty = false;

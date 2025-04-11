@@ -148,15 +148,14 @@ bool VESADriver::is_text_only() {
 void VESADriver::draw_char(unsigned c, int x, int y) {
 	ssfn_dst.x = x;
 	ssfn_dst.y = y;
-	unsigned where = (x<<depth_disp) + row_pointers[y];
-	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
+	mark_tile_as_dirty(x, y);
 	ssfn_putc(c);
 }
 
 void VESADriver::draw_pixel(int x, int y, hal::color c) {
 	dirty = true;
 	unsigned where = (x<<depth_disp) + row_pointers[y];
-	dirty_blocks[where >> DISP_BLOCK_SIZE] = true;
+	mark_tile_as_dirty(x, y);
 	DRAW_RAW(backbuffer+where, c);
 }
 
@@ -179,17 +178,22 @@ void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
 }
 
 void VESADriver::set_blocks_as_dirty(int x1, int y1, int x2, int y2) {
-	unsigned first_block = (row_pointers[y1] + (x1 << depth_disp)) >> DISP_BLOCK_SIZE;
-	unsigned last_block = (row_pointers[y2] + (x2 << depth_disp)) >> DISP_BLOCK_SIZE;
-	
-	for (unsigned b = first_block; b <= last_block; b++) {
-		dirty_blocks[b] = true;
-	}
+	int tile_x0 = x1 >> TILE_SIZE_DISP;
+    int tile_y0 = y1 >> TILE_SIZE_DISP;
+    int tile_x1 = x2 >> TILE_SIZE_DISP;
+    int tile_y1 = y2 >> TILE_SIZE_DISP;
+
+    for (int ty = tile_y0; ty <= tile_y1; ty++) {
+		const size_t tile_offset = ty * tiles_x;
+        for (int tx = tile_x0; tx <= tile_x1; tx++) {
+            dirty_tiles[tile_offset + tx] = true;
+        }
+    }
 }
 
 void VESADriver::clear(hal::color c) {
 	dirty = true;
-	sse2_memset(dirty_blocks, true, nblocks);
+	sse2_memset(dirty_tiles, true, ntiles);
 	fast_clear((c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos), backbuffer, scrsize);
 }
 

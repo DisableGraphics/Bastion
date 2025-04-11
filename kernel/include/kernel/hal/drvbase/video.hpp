@@ -4,8 +4,12 @@
 #include <stdint.h>
 
 // Shift length of a block size (for optimizations)
-constexpr uint32_t DISP_BLOCK_SIZE = 12;
+constexpr uint32_t DISP_BLOCK_SIZE = 14;
 constexpr uint32_t BLOCK_SIZE = (1 << DISP_BLOCK_SIZE);
+
+// Tiles are 64x64 pixels
+constexpr uint32_t TILE_SIZE_DISP = 6;
+constexpr uint32_t TILE_SIZE = (1 << TILE_SIZE_DISP);
 
 namespace hal {
 	struct color {
@@ -38,15 +42,16 @@ namespace hal {
 			virtual void flush();
 		protected:
 			bool dirty = false;
-			bool* dirty_blocks;
+			bool* dirty_tiles;
 			uint8_t* framebuffer;
 			uint32_t width;
 			uint32_t height;
 			uint32_t pitch;
 			uint32_t depth;
+			const uint32_t tiles_x, tiles_y;
 			// Desperate times call for desperate measures
 			size_t* row_pointers;
-			const uint32_t scrsize, nblocks;
+			const uint32_t scrsize, ntiles;
 			uint8_t* backbuffer;
 	};
 }
