@@ -33,11 +33,13 @@ class VESADriver final : public hal::VideoDriver {
 		void clear(hal::color c) override;
 	private:
 		inline uint8_t squish8_to_size(int val, uint8_t destsize);
-		void set_blocks_as_dirty(int x1, int y1, int x2, int y2);
+		void mark_rectangle_as_dirty(int x1, int y1, int x2, int y2);
 		inline void mark_tile_as_dirty(int x, int y) {
 			int tile_x = x >> TILE_SIZE_DISP;
 			int tile_y = y >> TILE_SIZE_DISP;
-			dirty_tiles[(tile_y * tiles_x) + tile_x] = true;
+			const size_t pos = (tile_y * tiles_x) + tile_x;
+			dirty_tiles[pos] = true;
+			dirty_tiles_for_clear[pos] = true;
 		};
 
 		const uint32_t red_pos;
@@ -46,6 +48,4 @@ class VESADriver final : public hal::VideoDriver {
 		const uint32_t red_size;
 		const uint32_t blue_size;
 		const uint32_t green_size;
-
-		uint8_t depth_disp;
 };

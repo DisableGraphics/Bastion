@@ -55,7 +55,22 @@ void idle(void*) {
 	for(;;) halt();
 }
 
-void gen(void*) {
+void generate_pointer(uint32_t* pixels) {
+	for(size_t y = 0; y < 16; y++) {
+		const size_t offset = y * 16;
+		for(size_t x = 0; x < 16; x++) {
+			if(x < y) {
+				pixels[offset + x] = 0xFFFFFFFF;
+			} else if(x == y) {
+				pixels[offset + x] = 0x000000FF;
+			} else {
+				pixels[offset + x] = 0;
+			}
+		}
+	}
+}
+
+void gen(void* arg) {
 	auto disks = hal::DiskManager::get().get_disks();
 	for(size_t i = 0; i < disks.size(); i++) {
 		char * name = disks[i].first;
@@ -179,14 +194,27 @@ void gen(void*) {
 			fs::BlockCache::get().flush();
  		}
 	}
-}
-
-void taste_the_rainbow(uint32_t* pixels) {
-	for(size_t y = 0; y < 800; y++) {
-		for(size_t x = 0; x < 1280; x++) {
-			*pixels = ((y << 16) | (x << 8) | (x+y));
-			pixels++;
+	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);
+	vesa->clear({0,0,0,0});
+	PS2Mouse* mouse = reinterpret_cast<PS2Mouse*>(arg);
+	int mx = 0, my = 0;
+	const int width = vesa->get_width();
+	const int height = vesa->get_height();
+	uint32_t pointer[16*16];
+	generate_pointer(pointer);
+	while(true) {
+		while(mouse->events_queue.size() > 0) {
+			auto pop = mouse->events_queue.pop();
+			mx = ((mx + pop.xdisp + width) % width);
+			my = ((my - pop.ydisp + height) % height);
+			if(mouse->events_queue.size() == 0) {
+				vesa->clear({0,0,0,0});
+				log(INFO, "Drawing at %d %d", mx, my);
+				vesa->draw_pixels(mx, my, 16, 16, (uint8_t*)pointer);
+				vesa->flush();
+			}
 		}
+		Scheduler::get().sleep(16*tc::ms);
 	}
 }
 
@@ -245,20 +273,20 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	rtc.init();
 	hal::ClockManager::get().set_clock(&rtc);
 
-	Task *idleTask = new Task{idle, nullptr};
-	Task *generic = new Task{gen, nullptr};
-	Scheduler::get().append_task(idleTask);
-	Scheduler::get().append_task(generic);
-
 	hal::PS2SubsystemManager::get().init();
 
 	PS2Keyboard keyb;
 	PS2Mouse mouse;
 	keyb.init();
 	mouse.init();
+	for(size_t i = 0; i < 10000; i++)
+		printf("a");
 
-	printf("a");
 
+	Task *idleTask = new Task{idle, nullptr};
+	Task *generic = new Task{gen, &mouse};
+	Scheduler::get().append_task(idleTask);
+	Scheduler::get().append_task(generic);
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
 	// Seed RNG

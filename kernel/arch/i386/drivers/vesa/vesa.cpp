@@ -148,7 +148,7 @@ bool VESADriver::is_text_only() {
 void VESADriver::draw_char(unsigned c, int x, int y) {
 	ssfn_dst.x = x;
 	ssfn_dst.y = y;
-	mark_tile_as_dirty(x, y);
+	mark_rectangle_as_dirty(x, y, x+ssfn_src->width, y+ssfn_src->height);
 	ssfn_putc(c);
 }
 
@@ -165,19 +165,21 @@ void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 	y1 = max<int>(0, min<int>(y1, height-1));
 	x2 = max<int>(0, min<int>(x2, width-1));
 	y2 = max<int>(0, min<int>(y2, height-1));
-	set_blocks_as_dirty(x1, y1, x2, y2);
+	mark_rectangle_as_dirty(x1, y1, x2, y2);
 	uint32_t packed_color = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
 	::draw_rectangle(x1, y1, x2, y2, packed_color, backbuffer, row_pointers, depth_disp);
-
 }
 
 void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
 	dirty = true;
-	set_blocks_as_dirty(x1, y1, x1 + w - 1, y1 + h - 1);
+	if(y1 + h >= height) {
+		h = height - y1;
+	}
+	mark_rectangle_as_dirty(x1, y1, x1 + w - 1, y1 + h - 1);
 	::draw_pixels(x1, y1, w, h, data, backbuffer, row_pointers, depth_disp, w << depth_disp);
 }
 
-void VESADriver::set_blocks_as_dirty(int x1, int y1, int x2, int y2) {
+void VESADriver::mark_rectangle_as_dirty(int x1, int y1, int x2, int y2) {
 	int tile_x0 = x1 >> TILE_SIZE_DISP;
     int tile_y0 = y1 >> TILE_SIZE_DISP;
     int tile_x1 = x2 >> TILE_SIZE_DISP;
@@ -187,14 +189,31 @@ void VESADriver::set_blocks_as_dirty(int x1, int y1, int x2, int y2) {
 		const size_t tile_offset = ty * tiles_x;
         for (int tx = tile_x0; tx <= tile_x1; tx++) {
             dirty_tiles[tile_offset + tx] = true;
+			dirty_tiles_for_clear[tile_offset + tx] = true;
         }
     }
 }
 
 void VESADriver::clear(hal::color c) {
 	dirty = true;
-	sse2_memset(dirty_tiles, true, ntiles);
-	fast_clear((c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos), backbuffer, scrsize);
+	const int color = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
+
+	for (size_t y = 0; y < tiles_y; y++) {
+		const size_t row_offset = y * tiles_x;
+		int y0 = y << TILE_SIZE_DISP;
+		for (size_t x = 0; x < tiles_x; x++) {
+			const size_t index = row_offset + x;
+			if (!dirty_tiles_for_clear[index])
+				continue;
+			int x0 = x << TILE_SIZE_DISP;
+			for (int ty = 0; ty < TILE_SIZE; ty++) {
+				uint8_t* row = backbuffer + (y0 + ty) * pitch + (x0 << depth_disp);
+				fast_clear(color, row, TILE_SIZE << depth_disp);
+			}
+			dirty_tiles[index] = true;
+			dirty_tiles_for_clear[index] = false;
+		}
+	}
 }
 
 uint8_t VESADriver::squish8_to_size(int val, uint8_t destsize) {

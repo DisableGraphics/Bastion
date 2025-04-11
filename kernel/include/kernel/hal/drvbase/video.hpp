@@ -43,6 +43,7 @@ namespace hal {
 		protected:
 			bool dirty = false;
 			bool* dirty_tiles;
+			bool* dirty_tiles_for_clear;
 			uint8_t* framebuffer;
 			uint32_t width;
 			uint32_t height;
@@ -53,5 +54,6 @@ namespace hal {
 			size_t* row_pointers;
 			const uint32_t scrsize, ntiles;
 			uint8_t* backbuffer;
+			uint8_t depth_disp;
 	};
 }

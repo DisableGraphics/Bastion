@@ -36,15 +36,15 @@ class PS2Mouse : public hal::Mouse {
 		 */
 		void init() override;
 		void handle_interrupt() override;
+		/**
+			\brief Mouse events queue
+		*/
+		StaticQueue<MouseEvent, 128> events_queue;
 	private:
 		/**
 			\brief Current mouse event being processed
 		 */
 		MouseEvent cur_mouse_event = {0,0,0,0};
-		/**
-			\brief Mouse events queue
-		 */
-		StaticQueue<MouseEvent, 128> events_queue;
 		// Whether the sign bit is active
 		bool negx = false, negy = false;
 		// Try to initialise the scrollwheel
