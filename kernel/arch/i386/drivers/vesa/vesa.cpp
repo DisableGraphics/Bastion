@@ -175,23 +175,28 @@ void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
 	if(y1 + h >= height) {
 		h = height - y1;
 	}
-	mark_rectangle_as_dirty(x1, y1, x1 + w - 1, y1 + h - 1);
-	::draw_pixels(x1, y1, w, h, data, backbuffer, row_pointers, depth_disp, w << depth_disp);
+	int ww = w;
+	if(x1 + w >= width) {
+		ww = width - x1 - 1;
+		log(INFO, "Changed width from %d to %d %d", w, ww, ww+x1);
+	}
+	mark_rectangle_as_dirty(x1, y1, x1 + ww - 1, y1 + h - 1);
+	::draw_pixels(x1, y1, ww, h, data, backbuffer, row_pointers, depth_disp, w << depth_disp);
 }
 
 void VESADriver::mark_rectangle_as_dirty(int x1, int y1, int x2, int y2) {
 	int tile_x0 = x1 >> TILE_SIZE_DISP;
-    int tile_y0 = y1 >> TILE_SIZE_DISP;
-    int tile_x1 = x2 >> TILE_SIZE_DISP;
-    int tile_y1 = y2 >> TILE_SIZE_DISP;
+	int tile_y0 = y1 >> TILE_SIZE_DISP;
+	int tile_x1 = x2 >> TILE_SIZE_DISP;
+	int tile_y1 = y2 >> TILE_SIZE_DISP;
 
-    for (int ty = tile_y0; ty <= tile_y1; ty++) {
+	for (int ty = tile_y0; ty <= tile_y1; ty++) {
 		const size_t tile_offset = ty * tiles_x;
-        for (int tx = tile_x0; tx <= tile_x1; tx++) {
-            dirty_tiles[tile_offset + tx] = true;
+		for (int tx = tile_x0; tx <= tile_x1; tx++) {
+			dirty_tiles[tile_offset + tx] = true;
 			dirty_tiles_for_clear[tile_offset + tx] = true;
-        }
-    }
+		}
+	}
 }
 
 void VESADriver::clear(hal::color c) {

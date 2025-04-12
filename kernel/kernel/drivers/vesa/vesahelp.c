@@ -44,42 +44,43 @@ void draw_rectangle(int x1, int y1, int x2, int y2, uint32_t packed_color, uint8
 }
 
 void draw_pixels(int x1, int y1, int width, int height, 
-                     uint8_t* pixels, uint8_t* backbuffer, 
-                     size_t* row_pointers, uint32_t depth_disp, uint32_t src_stride) {
-    // Input validation
-    if (width < 1 || height < 1 || !pixels || !backbuffer || !row_pointers) return;
-    // Process each row
-    for (int y = y1; y < (height + y1); y++) {
-        const uint8_t* src_row = pixels + (y - y1) * src_stride;
-        uint8_t* dst_row = backbuffer + row_pointers[y] + (x1 << depth_disp);
-        
-        // Calculate alignment offset
-        size_t misalign = (uintptr_t)dst_row & 0xF;
-        int aligned_x = (misalign ? ((16 - misalign) >> depth_disp) : 0);
-        
-        // Copy unaligned beginning pixels
-        for (int x = 0; x < aligned_x && x < width; x++) {
-            *(uint32_t*)(dst_row + (aligned_x << depth_disp)) = 
-                *(const uint32_t*)(src_row + (aligned_x << depth_disp));
-        }
-        
-        // SSE2-optimized main copy (16 bytes = 4 pixels at a time)
-        const int sse_pixels = (width - aligned_x) >> 2;
-        const __m128i* sse_src = (const __m128i*)(src_row + (aligned_x << depth_disp));
-        __m128i* sse_dst = (__m128i*)(dst_row + (aligned_x << depth_disp));
-        
-        for (int i = 0; i < sse_pixels; i++) {
-            _mm_storeu_si128(sse_dst + i, _mm_loadu_si128(sse_src + i));
-        }
-        
-        // Handle remaining pixels
-        const int processed = aligned_x + (sse_pixels << 2);
-        for (int x = processed; x < width; x++) {
-            *(uint32_t*)(dst_row + (x << depth_disp)) = 
-                *(const uint32_t*)(src_row + (x << depth_disp));
-        }
-    }
-    
-    // Memory fence for write combining
-    _mm_sfence();
+					 uint8_t* pixels, uint8_t* backbuffer, 
+					 size_t* row_pointers, uint32_t depth_disp, uint32_t src_stride) {
+	// Input validation
+	if (width < 1 || height < 1 || !pixels || !backbuffer || !row_pointers) return;
+	// Process each row
+	for (int y = y1; y < (height + y1); y++) {
+		const uint8_t* src_row = pixels + (y - y1) * src_stride;
+		uint8_t* dst_row = backbuffer + row_pointers[y] + (x1 << depth_disp);
+		
+		// Calculate alignment offset
+		size_t misalign = (uintptr_t)dst_row & 0xF;
+		int aligned_x = ((16 - misalign) >> depth_disp) & 0xF;
+		//int aligned_x = (misalign ? ((16 - misalign) >> depth_disp) : 0);
+		
+		// Copy unaligned beginning pixels
+		for (int x = 0; x < aligned_x && x < width; x++) {
+			*(uint32_t*)(dst_row + (aligned_x << depth_disp)) = 
+				*(const uint32_t*)(src_row + (aligned_x << depth_disp));
+		}
+		
+		// SSE2-optimized main copy (16 bytes = 4 pixels at a time)
+		const int sse_pixels = (width - aligned_x) >> 2;
+		const __m128i* sse_src = (const __m128i*)(src_row + (aligned_x << depth_disp));
+		__m128i* sse_dst = (__m128i*)(dst_row + (aligned_x << depth_disp));
+		
+		for (int i = 0; i < sse_pixels; i++) {
+			_mm_storeu_si128(sse_dst + i, _mm_loadu_si128(sse_src + i));
+		}
+		
+		// Handle remaining pixels
+		const int processed = aligned_x + (sse_pixels << 2);
+		for (int x = processed; x < width; x++) {
+			*(uint32_t*)(dst_row + (x << depth_disp)) = 
+				*(const uint32_t*)(src_row + (x << depth_disp));
+		}
+	}
+	
+	// Memory fence for write combining
+	_mm_sfence();
 }
