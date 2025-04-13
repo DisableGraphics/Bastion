@@ -26,7 +26,9 @@
 #include <kernel/hal/managers/clockmanager.hpp>
 #include <kernel/hal/managers/pci.hpp>
 #include <kernel/hal/managers/videomanager.hpp>
-
+// Math
+#include <kernel/cpp/max.hpp>
+#include <kernel/cpp/min.hpp>
 // Filesystem
 #include <kernel/fs/partmanager.hpp>
 #include <kernel/fs/fat32.hpp>
@@ -200,17 +202,18 @@ void gen(void* arg) {
 	int mx = 0, my = 0;
 	const int width = vesa->get_width();
 	const int height = vesa->get_height();
-	uint32_t pointer[16*16];
+	constexpr int POINTER_SIZE = 16;
+	uint32_t pointer[POINTER_SIZE*POINTER_SIZE];
 	generate_pointer(pointer);
 	while(true) {
 		while(mouse->events_queue.size() > 0) {
 			auto pop = mouse->events_queue.pop();
-			mx = ((mx + pop.xdisp + width) % width);
-			my = ((my - pop.ydisp + height) % height);
+			mx = max(0, min(mx + pop.xdisp, width - POINTER_SIZE));
+			my = max(0, min(my - pop.ydisp, height - POINTER_SIZE));
 			if(mouse->events_queue.size() == 0) {
 				vesa->clear({0,0,0,0});
 				log(INFO, "Drawing at %d %d", mx, my);
-				vesa->draw_pixels(mx, my, 16, 16, (uint8_t*)pointer);
+				vesa->draw_pixels(mx, my, POINTER_SIZE,POINTER_SIZE, (uint8_t*)pointer);
 				vesa->flush();
 			}
 		}

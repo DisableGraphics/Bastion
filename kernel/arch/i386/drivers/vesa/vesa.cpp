@@ -171,17 +171,20 @@ void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 }
 
 void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
+	if (x1 >= width || y1 >= height) return;
 	dirty = true;
 	if(y1 + h >= height) {
 		h = height - y1;
 	}
 	int ww = w;
 	if(x1 + w >= width) {
-		ww = width - x1 - 1;
+		ww = width - x1;
 		log(INFO, "Changed width from %d to %d %d", w, ww, ww+x1);
 	}
-	mark_rectangle_as_dirty(x1, y1, x1 + ww - 1, y1 + h - 1);
-	::draw_pixels(x1, y1, ww, h, data, backbuffer, row_pointers, depth_disp, w << depth_disp);
+	if(ww > 0) {
+		mark_rectangle_as_dirty(x1, y1, x1 + ww - 1, y1 + h - 1);
+		::draw_pixels(x1, y1, ww, h, data, backbuffer, row_pointers, depth_disp, w << depth_disp);
+	}
 }
 
 void VESADriver::mark_rectangle_as_dirty(int x1, int y1, int x2, int y2) {

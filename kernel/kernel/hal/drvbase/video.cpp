@@ -1,6 +1,7 @@
 #include <kernel/hal/drvbase/video.hpp>
 #include <kernel/hal/managers/timermanager.hpp>
 #include <kernel/kernel/log.hpp>
+#include <kernel/memory/mmanager.hpp>
 #include <string.h>
 
 hal::VideoDriver::VideoDriver(uint8_t* framebuffer,
