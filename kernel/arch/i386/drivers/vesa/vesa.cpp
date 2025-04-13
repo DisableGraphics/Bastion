@@ -171,7 +171,7 @@ void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 }
 
 void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
-	if (x1 >= width || y1 >= height) return;
+	if (x1 >= width || y1 >= height || w <= 0 || h <= 0) return;
 	dirty = true;
 	if(y1 + h >= height) {
 		h = height - y1;
