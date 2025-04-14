@@ -61,10 +61,12 @@ void generate_pointer(uint32_t* pixels) {
 	for(size_t y = 0; y < 16; y++) {
 		const size_t offset = y * 16;
 		for(size_t x = 0; x < 16; x++) {
-			if(x == 15 || x == 0 || y == 0 || y == 15) {
+			if(((x == 15 || x == 0 || y == 0 || y == 15) && x <= y) || x == y) {
 				pixels[offset + x] = 0xFFFFFFFF;
-			} else {
+			} else if(x < y) {
 				pixels[offset + x] = 0x000000FF;
+			} else {
+				pixels[offset + x] = 0;
 			}
 		}
 	}
