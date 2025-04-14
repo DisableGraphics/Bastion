@@ -182,6 +182,7 @@ void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
 		log(INFO, "Changed width from %d to %d %d", w, ww, ww+x1);
 	}
 	if(ww > 0) {
+		log(INFO, "%d %d %d %d", x1, y1, x1+ww-1, y1+h-1);
 		mark_rectangle_as_dirty(x1, y1, x1 + ww - 1, y1 + h - 1);
 		::draw_pixels(x1, y1, ww, h, data, backbuffer, row_pointers, depth_disp, w << depth_disp);
 	}
@@ -235,8 +236,8 @@ void VESADriver::set_fonts(uint8_t* fontsarr) {
 	ssfn_dst.p = pitch;
 	ssfn_dst.fg = 0xFFFFFFFF;
 	ssfn_dst.bg = 0;
-	ssfn_dst.x = 100;
-	ssfn_dst.y = 200;
+	ssfn_dst.x = 0;
+	ssfn_dst.y = 0;
 }
 
 uint8_t VESADriver::get_font_width() {

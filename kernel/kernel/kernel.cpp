@@ -61,12 +61,10 @@ void generate_pointer(uint32_t* pixels) {
 	for(size_t y = 0; y < 16; y++) {
 		const size_t offset = y * 16;
 		for(size_t x = 0; x < 16; x++) {
-			if(x < y) {
+			if(x == 15 || x == 0 || y == 0 || y == 15) {
 				pixels[offset + x] = 0xFFFFFFFF;
-			} else if(x == y) {
-				pixels[offset + x] = 0x000000FF;
 			} else {
-				pixels[offset + x] = 0;
+				pixels[offset + x] = 0x000000FF;
 			}
 		}
 	}
@@ -208,8 +206,8 @@ void gen(void* arg) {
 	while(true) {
 		while(mouse->events_queue.size() > 0) {
 			auto pop = mouse->events_queue.pop();
-			mx = max(0, min(mx + pop.xdisp, width - POINTER_SIZE));
-			my = max(0, min(my - pop.ydisp, height - POINTER_SIZE));
+			mx = max(0, min(mx + pop.xdisp, width - 1));
+			my = max(0, min(my - pop.ydisp, height - 1));
 			if(mouse->events_queue.size() == 0) {
 				vesa->clear({0,0,0,0});
 				log(INFO, "Drawing at %d %d", mx, my);

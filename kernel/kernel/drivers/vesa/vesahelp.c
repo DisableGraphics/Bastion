@@ -60,8 +60,8 @@ void draw_pixels(int x1, int y1, int width, int height,
 		
 		// Copy unaligned beginning pixels
 		for (int x = 0; x < aligned_x && x < width; x++) {
-			*(uint32_t*)(dst_row + (aligned_x << depth_disp)) = 
-				*(const uint32_t*)(src_row + (aligned_x << depth_disp));
+			*(uint32_t*)(dst_row + (x << depth_disp)) = 
+				*(const uint32_t*)(src_row + (x << depth_disp));
 		}
 		
 		// SSE2-optimized main copy (16 bytes = 4 pixels at a time)
