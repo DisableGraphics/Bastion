@@ -4,6 +4,7 @@
 // Ramdisk USTAR filesystem
 // Only for getting data at boot.
 // Therefore, some functionality (truncate, write, mkdir, touch, remove, rename) is not implemented.
+// Also, it doesn't even use the block cache since everything is in memory
 class RAMUSTAR : public FS {
 	public:
 		RAMUSTAR(const uint8_t* where) : where(where) {};
