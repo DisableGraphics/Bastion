@@ -48,4 +48,5 @@ class VESADriver final : public hal::VideoDriver {
 		const uint32_t red_size;
 		const uint32_t blue_size;
 		const uint32_t green_size;
+		hal::color prevclearcolor;
 };

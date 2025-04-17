@@ -206,22 +206,28 @@ void VESADriver::mark_rectangle_as_dirty(int x1, int y1, int x2, int y2) {
 void VESADriver::clear(hal::color c) {
 	dirty = true;
 	const int color = (c.r << red_pos) | (c.g << green_pos) | (c.b << blue_pos);
-
-	for (size_t y = 0; y < tiles_y; y++) {
-		const size_t row_offset = y * tiles_x;
-		int y0 = y << TILE_SIZE_DISP;
-		for (size_t x = 0; x < tiles_x; x++) {
-			const size_t index = row_offset + x;
-			if (!dirty_tiles_for_clear[index])
-				continue;
-			int x0 = x << TILE_SIZE_DISP;
-			for (int ty = 0; ty < TILE_SIZE; ty++) {
-				uint8_t* row = backbuffer + (y0 + ty) * pitch + (x0 << depth_disp);
-				fast_clear(color, row, TILE_SIZE << depth_disp);
+	if(c == prevclearcolor) {
+		for (size_t y = 0; y < tiles_y; y++) {
+			const size_t row_offset = y * tiles_x;
+			int y0 = y << TILE_SIZE_DISP;
+			for (size_t x = 0; x < tiles_x; x++) {
+				const size_t index = row_offset + x;
+				if (!dirty_tiles_for_clear[index])
+					continue;
+				int x0 = x << TILE_SIZE_DISP;
+				for (int ty = 0; ty < TILE_SIZE; ty++) {
+					uint8_t* row = backbuffer + (y0 + ty) * pitch + (x0 << depth_disp);
+					fast_clear(color, row, TILE_SIZE << depth_disp);
+				}
+				dirty_tiles[index] = true;
+				dirty_tiles_for_clear[index] = false;
 			}
-			dirty_tiles[index] = true;
-			dirty_tiles_for_clear[index] = false;
 		}
+	} else {
+		prevclearcolor = c;
+		sse2_memset(dirty_tiles, true, ntiles);
+		sse2_memset(dirty_tiles_for_clear, 0, ntiles);
+		fast_clear(color, backbuffer, scrsize);
 	}
 }
 

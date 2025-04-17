@@ -14,6 +14,9 @@ constexpr uint32_t TILE_SIZE = (1 << TILE_SIZE_DISP);
 namespace hal {
 	struct color {
 		int r, g, b, a;
+		bool operator==(const color& other) const {
+			return r == other.r && g == other.g && b == other.b && a == other.a;
+		}
 	};
 	class VideoDriver : public hal::Driver {
 		public:
