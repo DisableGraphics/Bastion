@@ -205,14 +205,13 @@ void gen(void* arg) {
 	constexpr int POINTER_SIZE = 16;
 	uint32_t pointer[POINTER_SIZE*POINTER_SIZE];
 	generate_pointer(pointer);
-	int r = 0;
 	while(true) {
 		while(mouse->events_queue.size() > 0) {
 			auto pop = mouse->events_queue.pop();
 			mx = max(0, min(mx + pop.xdisp, width - 1));
 			my = max(0, min(my - pop.ydisp, height - 1));
 			if(mouse->events_queue.size() == 0) {
-				vesa->clear({r++,0,0,0});
+				vesa->clear({0,0,0,0});
 				log(INFO, "Drawing at %d %d", mx, my);
 				vesa->draw_pixels(mx, my, POINTER_SIZE,POINTER_SIZE, (uint8_t*)pointer);
 				vesa->flush();
