@@ -4,7 +4,8 @@
 #include <stdio.h>
 
 void kn::panic(const char *str) {
-	printf("Kernel panic: %s\n", str);
+	clear();
+	printf("Kernel panic: %s\nRebooting is recommended.\n", str);
 	IDT::get().disable_interrupts();
 	halt();
 }
