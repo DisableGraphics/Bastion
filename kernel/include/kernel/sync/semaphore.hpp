@@ -20,12 +20,12 @@ class Semaphore {
 			\details If current_count >= max_count blocks the task.
 			Changes current_count by adding one to it.
 		 */
-		void acquire();
+		void acquire(int count = 1);
 		/**
 			\brief Release semaphore.
 			\details Unblocks one waiting task if there are sleeping tasks waiting.
 		 */
-		void release();
+		void release(int count = 1);
 	private:
 		// Max number of acquire calls before semaphore locks and current number of them
 		volatile int max_count, current_count;
