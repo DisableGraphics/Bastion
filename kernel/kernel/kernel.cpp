@@ -92,7 +92,7 @@ void ts2(void* pipe) {
 	for(int i = 0; i < 10; i++) {
 		log(INFO, "Reading iteration: %d", i);
 		p->read(msg, msglen);
-		printf("%d: %s\n", count++, msg);
+		printf("%d: %s (thread #%d)\n", count++, msg, Scheduler::get().get_current_task()->id);
 	}
 }
 

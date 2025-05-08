@@ -4,72 +4,42 @@
 Pipe::Pipe() {}
 
 size_t Pipe::read(char* data, size_t size) {
-	size_t bytes_read = 0;
-	
-	while (bytes_read < size) {
-		// Wait for data to become available
-		readable.acquire();
-		lock.lock();
-		
-		// Calculate how much we can read
-		size_t to_read = min(size - bytes_read, available_data());
-		if (to_read == 0) {
-			lock.unlock();
-			break;
-		}
-		
-		// Read data (handling circular buffer)
-		size_t start = tail % PIPE_BUF_SIZE;
-		size_t chunk = min(to_read, PIPE_BUF_SIZE - start);
-		
-		memcpy(data + bytes_read, buffer + start, chunk);
-		if (chunk < to_read) {
-			memcpy(data + bytes_read + chunk, buffer, to_read - chunk);
-		}
-		
-		tail += to_read;
-		bytes_read += to_read;
-		
+	lock.lock();
+	if(count < size) {
 		lock.unlock();
-		writable.release(); // Signal that space is available
+		return -1;
 	}
 	
-	return bytes_read;
+	for (int i = 0; i < size; i++) {
+        data[i] = buffer[tail];
+        tail = (tail + 1) % PIPE_BUF_SIZE;
+        count--;
+        writable.release();
+    }
+	lock.unlock();
+	return size;
 }
 
 
 size_t Pipe::write(const char* data, size_t size) {
-	size_t written = 0;
-	
-	while (written < size) {
-		// Wait for space to become available
-		writable.acquire();
-		lock.lock();
-		
-		// Calculate how much we can write
-		size_t to_write = min(size - written, available_space());
-		if (to_write == 0) {
-			lock.unlock();
-			break;
-		}
-		
-		// Write data (handling circular buffer)
-		size_t start = head % PIPE_BUF_SIZE;
-		size_t chunk = min(to_write, PIPE_BUF_SIZE - start);
-		
-		memcpy(buffer + start, data + written, chunk);
-		if (chunk < to_write) {
-			memcpy(buffer, data + written + chunk, to_write - chunk);
-		}
-		
-		head += to_write;
-		written += to_write;
-		
-		lock.unlock();
-		readable.release(); // Signal that data is available
+	if(size > PIPE_BUF_SIZE){
+		return -1;
 	}
-	
-	return written;
+	lock.lock();
+	if ((PIPE_BUF_SIZE - count) < size) {
+        lock.unlock();
+        return -1;
+    }
+
+	for (int i = 0; i < size; i++) {
+        buffer[head] = data[i];
+        head =  (head + 1) % PIPE_BUF_SIZE;
+        count++;
+        readable.release();
+    }
+
+	lock.unlock();
+	return size;
 }
 
 size_t Pipe::available_space() const {

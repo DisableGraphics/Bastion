@@ -12,6 +12,7 @@ class Pipe {
 		char buffer[PIPE_BUF_SIZE];
 		size_t head = 0;        // Write position
 		size_t tail = 0;        // Read position
+		size_t count = 0;
 		Mutex lock;      // Mutual exclusion
 		Semaphore readable{0, PIPE_BUF_SIZE};  // Counts readable bytes
 		Semaphore writable{PIPE_BUF_SIZE, PIPE_BUF_SIZE}; // Counts writable space
