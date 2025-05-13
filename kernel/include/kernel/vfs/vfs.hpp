@@ -9,14 +9,14 @@
 class VFS {
 	public:
 		static VFS& get();
-		int open(char* path, int flags);
+		int open(const char* path, int flags);
 		off_t read(int fd, void* buf, size_t count);
 		off_t write(int fd, const void* buf, size_t count);
 		int stat(int fd, struct stat* buf);
 		int truncate(int fd, size_t newsize);
 		int close(int fd);
 
-		int mount(char* path, FS* fs);
+		int mount(const char* path, FS* fs);
 	private:
 		VFS();
 		VFS(const VFS&) = delete;
