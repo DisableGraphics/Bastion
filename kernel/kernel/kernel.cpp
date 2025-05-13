@@ -48,6 +48,8 @@
 #include <kernel/vector/sse2.h>
 // SSFN
 #include <ssfn/ssfn.h>
+// VFS
+#include <kernel/vfs/vfs.hpp>
 // Tests
 #ifdef DEBUG
 #include <kernel/test.hpp>
@@ -115,6 +117,7 @@ void gen(void* arg) {
 		log(INFO, "Partition: %d %dMiB, Type: %p, start_lba: %d", i, sizemb, type, parts[i].start_lba);
 		if(type == 0xc) {
 			FAT32 fat{p, i};
+			VFS::get().mount("/partition/", &fat);
 			struct stat st;
 			char buffer[16];
 			const char* filename = "/data/test.txt";
@@ -218,6 +221,18 @@ void gen(void* arg) {
 				fat.closedir(&dir);
 			}
 			fs::BlockCache::get().flush();
+			// Test VFS
+			int inode = VFS::get().open("/partition/data/test.txt", 0);
+			
+			char c = 0;
+			int nread = 0;
+			VFS::get().truncate(inode, 23);
+			VFS::get().stat(inode, &st);
+			printf("File size: %d bytes\n", st.st_size);
+			do {
+				nread = VFS::get().read(inode, &c, 1);
+				printf("%c", c);
+			} while(nread > 0);
  		}
 	}
 	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);

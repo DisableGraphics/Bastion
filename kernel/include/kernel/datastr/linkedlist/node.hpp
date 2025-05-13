@@ -1,3 +1,5 @@
+#pragma once
+
 #include <kernel/cpp/forward.hpp>
 
 template <typename T>

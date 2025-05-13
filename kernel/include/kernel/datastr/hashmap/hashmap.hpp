@@ -1,3 +1,4 @@
+#pragma once
 #include <stddef.h>
 #include <kernel/datastr/vector.hpp>
 #include <kernel/datastr/pair.hpp>

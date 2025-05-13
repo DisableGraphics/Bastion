@@ -78,7 +78,7 @@ SharedPtr<T>& SharedPtr<T>::operator=(SharedPtr<T>&& other) noexcept {
 }
 
 template <typename T>
-SharedPtr<T>::~SharedPtr<T>() {
+SharedPtr<T>::~SharedPtr() {
 	release();
 }
 

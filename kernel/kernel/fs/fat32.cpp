@@ -281,8 +281,12 @@ bool FAT32::filecmp(const char* basename, const char* entrydata, bool lfn) {
 }
 
 off_t FAT32::read(const char* filename, unsigned offset, unsigned nbytes, char* buffer) {
+	struct stat buf;
+	if(stat(filename, &buf) == 1) return -1;
 	auto cluster = cluster_for_filename(filename, offset);
 	log(INFO, "Cluster for %s: %d", filename, cluster);
+	if(offset > buf.st_size) return 0;
+	nbytes = min<unsigned>(offset + nbytes, buf.st_size) - offset;
 	if(cluster < FAT_ERROR) {
 		off_t readbytes = 0;
 		auto incluster_offset = offset % cluster_size;

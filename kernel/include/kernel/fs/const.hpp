@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <time.h>
 typedef int64_t off_t;
+typedef int32_t ssize_t;
 typedef uint32_t ino_t;
 
 enum DTTYPE : unsigned char {
