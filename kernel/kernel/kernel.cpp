@@ -226,7 +226,7 @@ void gen(void* arg) {
 			
 			char c = 0;
 			int nread = 0;
-			VFS::get().truncate(inode, 23);
+			VFS::get().truncate(inode, 256);
 			VFS::get().stat(inode, &st);
 			printf("File size: %d bytes\n", st.st_size);
 			do {
