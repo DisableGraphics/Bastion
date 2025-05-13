@@ -24,7 +24,7 @@ class VFS {
 		VFS& operator=(const VFS&) = delete;
 		VFS& operator=(VFS&&) = delete;
 
-		Inode* resolvePath(char* path);
+		Inode* resolvePath(const char* path);
 
 		Vector<MountPoint> mounts;
 		HashMap<char*, Inode*> inode_cache;

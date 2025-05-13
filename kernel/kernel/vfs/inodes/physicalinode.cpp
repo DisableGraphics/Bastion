@@ -1,7 +1,7 @@
 #include <kernel/cpp/move.hpp>
 #include <kernel/vfs/inodes/physicalinode.hpp>
 
-PhysicalInode::PhysicalInode(FS* filesystem, UniquePtr<char>&& path) : filesystem(filesystem), path(move(path)) {
+PhysicalInode::PhysicalInode(FS* filesystem, UniquePtr<const char>&& path) : filesystem(filesystem), path(move(path)) {
 
 }
 

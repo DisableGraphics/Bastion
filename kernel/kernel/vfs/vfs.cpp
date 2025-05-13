@@ -1,5 +1,5 @@
+#include "kernel/vfs/inodes/physicalinode.hpp"
 #include <kernel/vfs/vfs.hpp>
-#include <kernel/vfs/inodefactory.hpp>
 
 VFS& VFS::get() {
 	static VFS instance;
@@ -10,7 +10,7 @@ VFS::VFS() {
 
 }
 
-int VFS::open(char* path, int flags) {
+int VFS::open(const char* path, int flags) {
 	Inode* inode = resolvePath(path);
 	if (!inode) return -1;
 
@@ -47,11 +47,11 @@ int VFS::close(int fd) {
 	return fd_table.erase(fd) ? 0 : -1;
 }
 
-Inode* VFS::resolvePath(char* path) {
+Inode* VFS::resolvePath(const char* path) {
 	MountPoint* best = findMountPoint(path);
 	if(!best) return nullptr;
 	const size_t best_path_size = strlen(best->path);
-	char* internalPath = path + best_path_size;
+	const char* internalPath = path + best_path_size;
 	if(strlen(internalPath) == 0) internalPath = const_cast<char*>("/");
 	
 	const size_t size = best_path_size + 2 + strlen(internalPath);
@@ -60,12 +60,12 @@ Inode* VFS::resolvePath(char* path) {
 	memcpy(cache_key + best_path_size, ":", 1);
 	memcpy(cache_key + 1 + best_path_size, internalPath, strlen(internalPath));
 
-	PhysicalInode* inode = new PhysicalInode(best->fs, UniquePtr<char>(internalPath));
+	PhysicalInode* inode = new PhysicalInode(best->fs, UniquePtr<const char>(internalPath));
 	inode_cache.insert(cache_key, inode);
 	return inode;
 }
 
-int VFS::mount(char* path, FS* fs) {
+int VFS::mount(const char* path, FS* fs) {
 	for(size_t i = 0; i < mounts.size(); i++) {
 		if(!strcmp(mounts[i].path, path)) { // Already mounted
 			return -1;

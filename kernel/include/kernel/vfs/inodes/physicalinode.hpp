@@ -5,7 +5,7 @@
 
 class PhysicalInode : public Inode {
 	public:
-		PhysicalInode(FS* fs, UniquePtr<char>&& path);
+		PhysicalInode(FS* fs, UniquePtr<const char>&& path);
 		~PhysicalInode();
 		off_t read(size_t offset, size_t nbytes, char* buffer) override;
 		off_t write(size_t offset, size_t nbytes, const char* buffer) override;
@@ -13,5 +13,5 @@ class PhysicalInode : public Inode {
 		int stat(struct stat* buf) override;
 	private:
 		FS* filesystem;
-		UniquePtr<char> path;
+		UniquePtr<const char> path;
 };

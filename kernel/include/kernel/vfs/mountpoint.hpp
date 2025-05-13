@@ -2,6 +2,6 @@
 #include <kernel/fs/fs.hpp>
 
 struct MountPoint {
-	char* path;
+	const char* path;
 	FS* fs;
 };

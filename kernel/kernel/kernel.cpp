@@ -122,6 +122,7 @@ void gen(void* arg) {
 			char buffer[16];
 			const char* filename = "/data/test.txt";
 			log(INFO, "Reading %s", filename);
+			tc::timertime time = hal::TimerManager::get().get_timer(0)->ellapsed();
 			if(fat.read(filename, 0, 15, buffer) != -1) {
 				buffer[15] = 0;
 				log(INFO, "Got this: %s", buffer);
@@ -221,6 +222,8 @@ void gen(void* arg) {
 				fat.closedir(&dir);
 			}
 			fs::BlockCache::get().flush();
+			tc::timertime time2 = hal::TimerManager::get().get_timer(0)->ellapsed();
+			printf("Took %dms\n", (time2 - time) / (tc::ms));
 			// Test VFS
 			int inode = VFS::get().open("/partition/data/test.txt", 0);
 			
