@@ -308,6 +308,10 @@ void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
 	vesa.set_fonts(fonts);
 }
 
+void fn_user(void*) {
+	for(;;) halt();
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	if(sse2_available()) init_sse2();
 	PagingManager::get().init();
