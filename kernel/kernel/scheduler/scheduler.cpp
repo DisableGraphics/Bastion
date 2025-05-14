@@ -7,7 +7,7 @@
 extern "C" void switch_task(Task** current_thread, Task *next_thread);
 
 extern "C" void task_startup(void) {
-	Scheduler::get().get_current_task()->startup();
+	//Scheduler::get().get_current_task()->startup();
 	Scheduler::get().unlock();
 }
 
