@@ -9,6 +9,7 @@
 class VFS {
 	public:
 		static VFS& get();
+		// File operations
 		int open(const char* path, int flags);
 		off_t read(int fd, void* buf, size_t count);
 		off_t write(int fd, const void* buf, size_t count);
@@ -16,7 +17,12 @@ class VFS {
 		int truncate(int fd, size_t newsize);
 		int close(int fd);
 
+		// Directory operations
+		
+
+		// Mount operations
 		int mount(const char* path, FS* fs);
+		int umount(const char* path);
 	private:
 		VFS();
 		VFS(const VFS&) = delete;

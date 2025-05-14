@@ -75,6 +75,16 @@ int VFS::mount(const char* path, FS* fs) {
 	return 0;
 }
 
+int VFS::umount(const char* path) {
+	for(size_t i = 0; i < mounts.size(); i++) {
+		if(!strcmp(mounts[i].path, path)) {
+			mounts.erase(i);
+			return 0;
+		}
+	}
+	return -1;
+}
+
 MountPoint* VFS::findMountPoint(const char* path) {
 	MountPoint* ret = nullptr;
 	size_t retlen = 0;

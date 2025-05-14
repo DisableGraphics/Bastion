@@ -231,12 +231,14 @@ void gen(void* arg) {
 			int nread = 0;
 			VFS::get().truncate(inode, 256);
 			VFS::get().stat(inode, &st);
-			printf("File size: %d bytes\n", (int)st.st_size);
-			do {
-				nread = VFS::get().read(inode, &c, 1);
-				printf("%c", c);
-			} while(nread > 0);
+
 			VFS::get().close(inode);
+			VFS::get().umount("/partition/");
+			inode = VFS::get().open("/partition/data/test.txt", 0);
+			if(inode == -1)
+				printf("Umount works properly: %p\n", (void*)inode);
+			else
+			 	printf("Umount doesn't work: %p\n", (void*)inode);
  		}
 	}
 	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);
