@@ -1039,6 +1039,7 @@ bool FAT32::opendir(const char* directory, DIR* dir) {
 	check.d_curentry = 0;
 	check.d_ino = find(directory, FAT_FLAGS::DIRECTORY);
 	check.d_curino = check.d_ino;
+	check.filesystem = dir->filesystem;
 	if(check.d_ino < FAT_ERROR) {
 		*dir = check;
 		return true;

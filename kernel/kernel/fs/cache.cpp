@@ -1,6 +1,7 @@
 #include <kernel/fs/cache.hpp>
 #include <kernel/hal/managers/diskmanager.hpp>
 #include <kernel/kernel/log.hpp>
+#include <kernel/kernel/panic.hpp>
 
 fs::BlockCache& fs::BlockCache::get() {
 	static fs::BlockCache instance;
@@ -44,8 +45,7 @@ bool fs::BlockCache::disk_op(uint8_t* buffer, uint64_t lba, size_t nsectors, siz
 				volatile hal::DiskJob job{data->buffer, lba + i, 1, false};
 				hal::DiskManager::get().sleep_job(diskid, &job);
 			} else {
-				// Massive error here. If we don't have an entry after emplacing
-				// in the cache, we're absolutely fucked
+				kn::panic("Block cache block was not introduced after doing cache.emplace(). State of the computer is corrupted and security may have been compromised.");
 				return false;
 			}
 		}

@@ -18,7 +18,14 @@ class VFS {
 		int close(int fd);
 
 		// Directory operations
-		
+		bool touch(const char* filename);
+		bool mkdir(const char* directory_name);
+		bool rmdir(const char* directory_name);
+		bool rename(const char* src, const char* dest);
+		bool remove(const char* path);
+		bool opendir(const char* directory, DIR* dir);
+		bool readdir(DIR* dir, dirent* dirent);
+		void closedir(DIR* dir);
 
 		// Mount operations
 		int mount(const char* path, FS* fs);
@@ -31,6 +38,8 @@ class VFS {
 		VFS& operator=(VFS&&) = delete;
 
 		Inode* resolvePath(const char* path);
+
+		bool getMountPointAndInternalPath(const char* path, MountPoint** mnt, const char** internal);
 
 		Vector<MountPoint> mounts;
 		HashMap<char*, Inode*> inode_cache;

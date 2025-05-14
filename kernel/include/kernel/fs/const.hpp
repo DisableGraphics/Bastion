@@ -33,6 +33,9 @@ struct DIR {
 	ino_t d_curino;
 	/// Current entry
 	uint32_t d_curentry;
+	/// Current filesystem
+	/// Note that you need to update this if possible
+	void* filesystem;
 };
 
 struct dirent {

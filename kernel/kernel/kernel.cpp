@@ -239,6 +239,39 @@ void gen(void* arg) {
 				printf("Umount works properly: %p\n", (void*)inode);
 			else
 			 	printf("Umount doesn't work: %p\n", (void*)inode);
+
+			// Test directory functionalities
+			VFS::get().mount("/", &fat);
+
+			VFS::get().mkdir("/home12");
+			VFS::get().touch("/home12/hola1.txt");
+			VFS::get().touch("/home12/hola2.txt");
+			VFS::get().umount("/");
+			VFS::get().mount("/partition1/", &fat);
+			printf("/partition1/home12/: \n");
+			if(VFS::get().opendir("/partition1/home12", &dir)) {
+				struct dirent de;
+				while(VFS::get().readdir(&dir, &de)) {
+					printf("%s\n", de.d_name);
+				}
+			}
+			VFS::get().closedir(&dir);
+			VFS::get().umount("/partition1/");
+			VFS::get().mount("/", &fat);
+
+			printf("/: \n");
+			if(VFS::get().opendir("/", &dir)) {
+				struct dirent de;
+				while(VFS::get().readdir(&dir, &de)) {
+					printf("%s\n", de.d_name);
+				}
+			}
+			VFS::get().closedir(&dir);
+			VFS::get().remove("/home12/hola1.txt");
+			VFS::get().remove("/home12/hola2.txt");
+			VFS::get().rmdir("/home12");
+			fs::BlockCache::get().flush();
+			printf("Finished flushing :)\n");
  		}
 	}
 	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);

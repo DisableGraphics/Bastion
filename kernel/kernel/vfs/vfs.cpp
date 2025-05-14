@@ -1,5 +1,6 @@
 #include "kernel/vfs/inodes/physicalinode.hpp"
 #include <kernel/vfs/vfs.hpp>
+#include <kernel/kernel/log.hpp>
 
 VFS& VFS::get() {
 	static VFS instance;
@@ -48,11 +49,10 @@ int VFS::close(int fd) {
 }
 
 Inode* VFS::resolvePath(const char* path) {
-	MountPoint* best = findMountPoint(path);
-	if(!best) return nullptr;
+	MountPoint * best;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(path, &best, &internalPath)) return nullptr;
 	const size_t best_path_size = strlen(best->path);
-	const char* internalPath = path + best_path_size;
-	if(strlen(internalPath) == 0) internalPath = const_cast<char*>("/");
 	
 	const size_t size = best_path_size + 2 + strlen(internalPath);
 	char* cache_key = reinterpret_cast<char*>(kcalloc(size, sizeof(char)));
@@ -71,13 +71,28 @@ int VFS::mount(const char* path, FS* fs) {
 			return -1;
 		}
 	}
-	mounts.push_back(MountPoint{path, fs});
+	bool last_slash = true;
+	size_t size = strlen(path);
+	if(path[size - 1] != '/') {
+		size++;
+		last_slash = false;
+	}
+	char* mallc = (char*)kmalloc(size+1);
+	if(!last_slash) {
+		strncpy(mallc, path, size-1);
+		mallc[size-1] = '/';
+	} else {
+		strncpy(mallc, path, size);
+	}
+	mallc[size] = 0;
+	mounts.push_back(MountPoint{mallc, fs});
 	return 0;
 }
 
 int VFS::umount(const char* path) {
 	for(size_t i = 0; i < mounts.size(); i++) {
 		if(!strcmp(mounts[i].path, path)) {
+			kfree((void*)mounts[i].path);
 			mounts.erase(i);
 			return 0;
 		}
@@ -104,4 +119,72 @@ int VFS::truncate(int fd, size_t newsize) {
 	auto ino = fd_table.find(fd);
 	if (!ino) return -1;
 	return ino->inode->truncate(newsize);
+}
+
+bool VFS::touch(const char* filename) {
+	MountPoint * best;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(filename, &best, &internalPath)) return false;
+	return best->fs->touch(internalPath);
+}
+
+bool VFS::mkdir(const char* dirname) {
+	MountPoint * best;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(dirname, &best, &internalPath)) return false;
+	return best->fs->mkdir(internalPath);
+}
+
+bool VFS::rmdir(const char* dirname) {
+	MountPoint * best;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(dirname, &best, &internalPath)) return false;
+	return best->fs->rmdir(internalPath);
+}
+
+bool VFS::rename(const char* origin, const char* destination) {
+	MountPoint * best, best2;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(origin, &best, &internalPath)) return false;
+	if(!getMountPointAndInternalPath(destination, &best, &internalPath)) return false;
+	if(strcmp(best->path, best2.path)) return false;
+	return best->fs->rename(origin, destination);
+}
+
+bool VFS::remove(const char* filename) {
+	MountPoint * best;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(filename, &best, &internalPath)) return false;
+	return best->fs->remove(internalPath);
+}
+
+bool VFS::opendir(const char* directory, DIR* dir) {
+	log(INFO, "Opening directory: %s", directory);
+	MountPoint * best;
+	const char* internalPath;
+	if(!getMountPointAndInternalPath(directory, &best, &internalPath)) return false;
+	dir->filesystem = best->fs;
+	return best->fs->opendir(internalPath, dir);
+}
+
+bool VFS::readdir(DIR* dir, dirent* dirent) {
+	FS* fs = reinterpret_cast<FS*>(dir->filesystem);
+	return fs->readdir(dir, dirent);
+}
+
+void VFS::closedir(DIR* dir) {
+	FS* fs = reinterpret_cast<FS*>(dir->filesystem);
+	return fs->closedir(dir);
+}
+
+bool VFS::getMountPointAndInternalPath(const char* path, MountPoint** mnt, const char** internal) {
+	MountPoint* best = findMountPoint(path);
+	if(!best) return false;
+	const size_t best_path_size = strlen(best->path);
+	const char* internalPath = path + best_path_size - 1;
+	if(strlen(internalPath) == 0) internalPath = const_cast<char*>("/");
+	*mnt = best;
+	*internal = internalPath;
+	log(INFO, "%s has a mountpoint %s and internal path %s", path, best->path, internalPath);
+	return true;
 }
