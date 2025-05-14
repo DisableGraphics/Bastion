@@ -236,6 +236,7 @@ void gen(void* arg) {
 				nread = VFS::get().read(inode, &c, 1);
 				printf("%c", c);
 			} while(nread > 0);
+			VFS::get().close(inode);
  		}
 	}
 	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);
