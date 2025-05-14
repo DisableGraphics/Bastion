@@ -31,6 +31,8 @@ struct Task {
 	 */
 	static void finish();
 
+	virtual void startup();
+
 	/**
 		\brief Pointer to the function that the task will execute.
 	 */

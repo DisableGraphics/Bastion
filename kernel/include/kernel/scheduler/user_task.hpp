@@ -6,7 +6,11 @@ struct UserTask : public Task {
 	UserTask(const UserTask&) = delete;
 	UserTask(UserTask&&);
 
+	void startup() override;
+
 	UserTask& operator=(const UserTask&) = delete;
 	UserTask& operator=(UserTask&&);
 	~UserTask();
+
+	bool user_space = false;
 };

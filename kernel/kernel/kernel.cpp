@@ -36,6 +36,7 @@
 #include <kernel/fs/ramustar.hpp>
 // Scheduler
 #include <kernel/scheduler/scheduler.hpp>
+#include <kernel/scheduler/user_task.hpp>
 // Synchronization
 #include <kernel/sync/semaphore.hpp>
 #include <kernel/sync/pipe.hpp>
@@ -365,17 +366,30 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	keyb.init();
 	mouse.init();
 
+	///TODO: Test for userspace, remove later
+	size_t useraddr = reinterpret_cast<size_t>(fn_user);
+	useraddr = useraddr & 0xFFFFF000;
+	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET), 
+		reinterpret_cast<void*>(useraddr), 
+		USER | READ_WRITE);
+	useraddr += PAGE_SIZE;
+	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET), 
+		reinterpret_cast<void*>(useraddr), 
+		USER | READ_WRITE);
+
 	Task *idleTask = new Task{idle, nullptr};
 	Task *generic = new Task{gen, &mouse};
 	Pipe p;
 	Task* testSync1 = new Task{ts1, &p};
 	Task* testSync2 = new Task{ts2, &p};
 	Task* testSync3 = new Task{ts2, &p};
+	UserTask* utask = new UserTask{fn_user, nullptr};
 	Scheduler::get().append_task(idleTask);
 	Scheduler::get().append_task(generic);
 	Scheduler::get().append_task(testSync1);
 	Scheduler::get().append_task(testSync2);
 	Scheduler::get().append_task(testSync3);
+	Scheduler::get().append_task(utask);
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
 	// Seed RNG
