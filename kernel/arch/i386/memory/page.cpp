@@ -51,7 +51,7 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
 	size_t pdindex = (size_t)virtualaddr >> 22;
 	size_t ptindex = (size_t)virtualaddr >> 12 & 0x03FF;
 
-	if(!(page_directory[pdindex] & PRESENT)) return; //TODO: Create new page
+	if(!(page_directory[pdindex] & PRESENT)) return;
 
 	uint32_t * page_table = reinterpret_cast<uint32_t*>((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
 
@@ -63,6 +63,16 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
 
 	//__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
 	tlb_flush();
+}
+
+void PagingManager::set_global_options(void* virtualaddr, unsigned int flags) {
+	if((size_t)virtualaddr % PAGE_SIZE != 0) {
+		kerror("Addresses not page-aligned: %p, %p", virtualaddr, virtualaddr); return;
+	}
+	size_t pdindex = (size_t)virtualaddr >> 22;
+
+	if(!(page_directory[pdindex] & PRESENT)) return;
+	page_directory[pdindex] |= (flags & 0xFFF);
 }
 
 void PagingManager::new_page_table(void *pt_addr, void *begin_with) {

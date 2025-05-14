@@ -53,7 +53,3 @@ void Task::finish() {
 	log(INFO, "Task::finish() called");
 	Scheduler::get().terminate();
 }
-
-void Task::startup() {
-	
-}

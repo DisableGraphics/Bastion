@@ -46,6 +46,8 @@ class PagingManager {
 			\param flags Flags to add to the mapping
 		 */
 		void map_page(void *physaddr, void *virtualaddr, unsigned int flags);
+
+		void set_global_options(void *virtualaddr, unsigned int flags);
 		/**
 			\brief Setup a new page table.
 			\param pt_addr Address of the new page table

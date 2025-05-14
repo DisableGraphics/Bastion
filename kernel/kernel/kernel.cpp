@@ -95,6 +95,7 @@ void ts2(void* pipe) {
 	for(int i = 0; i < 10; i++) {
 		log(INFO, "Reading iteration: %d", i);
 		p->read(msg, msglen);
+		msg[5] = 0;
 		printf("%d: %s (thread #%d)\n", count++, msg, Scheduler::get().get_current_task()->id);
 	}
 }
@@ -310,7 +311,7 @@ void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
 }
 
 void fn_user(void*) {
-	for(;;) halt();
+	for(;;);
 }
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
@@ -369,13 +370,17 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	///TODO: Test for userspace, remove later
 	size_t useraddr = reinterpret_cast<size_t>(fn_user);
 	useraddr = useraddr & 0xFFFFF000;
-	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET), 
-		reinterpret_cast<void*>(useraddr), 
-		USER | READ_WRITE);
+	printf("fn_ptr: %p, useradd: %p\n", fn_user, useraddr);
+	
+	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET),
+		reinterpret_cast<void*>(useraddr),
+		USER | READ_WRITE | PRESENT);
+	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | READ_WRITE | PRESENT);
 	useraddr += PAGE_SIZE;
-	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET), 
-		reinterpret_cast<void*>(useraddr), 
-		USER | READ_WRITE);
+	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET),
+		reinterpret_cast<void*>(useraddr),
+		USER | READ_WRITE | PRESENT);
+	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | READ_WRITE | PRESENT);
 
 	Task *idleTask = new Task{idle, nullptr};
 	Task *generic = new Task{gen, &mouse};
