@@ -37,6 +37,7 @@
 // Scheduler
 #include <kernel/scheduler/scheduler.hpp>
 #include <kernel/scheduler/user_task.hpp>
+#include <kernel/scheduler/kernel_task.hpp>
 // Synchronization
 #include <kernel/sync/semaphore.hpp>
 #include <kernel/sync/pipe.hpp>
@@ -382,13 +383,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		USER | READ_WRITE | PRESENT);
 	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | READ_WRITE | PRESENT);
 
-	Task *idleTask = new Task{idle, nullptr};
-	Task *generic = new Task{gen, &mouse};
+	Task *idleTask = new KernelTask{idle, nullptr};
+	Task *generic = new KernelTask{gen, &mouse};
 	Pipe p;
-	Task* testSync1 = new Task{ts1, &p};
-	Task* testSync2 = new Task{ts2, &p};
-	Task* testSync3 = new Task{ts2, &p};
-	UserTask* utask = new UserTask{fn_user, nullptr};
+	Task* testSync1 = new KernelTask{ts1, &p};
+	Task* testSync2 = new KernelTask{ts2, &p};
+	Task* testSync3 = new KernelTask{ts2, &p};
+	Task* utask = new UserTask{fn_user, nullptr};
 	Scheduler::get().append_task(idleTask);
 	Scheduler::get().append_task(generic);
 	Scheduler::get().append_task(testSync1);

@@ -130,3 +130,7 @@ bool PagingManager::enable_pat_if_it_exists() {
 	}
 	return false;
 }
+
+void *PagingManager::get_page_directory() {
+	return boot_page_directory;
+}

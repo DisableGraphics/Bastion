@@ -25,8 +25,8 @@ switch_task:
 	pushf
 
 	mov %eax,%edi    		# edi = current_thread
-	mov (%edi),%ecx			# ecx = *current_thread (for modifications of the stack pointer)
-	mov %esp,(%ecx)         # Save ESP for previous task's kernel stack in the thread's TCB
+	mov (%edi),%ecx		# ecx = *(current_thread+4) (for modifications of the stack pointer)
+	mov %esp,(%ecx)        # Save ESP for previous task's kernel stack in the thread's TCB
 
 	# Load next task's state
 

@@ -74,6 +74,8 @@ class PagingManager {
 			\return Whether PAT is available
 		*/
 		bool enable_pat_if_it_exists();
+
+		void* get_page_directory();
 	private:
 		// Kernel page directory
 		page_t *page_directory = nullptr;
