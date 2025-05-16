@@ -31,6 +31,8 @@ struct Task {
 	void (*startup)(void* args) = nullptr;
 	void *startupargs;
 
+	Task();
+
 	/**
 		\brief Pointer to the function that the task will execute.
 	 */

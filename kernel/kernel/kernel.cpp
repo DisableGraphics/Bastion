@@ -311,8 +311,14 @@ void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
 	vesa.set_fonts(fonts);
 }
 
+int calc(int i);
 void fn_user(void*) {
-	for(;;);
+	for(uint16_t i = 0; i < 10; i++) {
+		//asm volatile("int $0x80");
+	}
+}
+int calc(int i) {
+	return i*23;
 }
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
@@ -386,15 +392,15 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Task *idleTask = new KernelTask{idle, nullptr};
 	Task *generic = new KernelTask{gen, &mouse};
 	Pipe p;
-	Task* testSync1 = new KernelTask{ts1, &p};
+	/*Task* testSync1 = new KernelTask{ts1, &p};
 	Task* testSync2 = new KernelTask{ts2, &p};
-	Task* testSync3 = new KernelTask{ts2, &p};
+	Task* testSync3 = new KernelTask{ts2, &p};*/
 	Task* utask = new UserTask{fn_user, nullptr};
 	Scheduler::get().append_task(idleTask);
 	Scheduler::get().append_task(generic);
-	Scheduler::get().append_task(testSync1);
+	/*Scheduler::get().append_task(testSync1);
 	Scheduler::get().append_task(testSync2);
-	Scheduler::get().append_task(testSync3);
+	Scheduler::get().append_task(testSync3);*/
 	Scheduler::get().append_task(utask);
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
