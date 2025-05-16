@@ -381,13 +381,13 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	
 	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET),
 		reinterpret_cast<void*>(useraddr),
-		USER | READ_WRITE | PRESENT);
-	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | READ_WRITE | PRESENT);
+		USER | PRESENT);
+	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | PRESENT);
 	useraddr += PAGE_SIZE;
 	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET),
 		reinterpret_cast<void*>(useraddr),
-		USER | READ_WRITE | PRESENT);
-	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | READ_WRITE | PRESENT);
+		USER | PRESENT);
+	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | PRESENT);
 
 	Task *idleTask = new KernelTask{idle, nullptr};
 	Task *generic = new KernelTask{gen, &mouse};
