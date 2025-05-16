@@ -61,7 +61,10 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	sptr[6] = reinterpret_cast<uint32_t>(finish);
 	sptr[7] = reinterpret_cast<uint32_t>(args);
 
-	esp = reinterpret_cast<size_t>(sptr);
+	esp = reinterpret_cast<size_t>(user_stack_virtaddr - 32);
+	log(INFO, "ESP: %p", esp);
+	for(size_t i = 0; i < 8; i++)
+		log(INFO, "%d: %p", i, *(reinterpret_cast<void**>(sptr)+i));
 }
 
 UserTask::~UserTask() {
