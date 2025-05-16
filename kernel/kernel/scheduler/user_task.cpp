@@ -45,7 +45,7 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	for(size_t i = 0; i < INITIAL_STACK_PAGES; i++) {
 		const size_t addr = user_stack_virtaddr - (i*PAGE_SIZE);
 		log(INFO, "Address: %p", addr);
-		page_directory[addr >> 22] = stack_page_table;
+		page_directory[addr >> 22] = reinterpret_cast<void*>(reinterpret_cast<size_t>(stack_page_table) | USER | READ_WRITE | PRESENT);
 		size_t page = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(1));
 		memset(reinterpret_cast<void*>(page), 0, PAGE_SIZE);
 		user_stack_pages.push_back(reinterpret_cast<void*>(page - HIGHER_HALF_OFFSET));
