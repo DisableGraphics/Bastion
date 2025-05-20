@@ -15,6 +15,7 @@ void startup_usertask(void* s) {
 	if(!self->user_space) {
 		log(INFO, "UserTask::startup()");
 		self->user_space = true;
+		log(INFO, "Jumping to %p", self->fn);
 		jump_usermode(self->fn);
 	}
 }
@@ -45,7 +46,7 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	for(size_t i = 0; i < INITIAL_STACK_PAGES; i++) {
 		const size_t addr = user_stack_virtaddr - (i*PAGE_SIZE);
 		log(INFO, "Address: %p", addr);
-		page_directory[addr >> 22] = reinterpret_cast<void*>(reinterpret_cast<size_t>(stack_page_table) | USER | READ_WRITE | PRESENT);
+		page_directory[addr >> 22] = reinterpret_cast<void*>((reinterpret_cast<size_t>(stack_page_table) - HIGHER_HALF_OFFSET) | USER | READ_WRITE | PRESENT);
 		size_t page = reinterpret_cast<size_t>(MemoryManager::get().alloc_pages(1));
 		memset(reinterpret_cast<void*>(page), 0, PAGE_SIZE);
 		user_stack_pages.push_back(reinterpret_cast<void*>(page - HIGHER_HALF_OFFSET));
@@ -57,6 +58,7 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 
 	uint32_t* sptr = reinterpret_cast<uint32_t*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
 	sptr -= 8;
+	sptr[0] = 0x202;
 	sptr[5] = reinterpret_cast<uint32_t>(fn);
 	sptr[6] = reinterpret_cast<uint32_t>(finish);
 	sptr[7] = reinterpret_cast<uint32_t>(args);
