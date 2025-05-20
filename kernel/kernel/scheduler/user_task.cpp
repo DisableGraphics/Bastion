@@ -57,10 +57,11 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	user_stack_top = reinterpret_cast<void*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
 
 	uint32_t* sptr = reinterpret_cast<uint32_t*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
-	sptr -= 7;
+	sptr -= 8;
 	sptr[0] = 0x202;
-	sptr[5] = reinterpret_cast<uint32_t>(finish);
-	sptr[6] = reinterpret_cast<uint32_t>(args);
+	sptr[5] = reinterpret_cast<uint32_t>(fn);
+	sptr[6] = reinterpret_cast<uint32_t>(finish);
+	sptr[7] = reinterpret_cast<uint32_t>(args);
 
 	esp = reinterpret_cast<size_t>(user_stack_virtaddr - 32);
 	log(INFO, "ESP: %p", esp);

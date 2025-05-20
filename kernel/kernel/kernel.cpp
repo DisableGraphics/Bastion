@@ -313,10 +313,7 @@ void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
 
 int calc(int i);
 void fn_user(void*) {
-	int i = 0;
-	for(uint16_t i = 0; i < 10; i++) {
-		//asm volatile("int $0x80");
-	}
+	while(true);
 }
 int calc(int i) {
 	return i*23;
