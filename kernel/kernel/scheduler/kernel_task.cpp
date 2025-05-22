@@ -44,7 +44,7 @@ KernelTask::KernelTask(KernelTask&& other) {
 KernelTask& KernelTask::operator=(KernelTask&& other) {
 	if(this != &other) {
 		clean();
-		steal(move(other));user_stack_pages.back()) + HIGHER_HALF_OFFSET
+		steal(move(other));
 	}
 	return *this;
 }
