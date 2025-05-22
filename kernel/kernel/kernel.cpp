@@ -313,13 +313,13 @@ void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
 
 int calc(int i);
 void fn_user(void*) {
-	int i = 0;
-	while(i < 30) i++;
+	volatile int i = 0;
 	i = calc(i);
-	__asm__ __volatile__("int $0x80");
 }
 int calc(int i) {
-	return i*23;
+	int j;
+	for(j = 0; j < i; j *= 2);
+	return j;
 }
 
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {

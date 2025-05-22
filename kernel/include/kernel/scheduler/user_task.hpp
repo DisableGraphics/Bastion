@@ -19,9 +19,12 @@ struct UserTask : public Task {
 		void** page_directory = nullptr;
 		void** stack_page_table = nullptr;
 		
+		size_t user_esp = 0;
 		size_t user_stack_size = 0;
 		Vector<void*> user_stack_pages;
 		void steal(UserTask&& other);
 		void clean();
 		void setup_pages(void (*fn)(void*), void* args);
+
+		friend void startup_usertask(void* v);
 };

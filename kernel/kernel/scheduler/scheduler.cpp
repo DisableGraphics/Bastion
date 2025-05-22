@@ -7,9 +7,15 @@
 extern "C" void switch_task(Task** current_thread, Task *next_thread);
 
 extern "C" void task_startup(void) {
+	log(INFO, "Scheduler::unlock() on task_startup()");
 	Scheduler::get().unlock();
+	log(INFO, "Finished unlocking ");
+	
 	Task* ctask = Scheduler::get().get_current_task();
-	if(ctask->startup) ctask->startup(ctask->startupargs);
+	if(ctask->startup) { 
+		log(INFO, "Setting up task on task_startup()");
+		ctask->startup(ctask->startupargs);
+	}
 }
 
 Scheduler::Scheduler() {
