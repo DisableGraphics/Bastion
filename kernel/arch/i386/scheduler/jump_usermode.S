@@ -1,6 +1,7 @@
 .global jump_usermode
 # definition: jump_usermode(void* fn)
 jump_usermode:
+	cli
 	mov 4(%esp), %ecx
 	mov $((4 * 8) | 3), %ax
 	mov %ax, %ds
