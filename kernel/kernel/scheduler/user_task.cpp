@@ -58,17 +58,21 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	user_stack_top = reinterpret_cast<void*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
 
 	uint32_t* sptr = reinterpret_cast<uint32_t*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
-	sptr -= 8;
-	sptr[0] = 0x202;
-	sptr[5] = reinterpret_cast<uint32_t>(fn);
-	sptr[6] = reinterpret_cast<uint32_t>(finish);
-	sptr[7] = reinterpret_cast<uint32_t>(args);
+	sptr[7] = reinterpret_cast<uint32_t>(finish);
 
-	esp = esp0 - 32;
-	user_esp = reinterpret_cast<size_t>(user_stack_virtaddr);
+	user_esp = reinterpret_cast<size_t>(user_stack_virtaddr - 4);
 	log(INFO, "ESP: %p", esp);
 	for(size_t i = 0; i < 8; i++)
 		log(INFO, "%p: %p", esp + (i*4), *(reinterpret_cast<void**>(sptr)+i));
+
+	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(kernel_stack_top) + KERNEL_STACK_SIZE);
+	log(INFO, "Task created: %p %p", kernel_stack_top, esp);
+
+	void** stack = reinterpret_cast<void**>(esp);
+	stack = stack - 6;
+	stack[5] = reinterpret_cast<void*>(finish);
+	esp = reinterpret_cast<uint32_t>(stack);
+	esp0 = esp;
 }
 
 UserTask::~UserTask() {
