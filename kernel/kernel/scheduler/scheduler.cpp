@@ -8,12 +8,17 @@ extern "C" void switch_task(Task** current_thread, Task *next_thread);
 
 extern "C" void task_startup(void) {
 	log(INFO, "Scheduler::unlock() on task_startup()");
+	uint32_t* esp = reinterpret_cast<uint32_t*>(get_esp());
+	for(size_t i = 32; i > 0; i--) {
+		auto ip = i - 1;
+		log(INFO, "[%d] %p %p", ip*4, esp + ip, esp[ip]);
+	}
+
 	Scheduler::get().unlock();
-	log(INFO, "Finished unlocking ");
+	//log(INFO, "Finished unlocking ");
 	
 	Task* ctask = Scheduler::get().get_current_task();
 	if(ctask->startup) { 
-		log(INFO, "Setting up task on task_startup()");
 		ctask->startup(ctask->startupargs);
 	}
 }
@@ -110,6 +115,11 @@ void Scheduler::lock() {
 }
 
 void Scheduler::unlock() {
+	uint32_t* esp = reinterpret_cast<uint32_t*>(get_esp());
+	for(size_t i = 32; i > 0; i--) {
+		auto ip = i - 1;
+		log(INFO, "[%d] %p %p", ip*4, esp + ip, esp[ip]);
+	}
 	if(nlock > 0) nlock--;
 	if(nlock == 0) IDT::enable_interrupts();
 }

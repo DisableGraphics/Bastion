@@ -315,6 +315,8 @@ int calc(int i);
 void fn_user(void*) {
 	volatile int i = 0;
 	i = calc(i);
+	i = calc(i+1);
+	i += calc(i+1);
 }
 int calc(int i) {
 	int j;
