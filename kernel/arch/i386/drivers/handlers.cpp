@@ -1,8 +1,17 @@
+#include "distorm/print_disassemble.h"
 #include "kernel/assembly/inlineasm.h"
 #include <kernel/drivers/interrupts.hpp>
 #include <stdio.h>
 #include <kernel/kernel/log.hpp>
 #include <kernel/hal/managers/irqcmanager.hpp>
+#include "../defs/regs/regs.h"
+
+struct interrupt_frame
+{
+    uint32_t eip;
+	uint32_t cs;
+	uint32_t eflags;
+};
 
 void IDT::generic_exception_handler(interrupt_frame*) {
 	printf("Unknown error: This shouldn't happen. WTF have I done?\n");
@@ -85,9 +94,9 @@ void IDT::general_protection_fault_handler(interrupt_frame*, unsigned int ecode)
 }
 
 void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
-	uint32_t eip;
-	uint32_t* ife = reinterpret_cast<uint32_t*>(ifr);
-	eip = ife[-2];
+	regs r;
+	COPY_REGS(r);
+	uint32_t eip = ifr->eip;
 
 	uint32_t faulting_address = read_cr2();
 	const char * prot_type = (ecode & 1) ? "page protection" : "not present";
@@ -99,6 +108,15 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	log(ERROR, "IRQLINE (if in interrupt, else -1): %d", hal::IRQControllerManager::get().get_current_handled_irqline());
 	log(ERROR, "Tried to access %p, which is not a mapped address", faulting_address);
 	log(ERROR, "Instruction pointer: %p", eip);
+
+	log(ERROR, "EAX: %p", r.eax);
+	log(ERROR, "EBX: %p", r.ebx);
+	log(ERROR, "ECX: %p", r.ecx);
+	log(ERROR, "EDX: %p", r.edx);
+	log(ERROR, "EDI: %p", r.edi);
+	log(ERROR, "ESI: %p", r.esi);
+
+	print_disassemble(reinterpret_cast<void*>(eip-32), 48, reinterpret_cast<void*>(eip));
 
 	IDT::disable_interrupts();
 	halt();

@@ -2,7 +2,6 @@
 Guidelines:
 - Document everything. If someone doesn't understand what your code does, that's a nice indicator to do so.
 	- Keep the documentation in the header file (so the code file doesn't become 1000+ lines long for a damn driver)
-- Try to use as least assembly as possible. Assembly is really easy to fuck up and it's usually less readable than even badly written C. (Exceptions exist, and some of those live in places such as [The Daily WTF](https://thedailywtf.com/))
 
 # Modules
 - Kernel (codename: Ivory Tower). The kernel of the Bastion operating system
@@ -17,6 +16,3 @@ Guidelines:
 - Mandatory use of C++:
 	- Internal Kernel interfaces
 	- Implementation of C libraries and/or C interfaces that requires access to kernel interfaces.
-- Possible use of Zig and/or Rust:
-	- Same as C, except no public facing interfaces. Only the internal implementation of C functions.
-		(This is only if you have a really good reason to do so.)
