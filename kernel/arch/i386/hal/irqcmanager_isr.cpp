@@ -1127,6 +1127,10 @@ void hal::IRQControllerManager::isr_setup() {
 
 /// IRQ handler is here since it needs to be compiled with -mgeneral-regs-only
 void hal::IRQControllerManager::irq_handler(size_t irqline) {
+	current_irqline = irqline;
+	in_int++;
 	auto controller = find_controller(irqline);
 	if(controller) controller->interrupt_handler(irqline);
+	current_irqline = irqline;
+	in_int--;
 }

@@ -13,28 +13,42 @@ extern "C" [[gnu::noreturn]] void jump_usermode(void (*fn)(void*), size_t esp);
 void startup_usertask(void* s) {
 	UserTask* self = reinterpret_cast<UserTask*>(s);
 	if(!self->user_space) {
-		log(INFO, "UserTask::startup()");
 		self->user_space = true;
-		log(INFO, "Jumping to %p", self->fn);
+		self->esp = self->user_esp;
 		jump_usermode(self->fn, self->user_esp);
-		log(INFO, "SHOULD NEVER BE HERE");
 	}
 }
 
 UserTask::UserTask(void (*fn)(void*), void* args) {
-	kernel_stack_top = kmalloc(KERNEL_STACK_SIZE);
-	esp0 = reinterpret_cast<size_t>(kernel_stack_top) + KERNEL_STACK_SIZE;
-	setup_pages(fn, args);
-	this->startup = startup_usertask;
-	this->startupargs = this;
-	id = newid();
 	this->fn = fn;
+	kernel_stack_top = kcalloc(KERNEL_STACK_SIZE, 1);
+	
+	// Reserve space for registers + other things
+	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(kernel_stack_top) + KERNEL_STACK_SIZE);
+	// 4 registers + function + finish function + arguments
+	// 7 4-byte elements
+	void** stack = reinterpret_cast<void**>(esp);
+	stack = stack - 8;
+	stack[5] = reinterpret_cast<void*>(startup_usertask);
+	stack[6] = reinterpret_cast<void*>(finish);
+	stack[7] = reinterpret_cast<void*>(this);
+	esp = reinterpret_cast<uint32_t>(stack);
+	esp0 = esp;
+	this->id = newid();
+	log(INFO, "ESP: %p", esp);
+	for(size_t i = 0; i < 8; i++)
+		log(INFO, "%d: %p", i, *(reinterpret_cast<void**>(esp)+i));
+	setup_pages(fn, args);
+	log(INFO, "User Task created: %p %p %p", kernel_stack_top, esp, user_esp);
 }
 
 void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	page_directory = reinterpret_cast<void**>(MemoryManager::get().alloc_pages(1));
 	if(!page_directory) kn::panic("No space for user process");
 	memcpy(page_directory, PagingManager::get().get_page_directory(), PAGE_SIZE);
+	for(size_t i = 0; i < PAGE_SIZE/sizeof(void*); i++) {
+		log(INFO, "PD %p: %p", i * REGION_SIZE, page_directory[i]);
+	}
 	cr3 = reinterpret_cast<size_t>(page_directory);
 	cr3 -= HIGHER_HALF_OFFSET;
 
@@ -57,22 +71,17 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	}
 	user_stack_top = reinterpret_cast<void*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
 
-	uint32_t* sptr = reinterpret_cast<uint32_t*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET);
-	sptr[7] = reinterpret_cast<uint32_t>(finish);
+	uint32_t* sptr = reinterpret_cast<uint32_t*>(reinterpret_cast<size_t>(user_stack_pages.back()) + HIGHER_HALF_OFFSET - 32);
+	sptr[5] = reinterpret_cast<uint32_t>(fn);
+	sptr[6] = reinterpret_cast<uint32_t>(finish);
+	sptr[7] = reinterpret_cast<uint32_t>(args);
 
-	user_esp = reinterpret_cast<size_t>(user_stack_virtaddr - 4);
-	log(INFO, "ESP: %p", esp);
-	for(size_t i = 0; i < 8; i++)
-		log(INFO, "%p: %p", esp + (i*4), *(reinterpret_cast<void**>(sptr)+i));
+	sptr += 4;
 
-	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(kernel_stack_top) + KERNEL_STACK_SIZE);
-	log(INFO, "Task created: %p %p", kernel_stack_top, esp);
-
-	void** stack = reinterpret_cast<void**>(esp);
-	stack = stack - 6;
-	stack[5] = reinterpret_cast<void*>(finish);
-	esp = reinterpret_cast<uint32_t>(stack);
-	esp0 = esp;
+	user_esp = reinterpret_cast<size_t>(user_stack_virtaddr - 12);
+	log(INFO, "User ESP: %p", user_esp);
+	for(size_t i = 0; i < 4; i++)
+		log(INFO, "User: %p: %p", user_esp + (i*4), *(reinterpret_cast<void**>(sptr)+i));
 }
 
 UserTask::~UserTask() {

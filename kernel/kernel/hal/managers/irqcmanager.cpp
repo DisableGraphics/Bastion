@@ -62,3 +62,13 @@ size_t hal::IRQControllerManager::assign_irq(hal::Driver* device) {
 	/// TODO: Improve this for APIC-like systems
 	return controllers[0]->assign_irq(device);
 }
+
+bool hal::IRQControllerManager::in_interrupt() {
+	return in_int > 0;
+}
+
+size_t hal::IRQControllerManager::get_current_handled_irqline() {
+	if(in_interrupt())
+		return current_irqline;
+	return -1;
+}

@@ -59,6 +59,7 @@ void AHCI::init() {
 		void * newpagetable = MemoryManager::get().alloc_pages(1, CACHE_DISABLE | READ_WRITE);
 		pm.new_page_table(newpagetable, reinterpret_cast<void*>(region));
 	}
+	pm.set_global_options(reinterpret_cast<void*>(region), GLOBAL | CACHE_DISABLE | READ_WRITE);
 	// Identity map the region (No need for the higher half offset, since this address was already at the higher half)
 	pm.map_page(reinterpret_cast<void*>(ptr), reinterpret_cast<void*>(ptr), CACHE_DISABLE | READ_WRITE);
 	pm.map_page(reinterpret_cast<void*>(ptr+PAGE_SIZE), reinterpret_cast<void*>(ptr+PAGE_SIZE), CACHE_DISABLE | READ_WRITE);

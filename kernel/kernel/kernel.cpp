@@ -317,6 +317,7 @@ void fn_user(void*) {
 	i = calc(i);
 	i = calc(i+1);
 	i += calc(i+1);
+	while(true) i+=1;
 }
 int calc(int i) {
 	int j;
@@ -392,6 +393,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 		USER | PRESENT);
 	PagingManager::get().set_global_options(reinterpret_cast<void*>(useraddr), USER | PRESENT);
 
+	hal::PCISubsystemManager::get().init();
+	hal::DiskManager::get().init();
+
 	Task *idleTask = new KernelTask{idle, nullptr};
 	Task *generic = new KernelTask{gen, &mouse};
 	Pipe p;
@@ -405,8 +409,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	Scheduler::get().append_task(testSync2);
 	Scheduler::get().append_task(testSync3);*/
 	Scheduler::get().append_task(utask);
-	hal::PCISubsystemManager::get().init();
-	hal::DiskManager::get().init();
 	// Seed RNG
 	srand(time(NULL));
 	Scheduler::get().run();

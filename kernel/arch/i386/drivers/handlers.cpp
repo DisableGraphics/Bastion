@@ -2,6 +2,7 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <stdio.h>
 #include <kernel/kernel/log.hpp>
+#include <kernel/hal/managers/irqcmanager.hpp>
 
 void IDT::generic_exception_handler(interrupt_frame*) {
 	printf("Unknown error: This shouldn't happen. WTF have I done?\n");
@@ -93,9 +94,11 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	const char * rw = (ecode & 0x2) ? "Write" : "Read";
 	const char * user = (ecode & 0x4) ? "User" : "Kernel";
 	const char * instruction = (ecode & 0x10) ? "Fetch" : "No fetch"; 
-	log(ERROR,"Page fault: %s %s %s %s\n", prot_type, rw, user, instruction);
-	log(ERROR, "Tried to access %p, which is not a mapped address\n", faulting_address);
-	log(ERROR, "Instruction pointer: %p\n", eip);
+	log(ERROR,"Page fault: %s %s %s %s", prot_type, rw, user, instruction);
+	log(ERROR, "%s interrupt", hal::IRQControllerManager::get().in_interrupt() ? "In" : "Not in");
+	log(ERROR, "IRQLINE (if in interrupt, else -1): %d", hal::IRQControllerManager::get().get_current_handled_irqline());
+	log(ERROR, "Tried to access %p, which is not a mapped address", faulting_address);
+	log(ERROR, "Instruction pointer: %p", eip);
 
 	IDT::disable_interrupts();
 	halt();

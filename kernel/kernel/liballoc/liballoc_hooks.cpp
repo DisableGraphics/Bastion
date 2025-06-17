@@ -19,7 +19,7 @@ void *liballoc_alloc(int pages) {
 }
 
 int liballoc_free(void* start, int pages) {
-	MemoryManager::get().free_pages(start, pages);
+	MemoryManager::get().free_pages(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(start) - HIGHER_HALF_OFFSET), pages);
 	return 0;
 }
 

@@ -11,6 +11,8 @@ namespace hal {
 			void enable_irq(size_t irqline);
 			void disable_irq(size_t irqline);
 			void eoi(size_t irqline);
+			bool in_interrupt();
+			size_t get_current_handled_irqline();
 
 			[[gnu::no_caller_saved_registers]]
 			void irq_handler(size_t irqline);
@@ -31,5 +33,7 @@ namespace hal {
 			void operator=(IRQControllerManager&& other) = delete;
 			
 			void isr_setup();
+			size_t current_irqline = 0;
+			int in_int = 0;
 	};
 }

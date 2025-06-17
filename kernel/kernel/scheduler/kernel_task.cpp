@@ -12,8 +12,6 @@ KernelTask::KernelTask(void (*fn)(void*), void* args) {
 	esp = reinterpret_cast<uint32_t>(reinterpret_cast<uintptr_t>(stack_top) + KERNEL_STACK_SIZE);
 	log(INFO, "Task created: %p %p", stack_top, esp);
 
-	memset(stack_top, 0, KERNEL_STACK_SIZE);
-
 	// 4 registers + function + finish function + arguments
 	// 7 4-byte elements
 	void** stack = reinterpret_cast<void**>(esp);

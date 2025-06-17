@@ -28,9 +28,6 @@ struct Task {
 	 */
 	static void finish();
 
-	void (*startup)(void* args) = nullptr;
-	void *startupargs;
-
 	Task();
 
 	/**
