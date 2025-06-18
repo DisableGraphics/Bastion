@@ -5,6 +5,8 @@
 #include <kernel/kernel/log.hpp>
 #include <kernel/hal/managers/irqcmanager.hpp>
 #include "../defs/regs/regs.h"
+#include <kernel/scheduler/scheduler.hpp>
+#include <kernel/kernel/stable.h>
 
 struct interrupt_frame
 {
@@ -109,6 +111,12 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	log(ERROR, "Tried to access %p, which is not a mapped address", faulting_address);
 	log(ERROR, "Instruction pointer: %p", eip);
 
+	Task* current_task;
+
+	if((current_task = Scheduler::get().get_current_task())) {
+		log(ERROR, "Current task: %d", current_task->id);
+	}
+
 	log(ERROR, "EAX: %p", r.eax);
 	log(ERROR, "EBX: %p", r.ebx);
 	log(ERROR, "ECX: %p", r.ecx);
@@ -117,6 +125,8 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	log(ERROR, "ESI: %p", r.esi);
 
 	print_disassemble(reinterpret_cast<void*>(eip-32), 48, reinterpret_cast<void*>(eip));
+
+	log(ERROR, "Crashed at: %s", find_function_name(eip));
 
 	IDT::disable_interrupts();
 	halt();

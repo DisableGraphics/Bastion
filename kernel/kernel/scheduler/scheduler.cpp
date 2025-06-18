@@ -42,7 +42,8 @@ void Scheduler::schedule() {
 		switch_task(current_task, tasks[0]);
 		return;
 	}
-	log(INFO, "Changing tasks from %p to %p", (*current_task)->id, tasks[next]->id);
+	if(current_task)
+		log(INFO, "Changing tasks from %p to %p", (*current_task)->id, tasks[next]->id);
 	switch_task(current_task, tasks[next]);
 }
 

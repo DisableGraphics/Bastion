@@ -18,21 +18,47 @@ set(CMAKE_CXX_FLAGS "-g -static-libgcc -Ofast -ffreestanding -nostdlib -lgcc -ms
 -funroll-loops -mfpmath=sse -fno-strict-aliasing -ftree-vectorize -fno-tree-slp-vectorize \
 -fgcse-sm -fgcse-las -fstack-protector")
 
+set(SYMBOL_TABLE_C ${CMAKE_BINARY_DIR}/symbol_table.c)
+set(TEMP_ELF ${CMAKE_BINARY_DIR}/${EXEC_NAME}.tmp)
+
 # Add subdirectories for kernel and libc
 add_subdirectory(kernel)
 add_subdirectory(libc)
 
 # Final executable
-add_executable(${EXEC_NAME})
+add_executable(${EXEC_NAME}.tmp)
 
 # Add object files from kernel and libc
-target_sources(${EXEC_NAME} PRIVATE
+target_sources(${EXEC_NAME}.tmp PRIVATE
+	$<TARGET_OBJECTS:kernel_obj_tmp>
     $<TARGET_OBJECTS:kernel_obj>
 	$<TARGET_OBJECTS:kernel_platform_dependent>
     $<TARGET_OBJECTS:libc_obj>
 )
 
 # Specify the linker script
+target_link_options(${EXEC_NAME}.tmp PRIVATE -T ${CMAKE_SOURCE_DIR}/kernel/arch/i386/linker.ld)
+
+add_custom_command(
+    OUTPUT ${SYMBOL_TABLE_C}
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/generate_symbol_table.py ${TEMP_ELF} ${SYMBOL_TABLE_C}
+    DEPENDS ${EXEC_NAME}.tmp
+    COMMENT "Generating symbol table from ${TEMP_ELF}"
+)
+
+add_custom_target(generate_symbol_table DEPENDS ${SYMBOL_TABLE_C})
+add_library(kernel_symbols_obj OBJECT ${SYMBOL_TABLE_C})
+add_dependencies(kernel_symbols_obj generate_symbol_table)
+
+add_executable(${EXEC_NAME})
+
+target_sources(${EXEC_NAME} PRIVATE
+    $<TARGET_OBJECTS:kernel_obj>
+    $<TARGET_OBJECTS:kernel_platform_dependent>
+    $<TARGET_OBJECTS:libc_obj>
+    $<TARGET_OBJECTS:kernel_symbols_obj>
+)
+
 target_link_options(${EXEC_NAME} PRIVATE -T ${CMAKE_SOURCE_DIR}/kernel/arch/i386/linker.ld)
 
 add_subdirectory(user)

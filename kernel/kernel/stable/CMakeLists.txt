@@ -1,0 +1,1 @@
+target_sources(kernel_obj_tmp PRIVATE stable.c)

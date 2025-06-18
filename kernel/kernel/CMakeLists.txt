@@ -8,5 +8,6 @@ add_subdirectory(fs)
 add_subdirectory(drivers)
 add_subdirectory(vfs)
 add_subdirectory(distorm)
+add_subdirectory(stable)
 
 target_sources(kernel_obj PRIVATE kernel.cpp mmanager.cpp panic.cpp test.cpp key_event.cpp log.cpp)
