@@ -102,7 +102,10 @@ void ts2(void* pipe) {
 }
 
 void gen(void* arg) {
+	log(INFO, "Started gen()");
+	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);
 	auto disks = hal::DiskManager::get().get_disks();
+	printf("a\n");
 	for(size_t i = 0; i < disks.size(); i++) {
 		char * name = disks[i].first;
 		uint32_t sector_size = disks[i].second->get_sector_size();
@@ -118,6 +121,7 @@ void gen(void* arg) {
 		uint32_t sizemb = sizebytes / ONE_MEG;
 		uint32_t type = parts[i].type;
 		log(INFO, "Partition: %d %dMiB, Type: %p, start_lba: %d", i, sizemb, type, parts[i].start_lba);
+		printf("b\n");
 		if(type == 0xc) {
 			FAT32 fat{p, i};
 			VFS::get().mount("/partition/", &fat);
@@ -132,6 +136,7 @@ void gen(void* arg) {
 			} else {
 				log(INFO, "Could not read from /data/test.txt");
 			}
+			printf("c\n");
 			char buffer2[2048];
 			int read;
 			log(INFO, "Reading 2 %s", filename);
@@ -149,6 +154,7 @@ void gen(void* arg) {
 				log(INFO, "Creation date: %d", st.st_ctime);
 				log(INFO, "Accessed date: %d", st.st_atime);
 			}
+			printf("d\n");
 			log(INFO, "Truncating %s to 64 bytes", filename);
 			fat.truncate(filename, 64);
 			log(INFO, "Truncating /grub/grubenv to 3 bytes");
@@ -158,6 +164,7 @@ void gen(void* arg) {
 			const char* str = "Never gonna give you up \n\n\n\n\t\thola\naaaaaaasdfdfdf";
 			fat.write(filename, 500, strlen(str), str);
 
+			printf("e\n");
 			log(INFO, "Truncating %p to 0 bytes");
 			fat.truncate(filename, 0);
 			log(INFO, "Truncating %p to 512 bytes");
@@ -185,6 +192,7 @@ void gen(void* arg) {
 			} else {
 				log(INFO, "Could not read from /data/hll.txt");
 			}
+			printf("f\n");
 			log(INFO, "Trying to create a file with a huge name");
 			if(fat.touch("/data/236147861327463247812367846123746871236478162374612837467812364781627834618.txt")) {
 				log(INFO, "Could create the file with a long name");
@@ -201,6 +209,8 @@ void gen(void* arg) {
 				log(INFO, "Deleted /data/carpetahola/hola.txt sucessfully");
 			}
 
+			printf("g\n");
+
 			if(fat.mkdir("/data/carpetaadios")) {
 				log(INFO, "Created directory /data/carpetaadios");
 			}
@@ -214,16 +224,22 @@ void gen(void* arg) {
 				log(INFO, "Renamed directory /data/carpetahola /data/carpetahola2");
 			if(fat.rename("/data/carpetahola2", "/hello")) 
 				log(INFO, "Renamed directory /data/carpetahola2 /hello");
+			printf("h\n");
+			
 			DIR dir;
 			if(fat.opendir("/", &dir)) {
+				printf("This isn't the culprit\n");
 				log(INFO, "Opened directory /");
 				dirent de;
 				while(fat.readdir(&dir, &de)) {
-					log(INFO, "Directory entry: %s %d %d", de.d_name, de.d_type, de.d_ino);
+					printf("Directory entry: %s %d %d\n", de.d_name, de.d_type, de.d_ino);
 				}
 
 				fat.closedir(&dir);
 			}
+			
+			printf("i\n");
+			log(INFO, "Before flush");
 			fs::BlockCache::get().flush();
 			tc::timertime time2 = hal::TimerManager::get().get_timer(0)->ellapsed();
 			printf("Took %dms\n", (time2 - time) / (tc::ms));
@@ -277,7 +293,7 @@ void gen(void* arg) {
 			printf("Finished flushing :)\n");
  		}
 	}
-	hal::VideoDriver* vesa = hal::VideoManager::get().get_driver(0);
+	
 	vesa->clear({0,0,0,0});
 	PS2Mouse* mouse = reinterpret_cast<PS2Mouse*>(arg);
 	int mx = 0, my = 0;
@@ -325,13 +341,25 @@ int calc(int i) {
 	return j;
 }
 
+void test_malloc() {
+	log(ERROR, "----------------------------------------------------------------------");
+	log(ERROR, "BEGINNING TEST_MALLOC()");
+	for(size_t i = 0; i < 31; i++) {
+		uint8_t* buf = (uint8_t*)kmalloc(512);
+		printf("%p\n", buf);
+		memset(buf, 2, 512);
+		kfree((void*)buf);
+	}
+	log(ERROR, "FINISHED TEST_MALLOC()");
+	log(ERROR, "----------------------------------------------------------------------");
+}
+
 extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	if(sse2_available()) init_sse2();
 	PagingManager::get().init();
 	MemoryManager::get().init(mbd, magic);
 	Serial::get().init();
 	GDT::get().init();
-	
 
 	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
 
@@ -350,13 +378,15 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	};
 	vesa.init();
 	hal::VideoManager::get().register_driver(&vesa);
-
+	
+	log(INFO, "aVideoDriver vptr = %p", *(size_t*)&vesa);
 	multiboot_module_t* mbd_module = reinterpret_cast<multiboot_module_t*>(mbd2->mods_addr + HIGHER_HALF_OFFSET);
 	// First module loaded is the ramdisk
 	RAMUSTAR ramdisk{reinterpret_cast<uint8_t*>(mbd_module->mod_start+ HIGHER_HALF_OFFSET)};
 	
 	init_fonts(ramdisk, vesa);
 	TTYManager::get().init(&vesa);
+	log(INFO, "bVideoDriver vptr = %p", *(size_t*)&vesa);
 	
 	PIC pic;
 	IDT::get().init();	
@@ -367,11 +397,15 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	hal::TimerManager::get().register_timer(&pit, 100*tc::us);
 	pit.set_is_scheduler_timer(true);
 
+	log(INFO, "cVideoDriver vptr = %p", *(size_t*)&vesa);
+
 	RTC rtc;
 	rtc.init();
 	hal::ClockManager::get().set_clock(&rtc);
+	log(INFO, "dVideoDriver vptr = %p", *(size_t*)&vesa);
 
 	hal::PS2SubsystemManager::get().init();
+	log(INFO, "eVideoDriver vptr = %p", *(size_t*)&vesa);
 
 	PS2Keyboard keyb;
 	PS2Mouse mouse;
@@ -381,7 +415,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	///TODO: Test for userspace, remove later
 	size_t useraddr = reinterpret_cast<size_t>(fn_user);
 	useraddr = useraddr & 0xFFFFF000;
+	//test_malloc();
 	printf("fn_ptr: %p, useradd: %p\n", fn_user, useraddr);
+	log(INFO, "fVideoDriver vptr = %p", *(size_t*)&vesa);
 	
 	PagingManager::get().map_page(reinterpret_cast<void*>(useraddr - HIGHER_HALF_OFFSET),
 		reinterpret_cast<void*>(useraddr),
@@ -395,6 +431,9 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 
 	hal::PCISubsystemManager::get().init();
 	hal::DiskManager::get().init();
+
+	log(INFO, "gVideoDriver vptr = %p", *(size_t*)&vesa);
+	printf("a\n");
 
 	Task *idleTask = new KernelTask{idle, nullptr};
 	Task *generic = new KernelTask{gen, &mouse};
@@ -412,6 +451,8 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	// Seed RNG
 	srand(time(NULL));
 	Scheduler::get().run();
+	log(INFO, "hVideoDriver vptr = %p", *(size_t*)&vesa);
+	printf("text\n");
 	for(;;) {
 		__asm__ __volatile__("hlt");
 	}

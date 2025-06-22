@@ -37,7 +37,6 @@ void * PagingManager::get_physaddr(void *virtualaddr) {
 	if(!(page_directory[pdindex] & PRESENT)) return 0;
 	uint32_t * page_table = (uint32_t*)((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
 
-	unsigned long *pt = ((unsigned long *)page_table) + (0x0400 * ptindex);
 	if(!(page_table[ptindex] & PRESENT)) return 0;
 
    	return (void *)((page_table[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
@@ -62,6 +61,20 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
 	page_table[ptindex] = (reinterpret_cast<size_t>(physaddr)) | (flags & 0xFFF) | PRESENT; // Present
 
 	//__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
+	tlb_flush();
+}
+
+void PagingManager::unmap(void* virtaddr) {
+	if((size_t)virtaddr % PAGE_SIZE != 0) {
+		kerror("Addresses not page-aligned: %p", virtaddr); return;
+	}
+	size_t pdindex = (size_t)virtaddr >> 22;
+	size_t ptindex = (size_t)virtaddr >> 12 & 0x03FF;
+	if(!(page_directory[pdindex] & PRESENT)) return;
+
+	uint32_t * page_table = reinterpret_cast<uint32_t*>((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
+
+	page_table[ptindex] = 0;
 	tlb_flush();
 }
 
@@ -94,7 +107,6 @@ bool PagingManager::is_mapped(void *addr) {
 	if(!(page_directory[pdindex] & PRESENT)) return false;
 	uint32_t * page_table = (uint32_t*)((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
 
-	unsigned long *pt = ((unsigned long *)page_table) + (0x0400 * ptindex);
 	if(!(page_table[ptindex] & PRESENT)) return false;
 	return true;
 }

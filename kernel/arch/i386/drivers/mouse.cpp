@@ -6,7 +6,7 @@
 
 void PS2Mouse::init() {
 	port = hal::PS2SubsystemManager::get().get_mouse_port();
-	if(port == -1) return; // No mouse connected
+	if(port == (size_t)-1) return; // No mouse connected
 	
 	try_init_wheel();
 	type = hal::PS2SubsystemManager::get().get_device_type(port);

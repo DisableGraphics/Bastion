@@ -1048,6 +1048,7 @@ bool FAT32::opendir(const char* directory, DIR* dir) {
 }
 
 bool FAT32::iter(DIR* dir, dirent* dirent) {
+	printf("a");
 	Buffer<uint8_t> buffer(cluster_size);
 	if(!load_cluster(dir->d_curino, buffer)) return false;
 	const size_t nentriespercluster = cluster_size / ENTRY_SIZE;
@@ -1083,6 +1084,7 @@ bool FAT32::iter(DIR* dir, dirent* dirent) {
 				dirent->d_ino = props.st_ino;
 				dirent->d_type = (entryattr == FAT_FLAGS::DIRECTORY) ? DT_DIR : (entryattr == FAT_FLAGS::ARCHIVE ? DT_REG : DT_UNKNOWN);
 				dir->d_curentry = i + 1;
+				printf("b");
 				return true;
 			}
 		}

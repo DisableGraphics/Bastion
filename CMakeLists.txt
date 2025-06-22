@@ -13,10 +13,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_ASM_FLAGS "-g")
 set(CMAKE_C_FLAGS "-g -static-libgcc -Ofast -ffreestanding -nostdlib -lgcc -msse -msse2 \
 -ffast-math -flto -funroll-loops -mfpmath=sse -fno-strict-aliasing -ftree-vectorize -fno-tree-slp-vectorize \
--fgcse-sm -fgcse-las -fstack-protector")
+-fgcse-sm -fgcse-las -fstack-protector -Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS "-g -static-libgcc -Ofast -ffreestanding -nostdlib -lgcc -msse \
 -funroll-loops -mfpmath=sse -fno-strict-aliasing -ftree-vectorize -fno-tree-slp-vectorize \
--fgcse-sm -fgcse-las -fstack-protector")
+-fgcse-sm -fgcse-las -fstack-protector -Wall -Wextra -Wpedantic")
+
 
 set(SYMBOL_TABLE_C ${CMAKE_BINARY_DIR}/symbol_table.c)
 set(TEMP_ELF ${CMAKE_BINARY_DIR}/${EXEC_NAME}.tmp)

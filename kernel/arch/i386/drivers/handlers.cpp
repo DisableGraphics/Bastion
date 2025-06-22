@@ -7,6 +7,7 @@
 #include "../defs/regs/regs.h"
 #include <kernel/scheduler/scheduler.hpp>
 #include <kernel/kernel/stable.h>
+#include <kernel/memory/mmanager.hpp>
 
 struct interrupt_frame
 {
@@ -110,6 +111,8 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	log(ERROR, "IRQLINE (if in interrupt, else -1): %d", hal::IRQControllerManager::get().get_current_handled_irqline());
 	log(ERROR, "Tried to access %p, which is not a mapped address", faulting_address);
 	log(ERROR, "Instruction pointer: %p", eip);
+	log(ERROR, "CS: %p", ifr->cs);
+	log(ERROR, "Eflags: %p", ifr->eflags);
 
 	Task* current_task;
 
@@ -124,9 +127,11 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	log(ERROR, "EDI: %p", r.edi);
 	log(ERROR, "ESI: %p", r.esi);
 
-	print_disassemble(reinterpret_cast<void*>(eip-32), 48, reinterpret_cast<void*>(eip));
-
 	log(ERROR, "Crashed at: %s", find_function_name(eip));
+
+	MemoryManager::get().dump_recent_allocs();
+
+	print_disassemble(reinterpret_cast<void*>(eip-32), 48, reinterpret_cast<void*>(eip));	
 
 	IDT::disable_interrupts();
 	halt();

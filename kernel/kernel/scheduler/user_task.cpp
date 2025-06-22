@@ -82,6 +82,13 @@ void UserTask::setup_pages(void (*fn)(void*), void* args) {
 	log(INFO, "User ESP: %p", user_esp);
 	for(size_t i = 0; i < 4; i++)
 		log(INFO, "User: %p: %p", user_esp + (i*4), *(reinterpret_cast<void**>(sptr)+i));
+
+	uintptr_t pde = (uintptr_t)page_directory[(0xC0810020 >> 22)];
+	uintptr_t* pte = reinterpret_cast<uintptr_t*>(pde & ~0xFFF);
+	uintptr_t* pte2 = (uintptr_t*)((uint8_t*)pte + HIGHER_HALF_OFFSET);
+	uintptr_t entry = pte2[(0xC0810020 >> 12) & 0x3FF];
+	log(INFO, "Backbuffer PTE: %p", entry);
+
 }
 
 UserTask::~UserTask() {

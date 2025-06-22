@@ -38,12 +38,15 @@ class MemoryManager {
 			\return The address of the first page or NULL
 			if there isn't any memory left		 */
 		void * alloc_pages(size_t pages, size_t map_flags = READ_WRITE);
+		void* alloc_pages_debug(size_t pages, size_t map_flags);
+		void dump_recent_allocs();
 		/**
 			\brief Free pages continuous pages.
 			\param start Address of the first page.
 			\param pages Number of pages to free.
 		 */
 		void free_pages(void *start, size_t pages);
+		void free_pages_debug(void *start, size_t pages);
 		/**
 			\brief Get used regions.
 		 */
@@ -76,11 +79,9 @@ class MemoryManager {
 		bitmap_t *pages_bitmap = nullptr;
 		/**
 			\brief bitmap_size: size of the bitmap in bytes.
-			bitmap_n: Number of bitmap_t's in the bitmap.
 			bitmap_size_pages: size of the bitmap in pages.
 		 */
-		size_t bitmap_size = 0;
-		size_t bitmap_n = 0;
+		size_t bitmap_size_bytes = 0;
 		size_t bitmap_size_pages = 0;
 		// Size of the page tables vector in bytes
 		size_t pagevec_size = 0;
@@ -88,6 +89,7 @@ class MemoryManager {
 		// 32 used region blocks. Should be enough.
 		used_region used_regions[32];
 		size_t ureg_size = 0;
+		constexpr static size_t bits_per_bitmap_entry = sizeof(bitmap_t) * BITS_PER_BYTE;
 		
 		MemoryManager() {
 			memset(used_regions, 0, sizeof(used_regions));

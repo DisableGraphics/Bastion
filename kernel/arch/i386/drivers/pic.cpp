@@ -81,7 +81,7 @@ void PIC::enable_irq(size_t IRQline) {
 	outb(port, value);
 }
 
-void PIC::ack(size_t irqline) {
+void PIC::ack(size_t) {
 	// Does nothing, since acknowledgement is not something in the PIC world
 }
 
@@ -139,11 +139,10 @@ void PIC::register_driver(hal::Driver* driver, size_t irqline) {
 	}
 }
 
-size_t PIC::assign_irq(hal::Driver* device) {
+size_t PIC::assign_irq(hal::Driver*) {
 	static size_t last_irq = -1;
 	// Mandatorily reserved IRQs for the OS to work properly
 	// PIT, Keyboard, RTC & mouse in that order
-	const static size_t reserved_irqs[] = {0,1,8,12};
 	last_irq++;
 	switch (last_irq) {
 		case 0:

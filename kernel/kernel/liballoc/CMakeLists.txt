@@ -1,1 +1,1 @@
-target_sources(kernel_obj PRIVATE liballoc.c liballoc_hooks.cpp)
+target_sources(kernel_obj PRIVATE liballoc_hooks.cpp liballoc.c)

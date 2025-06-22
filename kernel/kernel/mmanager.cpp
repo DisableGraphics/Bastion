@@ -78,14 +78,15 @@ MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
 	bitmap_t* nextpage = reinterpret_cast<bitmap_t*>(INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET);
 	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
 	constexpr size_t pages_divisor = divisor * PAGE_SIZE;
-	bitmap_size = memsize / divisor;
-	bitmap_n = memsize / sizeof(bitmap_t);
+	bitmap_size_bytes = memsize / divisor;
 	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
 	// Size of the initial mapping inside the bitmap
 	const size_t orig_map_size_in_bitmap = INITIAL_MAPPING_WITHHEAP / divisor;
 
+	memset(nextpage, 0, bitmap_size_pages*PAGE_SIZE);
+
 	// Fill already allocated regions with ones
-	bitmap_t* addr = reinterpret_cast<bitmap_t*>(reinterpret_cast<uint8_t*>(nextpage) + orig_map_size_in_bitmap);
+	bitmap_t* addr = reinterpret_cast<bitmap_t*>(reinterpret_cast<uintptr_t>(nextpage) + orig_map_size_in_bitmap);
 	for (bitmap_t *disp = nextpage; disp < addr; disp++) *disp = -1;
 
 	// Mark these addresses as used
@@ -105,13 +106,11 @@ void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
 	size_t consecutive_free = 0;
 	size_t start_page = 0;
 
-	constexpr size_t bitmap_size_bits = sizeof(bitmap_t) * BITS_PER_BYTE;
-
 	for (size_t i = 0; i < total_pages; ++i) {
-		size_t bit_index = i % bitmap_size_bits;
-		size_t byte_index = i / bitmap_size_bits;
+		size_t bit_index = i % bits_per_bitmap_entry;
+		size_t byte_index = i / bits_per_bitmap_entry;
 		// Check if the page is free in the bitmap
-		if ((pages_bitmap[byte_index] & (1 << bit_index)) == 0) {
+		if ((pages_bitmap[byte_index] & (static_cast<bitmap_t>(1) << bit_index)) == 0) {
 			if (consecutive_free == 0) {
 				start_page = i;
 			}
@@ -128,18 +127,20 @@ void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
 
 	// If no suitable range was found, return NULL
 	if (consecutive_free < pages) {
+		log(INFO, "Not enough free pages");
 		return nullptr;
 	}
 
 	// Calculate the start address of the found pages
-	void *start_addr = reinterpret_cast<void *>((start_page * PAGE_SIZE) + HIGHER_HALF_OFFSET);
+	void *start_addr = reinterpret_cast<void *>((start_page * PAGE_SIZE));
 
 	// Verify the address range does not overlap with used regions
 	for (size_t i = 0; i < ureg_size; ++i) {
 		for (size_t offset = 0; offset < pages; ++offset) {
-			void *current_addr = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(start_addr) + offset * PAGE_SIZE);
+			void *current_addr = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(start_addr) + HIGHER_HALF_OFFSET + offset * PAGE_SIZE);
 			if (used_regions[i].contains(current_addr)) {
 				// Address range invalid, abort allocation
+				log(INFO, "Address range invalid");
 				return nullptr;
 			}
 		}
@@ -148,38 +149,45 @@ void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
 	// Mark the pages as allocated in the bitmap
 	for (size_t i = 0; i < pages; ++i) {
 		size_t page_index = start_page + i;
-		pages_bitmap[page_index / bitmap_size_bits] |= (1 << (page_index % bitmap_size_bits));
+		pages_bitmap[page_index / bits_per_bitmap_entry] |= (static_cast<bitmap_t>(1) << (page_index % bits_per_bitmap_entry));
 		size_t addr = reinterpret_cast<size_t>(start_addr) + i * PAGE_SIZE;
-		void *current_addr = reinterpret_cast<void *>(addr - HIGHER_HALF_OFFSET);
-		void *virtuaddr = reinterpret_cast<void*>(addr);
-
+		void *current_addr = reinterpret_cast<void *>(addr);
+		void *virtuaddr = reinterpret_cast<void*>(addr + HIGHER_HALF_OFFSET);
+		log(INFO, "%p -> %p", virtuaddr, current_addr);
 		pm.map_page(current_addr, virtuaddr, map_flags);
 	}
-	return start_addr;
+	log(INFO, "Allocated %d pages from %p", pages, start_addr);
+	return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(start_addr) + HIGHER_HALF_OFFSET);
 }
 
 
 void MemoryManager::free_pages(void *start, size_t pages) {
+	log(INFO, "Freeing from %p %d pages", start, pages);
 	uintptr_t address = reinterpret_cast<uintptr_t>(start);
 	size_t page_number = address / PAGE_SIZE;
-	// Check wether this overlaps with a used region
+	// Check whether this overlaps with a used region
 	// You should NEVER free a page here since the next
 	// time you call alloc_pages(1) this will have
 	// an aneuyrism
 	for(size_t i = 0; i < ureg_size; i++) {
 		auto & invaddress = used_regions[i];
-		if(invaddress.contains(start)) return;
+		if(invaddress.contains(reinterpret_cast<void*>((size_t)start + HIGHER_HALF_OFFSET))) {
+			log(ERROR, "Tried to free %p, contained between %p and %p", start, invaddress.begin, invaddress.end);
+			return;
+		}
 	}
 
-	size_t byte_index = page_number / 8;
-	size_t bit_index = page_number % 8;
+	size_t byte_index = page_number / bits_per_bitmap_entry;
+	size_t bit_index = page_number % bits_per_bitmap_entry;
 	// Go around marking pages as deallocated
 	for(size_t i = 0; i < pages; i++) {
-		uint8_t val = ~(1 << bit_index);
+		bitmap_t val = ~(1 << bit_index);
 		pages_bitmap[byte_index] &= val;
 
 		bit_index++;
-		if(bit_index >= 8) {
+
+		PagingManager::get().unmap(reinterpret_cast<void*>(address + HIGHER_HALF_OFFSET + i*PAGE_SIZE));
+		if(bit_index >= bits_per_bitmap_entry) {
 			bit_index = 0;
 			byte_index++;
 		}
@@ -228,6 +236,7 @@ void MemoryManager::alloc_pagevec() {
 			pm.map_page(reinterpret_cast<void*>(offset), reinterpret_cast<void*>(offset + HIGHER_HALF_OFFSET), READ_WRITE);
 		}
 	}
+	memset((void*)vector_addr, 0, bitmap_pages_bytes);
 }
 
 used_region * MemoryManager::get_used_regions() {
@@ -236,4 +245,44 @@ used_region * MemoryManager::get_used_regions() {
 
 size_t MemoryManager::get_used_regions_size() {
 	return ureg_size;
+}
+
+struct AllocationTrace {
+	size_t n;
+	void* address;
+	size_t pages;
+	const char* tag;
+};
+
+constexpr size_t MAX_ALLOCS = 1024;
+AllocationTrace shadow_allocs[MAX_ALLOCS];
+size_t shadow_alloc_count = 0;
+
+void* MemoryManager::alloc_pages_debug(size_t pages, size_t map_flags) {
+	void* ptr = alloc_pages(pages, map_flags);
+	if (ptr) {
+		
+		shadow_allocs[shadow_alloc_count++ % MAX_ALLOCS] = {
+			shadow_alloc_count - 1, ptr, pages, "alloc_pages",
+		};
+	}
+	return ptr;
+}
+
+void MemoryManager::free_pages_debug(void *start, size_t pages) {
+	free_pages(start, pages);
+	if (start) {
+		shadow_allocs[shadow_alloc_count++ % MAX_ALLOCS] = {
+			shadow_alloc_count - 1, (void*)((uintptr_t)start + HIGHER_HALF_OFFSET), pages, "free_pages",
+		};
+	}
+}
+
+void MemoryManager::dump_recent_allocs() {
+	log(ERROR, "=== Last %d tracked allocations ===", shadow_alloc_count);
+	for (size_t i = 0; i < shadow_alloc_count; ++i) {
+		auto& entry = shadow_allocs[i];
+		log(ERROR, "[%d] |%s| %p (%d pages)", 
+			i, entry.tag, entry.address, entry.pages);
+	}
 }

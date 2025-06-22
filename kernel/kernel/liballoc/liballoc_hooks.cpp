@@ -4,22 +4,22 @@
 
 SpinLock mtx;
 
-int liballoc_lock() {
+extern "C" int liballoc_lock() {
 	mtx.lock();
 	return 0;
 }
 
-int liballoc_unlock() {
+extern "C" int liballoc_unlock() {
 	mtx.unlock();
 	return 0;
 }
 
-void *liballoc_alloc(int pages) {
-	return MemoryManager::get().alloc_pages(pages);
+extern "C" void *liballoc_alloc(int pages) {
+	return MemoryManager::get().alloc_pages_debug(pages, READ_WRITE);
 }
 
-int liballoc_free(void* start, int pages) {
-	MemoryManager::get().free_pages(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(start) - HIGHER_HALF_OFFSET), pages);
+extern "C" int liballoc_free(void* start, int pages) {
+	MemoryManager::get().free_pages_debug(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(start) - HIGHER_HALF_OFFSET), pages);
 	return 0;
 }
 

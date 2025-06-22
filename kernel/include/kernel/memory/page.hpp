@@ -75,6 +75,8 @@ class PagingManager {
 		*/
 		bool enable_pat_if_it_exists();
 
+		void unmap(void* virtaddr);
+
 		void* get_page_directory();
 	private:
 		// Kernel page directory

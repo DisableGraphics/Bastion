@@ -20,6 +20,7 @@
 			squish8_to_size(c.r, red_size), \
 			squish8_to_size(c.g, green_size), \
 			squish8_to_size(c.b, blue_size), \
+			255\
 		}; \
 		uint16_t dest = 0; \
 		dest |= squished.r << red_pos; \
@@ -60,7 +61,6 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	// The reason for the WRITE_THROUGH bit is that the PAT region is the region #1,
 	// which requires bit 1 for PAT active (WRITE_THROUGH)
 	bool is_pat_enabled = PagingManager::get().enable_pat_if_it_exists();
-	auto fbsize_pages = (scrsize + PAGE_SIZE - 1)/PAGE_SIZE;
 	auto fbsize_regions = (scrsize + REGION_SIZE - 1)/REGION_SIZE;
 	if(!PagingManager::get().page_table_exists(reinterpret_cast<void*>(framebuffer))) {
 		for(size_t region = 0; region < fbsize_regions; region++) {
@@ -68,7 +68,7 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 			void* fbaddroff = reinterpret_cast<void*>(framebuffer + region*REGION_SIZE);
 			PagingManager::get().new_page_table(newpagetable, 
 				fbaddroff);
-			for(auto pages = 0; pages < PAGE_SIZE; pages++) {
+			for(size_t pages = 0; pages < PAGE_SIZE; pages++) {
 				void* fbaddroff_p = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(fbaddroff) + pages*PAGE_SIZE);
 				PagingManager::get().map_page(fbaddroff_p, 
 					fbaddroff_p, 
@@ -132,6 +132,9 @@ VESADriver::VESADriver(uint8_t* framebuffer,
 	for(size_t i = 0; i < height; i++) {
 		row_pointers[i] = pitch*i;
 	}
+	log(INFO, "Finished with vesa");
+	log(INFO, "VideoDriver vptr = %p", *(size_t*)this);
+
 }
 
 void VESADriver::init() {
@@ -171,13 +174,13 @@ void VESADriver::draw_rectangle(int x1, int y1, int x2, int y2, hal::color c) {
 }
 
 void VESADriver::draw_pixels(int x1, int y1, int w, int h, uint8_t* data) {
-	if (x1 >= width || y1 >= height || w <= 0 || h <= 0) return;
+	if (x1 >= (int)width || y1 >= (int)height || w <= 0 || h <= 0) return;
 	dirty = true;
-	if(y1 + h >= height) {
+	if(y1 + h >= (int)height) {
 		h = height - y1;
 	}
 	int ww = w;
-	if(x1 + w >= width) {
+	if(x1 + w >= (int)width) {
 		ww = width - x1;
 		log(INFO, "Changed width from %d to %d %d", w, ww, ww+x1);
 	}
@@ -215,7 +218,7 @@ void VESADriver::clear(hal::color c) {
 				if (!dirty_tiles_for_clear[index])
 					continue;
 				int x0 = x << TILE_SIZE_DISP;
-				for (int ty = 0; ty < TILE_SIZE; ty++) {
+				for (size_t ty = 0; ty < TILE_SIZE; ty++) {
 					uint8_t* row = backbuffer + (y0 + ty) * pitch + (x0 << depth_disp);
 					fast_clear(color, row, TILE_SIZE << depth_disp);
 				}

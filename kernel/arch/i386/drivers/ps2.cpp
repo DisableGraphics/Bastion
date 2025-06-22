@@ -132,8 +132,6 @@ void hal::PS2SubsystemManager::enable_devices() {
 }
 
 void hal::PS2SubsystemManager::reset_and_detect_devices() {
-	
-	uint32_t handle;
 	for(int i = 0; i < (has_two_channels ? 2 : 1); i++) {
 		int port = i+1;
 		hal::TimerManager::get().exec_at(2*tc::s, on_timeout_expire, this);
@@ -185,7 +183,6 @@ hal::PS2SubsystemManager::DeviceType hal::PS2SubsystemManager::get_device_type(i
 			response = inb(DATA_PORT);
 			if(response == 0xAB || response == 0xAC) {
 				log(INFO, "Keyboard connected to PS/2 port %d", port);
-				uint8_t response_first = response;
 				response = inb(DATA_PORT);
 				switch(response) {
 					case 0x83:

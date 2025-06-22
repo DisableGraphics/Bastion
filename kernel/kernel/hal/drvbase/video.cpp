@@ -21,6 +21,7 @@ hal::VideoDriver::VideoDriver(uint8_t* framebuffer,
 	backbuffer = reinterpret_cast<uint8_t*>(kcalloc(scrsize, sizeof(*backbuffer)));
 	dirty_tiles = reinterpret_cast<bool*>(kcalloc(ntiles, sizeof(bool)));
 	dirty_tiles_for_clear = reinterpret_cast<bool*>(kcalloc(ntiles, sizeof(bool)));
+	log(INFO, "%p %p %p %p", row_pointers, backbuffer, dirty_tiles, dirty_tiles_for_clear);
 }
 
 void hal::VideoDriver::init(tc::timertime interval) {

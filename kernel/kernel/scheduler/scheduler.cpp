@@ -134,5 +134,7 @@ void Scheduler::terminate() {
 }
 
 Task* Scheduler::get_current_task() {
-	return *current_task;
+	if(current_task)
+		return *current_task;
+	return nullptr;
 }

@@ -1,4 +1,5 @@
 #include <kernel/hal/managers/timermanager.hpp>
+#include <kernel/kernel/log.hpp>
 
 hal::TimerManager& hal::TimerManager::get() {
 	static TimerManager instance;
@@ -17,6 +18,7 @@ hal::Timer* hal::TimerManager::get_timer(size_t pos) {
 void hal::TimerManager::exec_at(uint32_t us, void (*fn)(volatile void*), volatile void* args) {
 	static int seltimer = 0;
 	if(timers.size() > 0) {
+		log(INFO, "Executing %p(%p) in %dus in the future", fn, args, us);
 		timers[seltimer]->exec_at(us, fn, args);
 	}
 
