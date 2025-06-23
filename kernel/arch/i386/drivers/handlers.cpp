@@ -107,18 +107,11 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	const char * user = (ecode & 0x4) ? "User" : "Kernel";
 	const char * instruction = (ecode & 0x10) ? "Fetch" : "No fetch"; 
 	log(ERROR,"Page fault: %s %s %s %s", prot_type, rw, user, instruction);
-	log(ERROR, "%s interrupt", hal::IRQControllerManager::get().in_interrupt() ? "In" : "Not in");
-	log(ERROR, "IRQLINE (if in interrupt, else -1): %d", hal::IRQControllerManager::get().get_current_handled_irqline());
+	
 	log(ERROR, "Tried to access %p, which is not a mapped address", faulting_address);
 	log(ERROR, "Instruction pointer: %p", eip);
 	log(ERROR, "CS: %p", ifr->cs);
 	log(ERROR, "Eflags: %p", ifr->eflags);
-
-	Task* current_task;
-
-	if((current_task = Scheduler::get().get_current_task())) {
-		log(ERROR, "Current task: %d", current_task->id);
-	}
 
 	log(ERROR, "EAX: %p", r.eax);
 	log(ERROR, "EBX: %p", r.ebx);
@@ -130,6 +123,15 @@ void IDT::page_fault_handler(interrupt_frame* ifr, unsigned int ecode) {
 	log(ERROR, "Crashed at: %s", find_function_name(eip));
 
 	MemoryManager::get().dump_recent_allocs();
+
+	log(ERROR, "%s interrupt", hal::IRQControllerManager::get().in_interrupt() ? "In" : "Not in");
+	log(ERROR, "IRQLINE (if in interrupt, else -1): %d", hal::IRQControllerManager::get().get_current_handled_irqline());
+
+	Task* current_task;
+
+	if((current_task = Scheduler::get().get_current_task())) {
+		log(ERROR, "Current task: %d", current_task->id);
+	}
 
 	print_disassemble(reinterpret_cast<void*>(eip-32), 48, reinterpret_cast<void*>(eip));	
 

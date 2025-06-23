@@ -60,8 +60,7 @@ void PagingManager::map_page(void *physaddr, void *virtualaddr, unsigned int fla
 
 	page_table[ptindex] = (reinterpret_cast<size_t>(physaddr)) | (flags & 0xFFF) | PRESENT; // Present
 
-	//__asm__ __volatile__("invlpg (%0)" ::"r" (virtualaddr) : "memory");
-	tlb_flush();
+	asm volatile("invlpg (%0)" ::"r"(virtualaddr) : "memory");
 }
 
 void PagingManager::unmap(void* virtaddr) {
@@ -75,7 +74,7 @@ void PagingManager::unmap(void* virtaddr) {
 	uint32_t * page_table = reinterpret_cast<uint32_t*>((page_directory[pdindex] & ~0xFFF) + HIGHER_HALF_OFFSET);
 
 	page_table[ptindex] = 0;
-	tlb_flush();
+	asm volatile("invlpg (%0)" ::"r"(virtaddr) : "memory");
 }
 
 void PagingManager::set_global_options(void* virtualaddr, unsigned int flags) {
@@ -92,9 +91,7 @@ void PagingManager::new_page_table(void *pt_addr, void *begin_with) {
 	uint32_t * page_table = reinterpret_cast<uint32_t*>(pt_addr);
 	unsigned long pdindex = (unsigned long)begin_with >> 22;
 
-	for(size_t i = 0; i < 1024; i++) {
-		page_table[i] = 0;
-	}
+	memset(page_table, 0, PAGE_SIZE);
 	page_directory[pdindex] = (reinterpret_cast<uint32_t> (pt_addr) - HIGHER_HALF_OFFSET) | (READ_WRITE | PRESENT);
 
 	tlb_flush();

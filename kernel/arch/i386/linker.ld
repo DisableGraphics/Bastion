@@ -38,5 +38,5 @@ SECTIONS
 		*(.bootstrap_stack)
 	}
 	/* Add a symbol that indicates the end address of the kernel. */
-	_kernel_end = .;
+	kernel_end = .;
 }

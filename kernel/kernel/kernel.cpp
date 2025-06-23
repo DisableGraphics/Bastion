@@ -360,6 +360,7 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	MemoryManager::get().init(mbd, magic);
 	Serial::get().init();
 	GDT::get().init();
+	IDT::get().init();
 
 	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
 
@@ -389,7 +390,6 @@ extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
 	log(INFO, "bVideoDriver vptr = %p", *(size_t*)&vesa);
 	
 	PIC pic;
-	IDT::get().init();	
 	hal::IRQControllerManager::get().init();
 	hal::IRQControllerManager::get().register_controller(&pic);
 	PIT pit;
