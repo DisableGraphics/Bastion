@@ -62,7 +62,7 @@ rm -f ramdisk.tar
 
 echo "Installing grub so disk is bootable"
 sudo grub-install --no-floppy --grub-mkdevicemap=device.map --target=i386-pc \
-    --install-modules="normal multiboot" --themes="" --locales "" --boot-directory="$MOUNT_DIR" "$LOOP_DEVICE"
+    --install-modules="normal multiboot multiboot2" --themes="" --locales "" --boot-directory="$MOUNT_DIR" "$LOOP_DEVICE"
 
 echo "Deleting device map"
 rm device.map

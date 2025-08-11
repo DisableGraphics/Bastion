@@ -31,4 +31,5 @@ with open(output_file, 'w') as out:
 		}
 	}
 	return kernel_symbols[kernel_symbol_count - 1].name;
-}''')
+}
+''')

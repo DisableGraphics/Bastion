@@ -1,4 +1,3 @@
-#include "multiboot/multiboot.h"
 #include <stddef.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -14,47 +13,39 @@
 #include "../arch/i386/defs/sizes/max_addr_size.hpp"
 #endif
 
-extern uint32_t endkernel;
+extern uint32_t kernel_end;
+extern uint32_t _kernel_start;
 
 MemoryManager &MemoryManager::get() {
 	static MemoryManager instance;
 	return instance;
 }
 
-void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
-	if(magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-		kn::panic("invalid magic number!");
-	}
-	size_t newaddr = reinterpret_cast<size_t>(mbd) + HIGHER_HALF_OFFSET;
-	multiboot_info_t * map = reinterpret_cast<multiboot_info_t*>(newaddr);
-	if(!(map->flags >> 6 & 0x1)) {
-		kn::panic("Invalid memory map");
-	}
+void MemoryManager::init(const multiboot_tag_mmap* mbd, const void* last_module_addr) {
+	this->last_module_addr = last_module_addr;
+	// entries size and total size (excluding first 16 bytes of the tag)
+	uint32_t entry_size = mbd->entry_size;
+	uint32_t entries_size = mbd->size - sizeof(multiboot_tag_mmap);
+	auto mbd2 = const_cast<multiboot_tag_mmap*>(mbd);
 
-	for(unsigned i = 0; i < map->mmap_length; 
-		i += sizeof(multiboot_memory_map_t)) 
-	{
-		multiboot_memory_map_t* mmmt = 
-			(multiboot_memory_map_t*) (map->mmap_addr + i + HIGHER_HALF_OFFSET);
+	for (uint32_t offset = 0; offset < entries_size; offset += entry_size) {
+		// Cast entries pointer + offset to an mmap entry pointer
+		auto mmmt = reinterpret_cast<multiboot_mmap_entry*>(
+			reinterpret_cast<uint8_t*>(mbd2->entries) + offset);
 
 		memsize += mmmt->len;
 
-		// Tell the kernel that there is a bunch of available memory
-		// in here
-		if(mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
-			// Below one megabyte lies the real memory region,
-			// which seems to be a pita to reclaim, so skip it
-			if((size_t)mmmt->addr < ONE_MEG) {
+		if (mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
+			if (mmmt->addr < ONE_MEG) {
 				continue;
 			}
+			// Handle available memory region here if you want
 		} else {
-			void * begin = reinterpret_cast<void*>(mmmt->addr + HIGHER_HALF_OFFSET);
-			uint8_t* end = reinterpret_cast<uint8_t*>(
-				reinterpret_cast<uintptr_t>(begin) + static_cast<size_t>(mmmt->len));
-			used_regions[ureg_size++] = { 
-				begin, 
-				end-1
-			};
+			// Non-available memory region: mark as used region
+			virtaddr_t begin = reinterpret_cast<virtaddr_t>((size_t)mmmt->addr + HIGHER_HALF_OFFSET);
+			virtaddr_t end = reinterpret_cast<virtaddr_t>(
+				begin + static_cast<size_t>(mmmt->len));
+			used_regions[ureg_size++] = { (void*)begin, (void*)(end - 1) };
 		}
 	}
 
@@ -71,37 +62,54 @@ void MemoryManager::init(multiboot_info_t* mbd, unsigned int magic) {
 	//PagingManager::get().heap_ready();
 }
 
-extern uint8_t kernel_end;
+MemoryManager::bitmap_t* MemoryManager::alloc_bitmap() {
+	// Calculate kernel address range
+	auto kstaaddr = reinterpret_cast<virtaddr_t>(&_kernel_start);
+	auto kendaddr = reinterpret_cast<virtaddr_t>(&kernel_end > last_module_addr ? &kernel_end : last_module_addr);
+	size_t kernel_size = kendaddr - kstaaddr;
+	size_t kernel_pages = (kernel_size + PAGE_SIZE - 1) / PAGE_SIZE;
+	size_t kernel_size_rounded_pages = kernel_pages * PAGE_SIZE;
 
-MemoryManager::bitmap_t * MemoryManager::alloc_bitmap() {
-	// Get the address of the shitty heap I made
-	// TODO: this explodes with more than 128 TiB - 4MiB of RAM,
-	// allocate new regions if needed.
-	bitmap_t* nextpage = reinterpret_cast<bitmap_t*>(INITIAL_MAPPING_NOHEAP + HIGHER_HALF_OFFSET);
-	if((bitmap_t*)&kernel_end > nextpage) {
-		kn::panic("Kernel end is after nextpage. You should remap it.");
+	log(INFO, "Kernel size: %p bytes (%d pages)", kernel_size, kernel_pages);
+
+	// Calculate number of pages in the system
+	size_t num_pages = memsize / PAGE_SIZE;
+
+	// Calculate bitmap size in bytes and pages (1 bit per page)
+	bitmap_size_bytes = (num_pages + 7) / 8;
+	bitmap_size_pages = (bitmap_size_bytes + PAGE_SIZE - 1) / PAGE_SIZE;
+
+	// Place the bitmap right after the kernel in memory, aligned to PAGE_SIZE
+	bitmap_t* bitmap_start = reinterpret_cast<bitmap_t*>(
+		((kendaddr + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE
+	);
+	log(INFO, "Bitmap start address: %p", bitmap_start);
+
+	// Clear bitmap memory
+	memset(bitmap_start, 0, bitmap_size_pages * PAGE_SIZE);
+
+	// Calculate how many bitmap_t entries correspond to kernel pages
+	constexpr size_t bits_per_entry = sizeof(bitmap_t) * 8;
+	size_t kernel_bitmap_entries = (kernel_pages + bits_per_entry - 1) / bits_per_entry;
+
+	// Mark kernel pages as used (set bits to 1)
+	for (size_t i = 0; i < kernel_bitmap_entries; i++) {
+		bitmap_start[i] = (bitmap_t)(~0);
 	}
-	constexpr size_t divisor = PAGE_SIZE * BITS_PER_BYTE;
-	constexpr size_t pages_divisor = divisor * PAGE_SIZE;
-	bitmap_size_bytes = memsize / divisor;
-	bitmap_size_pages = (memsize + pages_divisor - 1) / pages_divisor;
-	// Size of the initial mapping inside the bitmap
-	const size_t orig_map_size_in_bitmap = INITIAL_MAPPING_WITHHEAP / divisor;
 
-	memset(nextpage, 0, bitmap_size_pages*PAGE_SIZE);
-
-	// Fill already allocated regions with ones
-	bitmap_t* addr = reinterpret_cast<bitmap_t*>(reinterpret_cast<uintptr_t>(nextpage) + orig_map_size_in_bitmap);
-	for (bitmap_t *disp = nextpage; disp < addr; disp++) *disp = -1;
-
-	// Mark these addresses as used
+	// Add kernel memory range to used_regions (inclusive)
 	used_regions[ureg_size++] = {
 		reinterpret_cast<void*>(HIGHER_HALF_OFFSET),
-		reinterpret_cast<void*>(INITIAL_MAPPING_WITHHEAP + HIGHER_HALF_OFFSET - 1)
+		reinterpret_cast<void*>(HIGHER_HALF_OFFSET + kernel_size_rounded_pages + bitmap_size_pages*PAGE_SIZE - 1)
 	};
 
-	return nextpage;
+	log(INFO, "Marked used region: %p - %p", 
+		(void*)HIGHER_HALF_OFFSET,
+		(void*)(HIGHER_HALF_OFFSET + kernel_size_rounded_pages + bitmap_size_pages*PAGE_SIZE - 1));
+
+	return bitmap_start;
 }
+
 
 void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
 	// Total number of pages in the system
@@ -113,9 +121,9 @@ void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
 
 	for (size_t i = 0; i < total_pages; ++i) {
 		size_t bit_index = i % bits_per_bitmap_entry;
-		size_t byte_index = i / bits_per_bitmap_entry;
+		size_t bitmap_index = i / bits_per_bitmap_entry;
 		// Check if the page is free in the bitmap
-		if ((pages_bitmap[byte_index] & (static_cast<bitmap_t>(1) << bit_index)) == 0) {
+		if ((pages_bitmap[bitmap_index] & (static_cast<bitmap_t>(1) << bit_index)) == 0) {
 			if (consecutive_free == 0) {
 				start_page = i;
 			}
@@ -136,37 +144,46 @@ void *MemoryManager::alloc_pages(size_t pages, size_t map_flags) {
 		return nullptr;
 	}
 
+	auto& pm = PagingManager::get();
+
 	// Calculate the start address of the found pages
-	void *start_addr = reinterpret_cast<void *>((start_page * PAGE_SIZE));
+	auto start_addr = reinterpret_cast<physaddr_t>((start_page * PAGE_SIZE));
 	// Mark the pages as allocated in the bitmap
 	for (size_t i = 0; i < pages; ++i) {
 		size_t page_index = start_page + i;
+		if((page_index / bits_per_bitmap_entry) >= bitmap_size_bytes) {
+			kn::panic("Tried to access invalid position in the bitmap");
+		}
 		pages_bitmap[page_index / bits_per_bitmap_entry] |= (static_cast<bitmap_t>(1) << (page_index % bits_per_bitmap_entry));
-		size_t addr = reinterpret_cast<size_t>(start_addr) + i * PAGE_SIZE;
-		void *current_addr = reinterpret_cast<void *>(addr);
-		void *virtuaddr = reinterpret_cast<void*>(addr + HIGHER_HALF_OFFSET);
-		log(INFO, "%p -> %p", virtuaddr, current_addr);
+		physaddr_t addr = start_addr + i * PAGE_SIZE;
+		physaddr_t current_addr = reinterpret_cast<physaddr_t>(addr);
+		virtaddr_t virtuaddr = reinterpret_cast<virtaddr_t>(addr + HIGHER_HALF_OFFSET);
+		log(INFO, "(real) %p -> (virtual) %p", current_addr, virtuaddr)
+		
+		pm.map_page((void*)current_addr, (void*)virtuaddr, READ_WRITE);
 	}
 	log(INFO, "Allocated %d pages from %p", pages, start_addr);
-	return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(start_addr) + HIGHER_HALF_OFFSET);
+	return reinterpret_cast<void*>(start_addr + HIGHER_HALF_OFFSET);
 }
 
 
 void MemoryManager::free_pages(void *start, size_t pages) {
 	log(INFO, "Freeing from %p %d pages", start, pages);
-	uintptr_t address = reinterpret_cast<uintptr_t>(start);
+	auto& pm = PagingManager::get();
+	physaddr_t address = reinterpret_cast<physaddr_t>(start) - HIGHER_HALF_OFFSET;
 	size_t page_number = address / PAGE_SIZE;
-	size_t byte_index = page_number / bits_per_bitmap_entry;
+	size_t entry_index = page_number / bits_per_bitmap_entry;
 	size_t bit_index = page_number % bits_per_bitmap_entry;
 	// Go around marking pages as deallocated
-	for(size_t i = 0; i < pages; i++) {
-		bitmap_t val = ~(1 << bit_index);
-		pages_bitmap[byte_index] &= val;
-
+	for(size_t i = 0; i < pages; i++, address += PAGE_SIZE) {
+		bitmap_t mask = ~(static_cast<bitmap_t>(1) << bit_index);
+		pages_bitmap[entry_index] &= mask;
+		virtaddr_t virtual_addr = address + HIGHER_HALF_OFFSET;
+		pm.unmap(reinterpret_cast<void*>(virtual_addr));
 		bit_index++;
 		if(bit_index >= bits_per_bitmap_entry) {
 			bit_index = 0;
-			byte_index++;
+			entry_index++;
 		}
 	}
 }
@@ -180,12 +197,14 @@ void MemoryManager::alloc_pagevec() {
 	// 32768 pages in total, from which we need 32 for this vector. As each table
 	// is 4096 Bytes long, we need 4096*32 = 128 KiB
 
-	// However, we actually need 8KiB less than that because we already have two page tables
+	// However, we actually need 8KiB less than that because we already have three page tables
 	// (The "boot" ones)
 
 	PagingManager &pm = PagingManager::get();
 
-	pagevec_size = (memsize / 1024) - (2 * PAGE_SIZE);
+	constexpr int offset = 3;
+
+	pagevec_size = (memsize / 1024) - (offset * PAGE_SIZE);
 	// Now we need to know if this vector would get out of the current mapped range.
 	size_t bitmap_pages_bytes = bitmap_size_pages * PAGE_SIZE;
 	bool outside_range = false;
@@ -193,21 +212,54 @@ void MemoryManager::alloc_pagevec() {
 		outside_range = true;
 	}
 	// Calculate the address
-	size_t vector_addr = reinterpret_cast<size_t>(pages_bitmap) + bitmap_pages_bytes;
+	virtaddr_t vector_addr = reinterpret_cast<virtaddr_t>(pages_bitmap) + bitmap_pages_bytes;
 	pm.set_pagevec(reinterpret_cast<page_t*>(vector_addr));
 	
 	size_t initial_mapping = outside_range ? ((REGION_SIZE - bitmap_pages_bytes)/PAGE_SIZE) : (pagevec_size/PAGE_SIZE);
 	for(size_t i = 0; i < initial_mapping; i++) {
-		void * pt_addr = reinterpret_cast<void*>((i * PAGE_SIZE) + vector_addr);
-		void * begin_with = reinterpret_cast<void*>(((i + 2) * REGION_SIZE) + HIGHER_HALF_OFFSET);
-		pm.new_page_table(pt_addr, begin_with);
-		for(size_t p = 0; p < 1024; p++) {
-			uintptr_t virtaddr = (uintptr_t)begin_with + p*PAGE_SIZE;
-			uintptr_t physaddr = virtaddr - HIGHER_HALF_OFFSET;
-			pm.map_page((void*)physaddr, (void*)virtaddr, READ_WRITE);
-		}
+		virtaddr_t pt_addr = reinterpret_cast<virtaddr_t>((i * PAGE_SIZE) + vector_addr);
+		virtaddr_t begin_with = reinterpret_cast<virtaddr_t>(((i + offset) * REGION_SIZE) + HIGHER_HALF_OFFSET);
+		pm.new_page_table((void*)pt_addr, (void*)begin_with);
 	}
-	memset((void*)vector_addr, 0, pagevec_size);
+	
+	mark_as_used(reinterpret_cast<void*>(HIGHER_HALF_OFFSET), 
+		reinterpret_cast<void*>(vector_addr + pagevec_size));
+}
+
+void MemoryManager::mark_as_used(void* start, void* end) {
+	used_regions[ureg_size++] = {start, end};
+	virtaddr_t start_uintptr = reinterpret_cast<virtaddr_t>(start);
+	size_t start_page = (start_uintptr - HIGHER_HALF_OFFSET) / PAGE_SIZE;
+	virtaddr_t end_uintptr = reinterpret_cast<virtaddr_t>(end);
+	size_t end_page = (end_uintptr - HIGHER_HALF_OFFSET) / PAGE_SIZE;
+
+	constexpr size_t bits_per_entry = sizeof(bitmap_t) * 8;
+
+	size_t start_index = start_page / bits_per_entry;
+	size_t start_bit = start_page % bits_per_entry;
+
+	size_t end_index = end_page / bits_per_entry;
+	size_t end_bit = end_page % bits_per_entry;
+
+	if (start_index == end_index) {
+		bitmap_t mask = ((bitmap_t)1 << (end_bit - start_bit + 1)) - 1;
+		mask <<= start_bit;
+		pages_bitmap[start_index] |= mask;
+	} else {
+		// First partial bitmap_t
+		bitmap_t start_mask = (~(bitmap_t)0) << start_bit;
+		pages_bitmap[start_index] |= start_mask;
+
+		// Full bitmap_ts in between
+		for (size_t i = start_index + 1; i < end_index; i++) {
+			pages_bitmap[i] = ~(bitmap_t)0;  // all bits set
+		}
+
+		// Last partial bitmap_t
+		bitmap_t end_mask = ((bitmap_t)1 << (end_bit + 1)) - 1;
+		pages_bitmap[end_index] |= end_mask;
+	}
+	log(INFO, "Used region between %p and %p", start, end);
 }
 
 used_region * MemoryManager::get_used_regions() {
@@ -231,11 +283,10 @@ size_t shadow_alloc_count = 0;
 
 void* MemoryManager::alloc_pages_debug(size_t pages, size_t map_flags) {
 	void* ptr = alloc_pages(pages, map_flags);
-	if (ptr) {
-		shadow_allocs[shadow_alloc_count++ % MAX_ALLOCS] = {
-			shadow_alloc_count - 1, ptr, pages, "alloc_pages",
-		};
-	}
+	shadow_allocs[shadow_alloc_count++ % MAX_ALLOCS] = {
+		shadow_alloc_count - 1, ptr, pages, "alloc_pages",
+	};
+	
 	return ptr;
 }
 
@@ -243,7 +294,7 @@ void MemoryManager::free_pages_debug(void *start, size_t pages) {
 	free_pages(start, pages);
 	if (start) {
 		shadow_allocs[shadow_alloc_count++ % MAX_ALLOCS] = {
-			shadow_alloc_count - 1, (void*)((uintptr_t)start + HIGHER_HALF_OFFSET), pages, "free_pages",
+			shadow_alloc_count - 1, start, pages, "free_pages",
 		};
 	}
 }

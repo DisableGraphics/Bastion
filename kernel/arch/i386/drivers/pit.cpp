@@ -31,7 +31,7 @@ void PIT::start(uint32_t interval_us) {
 	us_per_tick = interval_us;
 	
 	// Program the PIT channel
-	IDT::get().disable_interrupts(); // Function to disable interrupts
+	IDT::get().disable_interrupts();
 
 	outb(0x43, 0x34); // Set command to PIT control register
 	outb(0x40, PIT_reload_value & 0xFF); // Send low byte

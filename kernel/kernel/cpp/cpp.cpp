@@ -1,4 +1,5 @@
 #include <kernel/kernel/panic.hpp>
+#include <kernel/sync/spinlock.hpp>
 
 extern "C" void __cxa_pure_virtual() {
 	kn::panic("__cxa_pure_virtual() called");
@@ -6,6 +7,7 @@ extern "C" void __cxa_pure_virtual() {
 
 namespace __cxxabiv1 
 {
+	SpinLock lc;
 	/* guard variables */
 
 	/* The ABI requires a 64-bit type.  */
@@ -16,14 +18,24 @@ namespace __cxxabiv1
 	extern "C" void __cxa_guard_abort(__guard *);
 
 	extern "C" int __cxa_guard_acquire(__guard *g) {
-		return !*(char *)(g);
+		lc.lock();
+
+		// Check if initialized (guard first byte == 1)
+		if (*(char *)g == 1) {
+			lc.unlock();
+			return 0;  // already initialized, no need to construct
+		}
+		// Not initialized yet, keep lock held to serialize init
+		return 1;
+
 	}
 
 	extern "C" void __cxa_guard_release(__guard *g) {
-		*(char *)g = 1;
+		*(char *)g = 1;  // mark initialized
+    	lc.unlock();
 	}
 
 	extern "C" void __cxa_guard_abort(__guard *) {
-
+		lc.unlock();
 	}
 }

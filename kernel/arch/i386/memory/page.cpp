@@ -7,6 +7,7 @@
 
 extern uint32_t boot_page_directory[1024];
 extern uint32_t boot_page_table1[1024];
+extern uint32_t boot_page_table2[1024];
 
 PagingManager &PagingManager::get() {
 	static PagingManager instance;
@@ -16,16 +17,17 @@ PagingManager &PagingManager::get() {
 void PagingManager::init() {
 	page_directory = boot_page_directory;
 	page_table_1 = boot_page_table1;
+	page_table_2 = boot_page_table2;
 	
 	//Map the second part
 	for(unsigned i = 0; i < 1024; i++)
 	{
 		// As the address is page aligned, it will always leave 12 bits zeroed.
 		// Those bits are used by the attributes ;)
-		page_table_2[i] = ((i * 0x1000) + INITIAL_MAPPING_NOHEAP) | (READ_WRITE | PRESENT);
+		page_table_3[i] = ((i * 0x1000) + (INITIAL_MAPPING_NOHEAP << 2)) | (READ_WRITE | PRESENT);
 	}
-	size_t physical_addr = reinterpret_cast<size_t>(get_physaddr(page_table_2));
-	page_directory[HIGHER_OFFSET_INDEX+1] = ((size_t) physical_addr) | (READ_WRITE | PRESENT);
+	size_t physical_addr = reinterpret_cast<size_t>(get_physaddr(page_table_3));
+	page_directory[HIGHER_OFFSET_INDEX+2] = ((size_t) physical_addr) | (READ_WRITE | PRESENT);
 	
 	tlb_flush();
 }
@@ -92,9 +94,10 @@ void PagingManager::new_page_table(void *pt_addr, void *begin_with) {
 	unsigned long pdindex = (unsigned long)begin_with >> 22;
 
 	memset(page_table, 0, PAGE_SIZE);
-	page_directory[pdindex] = (reinterpret_cast<uint32_t> (pt_addr) - HIGHER_HALF_OFFSET) | (READ_WRITE | PRESENT);
+	page_directory[pdindex] = (reinterpret_cast<uint32_t> (pt_addr) - HIGHER_HALF_OFFSET) | (READ_WRITE | PRESENT | CACHE_DISABLE);
+	log(INFO, "Set page table %p to work with region beginning with %p", pt_addr, begin_with);
 
-	tlb_flush();
+	asm volatile("mov %0, %%cr3" :: "r"((size_t)page_directory - HIGHER_HALF_OFFSET));
 }
 
 bool PagingManager::is_mapped(void *addr) {

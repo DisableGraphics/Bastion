@@ -1,0 +1,128 @@
+Archive member included to satisfy reference by file (symbol)
+
+build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+                              (_start)
+build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+                              build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj) (_init)
+
+There are no discarded input sections
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+                0x00100000                        . = 0x100000
+
+.multiboot.data
+                0x00100000       0x28
+ *(.multiboot.data)
+ .multiboot.data
+                0x00100000       0x28 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+
+.multiboot.text
+                0x00100028       0x6e
+ *(.multiboot.text)
+ .multiboot.text
+                0x00100028       0x6e build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+                0x00100028                _start
+                0xc0100096                        . = (. + 0xc0000000)
+                0xc0100096                        _kernel_start = .
+
+.text           0xc0101000       0x2f load address 0x00101000
+ *(.text)
+ .text          0xc0101000       0x2f build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .text          0xc010102f        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+
+.iplt           0xc010102f        0x0 load address 0x0010102f
+ .iplt          0xc010102f        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+
+.init           0xc010102f        0x3 load address 0x0010102f
+ .init          0xc010102f        0x3 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+                0xc010102f                _init
+
+.fini           0xc0101032        0x3 load address 0x00101032
+ .fini          0xc0101032        0x3 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+                0xc0101032                _fini
+
+.rel.dyn        0xc0101038        0x0 load address 0x00101038
+ .rel.got       0xc0101038        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .rel.iplt      0xc0101038        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .rel.text      0xc0101038        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+
+.rodata
+ *(.rodata)
+
+.data           0xc0102000        0x0 load address 0x00102000
+ *(.data)
+ .data          0xc0102000        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .data          0xc0102000        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+
+.got            0xc0101038        0x0 load address 0x00101038
+ .got           0xc0101038        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+
+.got.plt        0xc0101038        0x0 load address 0x00101038
+ .got.plt       0xc0101038        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+
+.igot.plt       0xc0101038        0x0 load address 0x00101038
+ .igot.plt      0xc0101038        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+
+.bss            0xc0102000     0x7000 load address 0x00102000
+ *(COMMON)
+ *(.bss)
+ .bss           0xc0102000     0x3000 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+                0xc0102000                boot_page_directory
+                0xc0103000                boot_page_table1
+                0xc0104000                boot_page_table2
+ .bss           0xc0105000        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+ *(.bootstrap_stack)
+ .bootstrap_stack
+                0xc0105000     0x4000 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+                0xc0109000                stack_top
+                0xc0109000                        kernel_end = .
+LOAD build/kernel/libkernel_obj.a
+LOAD build/libc/liblibc_obj.a
+LOAD build/kernel/arch/i386/libkernel_platform_dependent.a
+OUTPUT(bastion elf32-i386)
+
+.debug_line     0x00000000       0xd4
+ .debug_line    0x00000000       0x7c build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .debug_line    0x0000007c       0x58 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+
+.debug_line_str
+                0x00000000       0x9f
+ .debug_line_str
+                0x00000000       0x9f build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+                                 0x98 (size before relaxing)
+ .debug_line_str
+                0x0000009f        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+                                 0x98 (size before relaxing)
+
+.debug_info     0x00000000       0x46
+ .debug_info    0x00000000       0x23 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .debug_info    0x00000023       0x23 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+
+.debug_abbrev   0x00000000       0x24
+ .debug_abbrev  0x00000000       0x12 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .debug_abbrev  0x00000012       0x12 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+
+.debug_aranges  0x00000000       0x50
+ .debug_aranges
+                0x00000000       0x28 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .debug_aranges
+                0x00000028       0x28 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+
+.debug_str      0x00000000       0xf3
+ .debug_str     0x00000000       0xf3 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+                                 0xa4 (size before relaxing)
+ .debug_str     0x000000f3        0x0 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)
+                                 0xa4 (size before relaxing)
+
+.debug_rnglists
+                0x00000000       0x32
+ .debug_rnglists
+                0x00000000       0x19 build/kernel/arch/i386/libkernel_platform_dependent.a(boot.S.obj)
+ .debug_rnglists
+                0x00000019       0x19 build/kernel/arch/i386/libkernel_platform_dependent.a(crti.S.obj)

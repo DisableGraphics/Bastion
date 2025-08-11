@@ -6,7 +6,7 @@
 void print_disassemble(void *addr, size_t n, void* current_eip) {
 	_DecodeResult res;
 	_OffsetType offset = 0;
-	_DecodedInst *decodedInstructions = new _DecodedInst[n];
+	_DecodedInst decodedInstructions[n];
 	unsigned int decodedInstructionsCount = 0;
 	_DecodeType dt = Decode32Bits;
 	const unsigned char* buf = reinterpret_cast<unsigned char*>(addr);
@@ -29,7 +29,4 @@ void print_disassemble(void *addr, size_t n, void* current_eip) {
 			operands,
 			(void*)offset == current_eip ? "                <-------- EIP":""); 
 	}
-
-
-	delete[] decodedInstructions;
 }

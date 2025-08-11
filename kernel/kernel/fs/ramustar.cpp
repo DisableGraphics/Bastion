@@ -1,5 +1,6 @@
 #include <kernel/fs/ramustar.hpp>
 #include <string.h>
+#include <kernel/kernel/log.hpp>
 
 int oct2bin(char *str, int size) {
     int n = 0;
@@ -14,7 +15,7 @@ int oct2bin(char *str, int size) {
 
 int RAMUSTAR::lookup(char *archive, char *filename, char **out) {
 	char *ptr = archive;
-
+	log(INFO, "%p", *ptr);
     while (!memcmp(ptr + 257, "ustar", 5)) {
         int filesize = oct2bin(ptr + 0x7c, 11);
         if (!memcmp(ptr, filename, strlen(filename) + 1)) {

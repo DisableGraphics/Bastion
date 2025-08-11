@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <kernel/cpp/move.hpp>
 #include <string.h>
+#include <kernel/kernel/log.hpp>
+#include <kernel/cpp/forward.hpp>
+#include <kernel/cpp/new.hpp>
 
 /**
 	\brief Dynamic array similar to std::vector.
@@ -15,15 +18,24 @@ class Vector {
 		/**
 			\brief Basic constructor
 		 */
-		Vector(){ arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size));};
+		Vector(){ 
+			log(INFO, "Vector before kmalloc()");
+			arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size));
+			log(INFO, "array: %p", arr);
+		};
 		/**
 			\brief Constructor that reserves elements
 		*/
-		Vector(size_t nelem) { alloc_size = nelem; arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); arrsize = alloc_size; }
+		Vector(size_t nelem) { alloc_size = nelem; arr = reinterpret_cast<T*>(kmalloc(sizeof(T)*alloc_size)); }
 		/**
 			\brief Destructor. Frees resources.
 		 */
-		~Vector() { kfree(arr); }
+		~Vector() { 
+			for (size_t i = 0; i < arrsize; ++i) {
+				arr[i].~T();
+			}
+			kfree(arr);
+		}
 		/**
 			\brief Current size of the vector
 		 */
@@ -39,7 +51,8 @@ class Vector {
 			\details The element is put at the back of the vector.
 			Has to realloc() array if there isn't enough space.
 		 */
-		void emplace_back(T&& args);
+		template<typename... Args>
+		void emplace_back(Args&&... args);
 		/**
 			\brief Remove last element from the vector
 		 */
@@ -97,19 +110,27 @@ void Vector<T>::push_back(const T&elem) {
 			return;
 		}
 	}
-	arr[arrsize++] = elem;
+	new (&arr[arrsize++]) T(elem);
 }
 
 template <typename T>
 void Vector<T>::pop_back() {
-	arrsize--;
+	arr[--arrsize].~T();
 }
 
 template <typename T>
 void Vector<T>::erase(size_t pos) {
-	T elem = arr[pos];
-	memmove(arr + pos, arr + pos + 1, (arrsize - pos - 1) * sizeof(T));
-	arrsize--;
+    if (pos >= arrsize) return;
+
+    arr[pos].~T();
+
+    for (size_t i = pos; i < arrsize - 1; ++i) {
+        arr[i] = move(arr[i + 1]);
+    }
+
+    arr[arrsize - 1].~T();
+
+    arrsize--;
 }
 
 template <typename T>
@@ -137,7 +158,8 @@ const T& Vector<T>::operator[](size_t index) const {
 }
 
 template <typename T>
-void Vector<T>::emplace_back(T&& elem) {
+template <typename... Args>
+void Vector<T>::emplace_back(Args&&... args) {
 	if(arrsize == alloc_size) {
 		alloc_size *= 2;
 		void * tmp = krealloc(arr, alloc_size*sizeof(T));
@@ -147,7 +169,7 @@ void Vector<T>::emplace_back(T&& elem) {
 			return;
 		}
 	}
-	arr[arrsize++] = move(elem);
+	new (&arr[arrsize++]) T(forward<Args>(args)...);
 }
 
 template<typename T>

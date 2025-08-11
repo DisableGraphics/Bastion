@@ -104,7 +104,7 @@ static int format_print(bool (*print)(const char *, size_t), const char*__restri
 			if (!print(str, len))
 				return -1;
 			written += len;
-		} else if(*format == 'd') {
+		} else if(*format == 'd' || *format == 'i') {
 			format++;
 			int i = va_arg(parameters, int);
 			char buf[32];

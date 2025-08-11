@@ -43,7 +43,7 @@ Value& HashMap<Key, Value>::operator[](const Key& key) {
 			return pair.second;
 		}
 	}
-	table[idx].emplace_back(Pair(key, Value()));
+	table[idx].emplace_back(key, Value());
 	++size_;
 	return table[idx].back().second;
 }

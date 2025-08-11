@@ -88,7 +88,7 @@ void LinkedList<T>::clear() {
 template<typename T>
 template<typename... Args>
 void LinkedList<T>::emplace_back(Args&&... args) {
-	LinkedListNode<T>* newNode = new LinkedListNode(forward<Args>(move(args))...);
+	LinkedListNode<T>* newNode = new LinkedListNode<T>(forward<Args>(args)...);
 	if (!tail) {
 		head = tail = newNode;
 	} else {
@@ -102,7 +102,7 @@ void LinkedList<T>::emplace_back(Args&&... args) {
 template<typename T>
 template<typename... Args>
 void LinkedList<T>::emplace_front(Args&&... args) {
-	LinkedListNode<T>* newNode = new LinkedListNode(forward<Args>(move(args))...);
+	LinkedListNode<T>* newNode = new LinkedListNode(forward<Args>(args)...);
 	if (!head) {
 		head = tail = newNode;
 	} else {

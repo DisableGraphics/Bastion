@@ -151,3 +151,29 @@ uint32_t get_esp() {
 
 	return esp;
 }
+
+void write_dr0(void* addr) {
+	asm volatile ("mov %0, %%dr0" :: "r"(addr));
+}
+
+void write_dr1(void* addr) {
+	asm volatile ("mov %0, %%dr1" :: "r"(addr));
+}
+
+void write_dr2(void* addr) {
+	asm volatile ("mov %0, %%dr2" :: "r"(addr));
+}
+
+void write_dr3(void* addr) {
+	asm volatile ("mov %0, %%dr3" :: "r"(addr));
+}
+
+unsigned int read_dr7(void) {
+    unsigned int val;
+    asm volatile ("mov %%dr7, %0" : "=r"(val));
+    return val;
+}
+
+void write_dr7(unsigned int val) {
+	asm volatile ("mov %0, %%dr7" :: "r"(val));
+}

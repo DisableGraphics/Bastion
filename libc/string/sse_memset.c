@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#define malloc(size) kmalloc(size)
+#define free(ptr) kfree(ptr)
 #include <emmintrin.h>
 #include <string.h>
 #include <kernel/vector/sse2.h>

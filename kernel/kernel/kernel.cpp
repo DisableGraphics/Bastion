@@ -2,7 +2,7 @@
 // C++ abi
 #include <kernel/cpp/icxxabi.h>
 // Multiboot header
-#include <multiboot/multiboot.h>
+#include <multiboot/multiboot2.h>
 
 // Memory
 #include <kernel/memory/page.hpp>
@@ -52,9 +52,11 @@
 #include <ssfn/ssfn.h>
 // VFS
 #include <kernel/vfs/vfs.hpp>
+// Other
+#include <kernel/kernel/multibootparser.hpp>
+#include <kernel/kernel/panic.hpp>
 // Tests
 #ifdef DEBUG
-#include <kernel/test.hpp>
 #endif
 
 
@@ -321,10 +323,15 @@ void gen(void* arg) {
 void init_fonts(RAMUSTAR& ramdisk, VESADriver& vesa) {
 	// Load font data from the ramdisk
 	struct stat fontstat;
-	ramdisk.stat("ramdisk/console.sfn", &fontstat);
-	uint8_t* fonts = new uint8_t[fontstat.st_size];
-	ramdisk.read("ramdisk/console.sfn", 0, fontstat.st_size, reinterpret_cast<char*>(fonts));
-	vesa.set_fonts(fonts);
+	int ret = ramdisk.stat("ramdisk/console.sfn", &fontstat);
+	log(INFO, "RAMUSTAR returned %d", ret);
+	if(ret == -1) {
+		log(ERROR, "Could not load fonts");
+	} else {
+		uint8_t* fonts = new uint8_t[fontstat.st_size];
+		ramdisk.read("ramdisk/console.sfn", 0, fontstat.st_size, reinterpret_cast<char*>(fonts));
+		vesa.set_fonts(fonts);
+	}
 }
 
 int calc(int i);
@@ -354,47 +361,124 @@ void test_malloc() {
 	log(ERROR, "----------------------------------------------------------------------");
 }
 
-extern "C" void kernel_main(multiboot_info_t* mbd, unsigned int magic) {
+void set_hw_watchpoint(void* addr) {
+    uintptr_t address = (uintptr_t)addr;
+
+    asm volatile (
+        "movl %0, %%eax\n"       // Move address to eax
+        "movl %%eax, %%dr0\n"    // Move eax to dr0
+        "movl $0x00000000, %%eax\n"
+        "movl %%eax, %%dr7\n"    // Clear dr7 first
+
+        // Now set dr7 bits to enable breakpoint 0, write, length 4
+        "movl $0x00000001, %%eax\n"   // Enable local breakpoint 0
+        "orl $0x00000400, %%eax\n"    // length = 4 bytes (bits 18-19 = 11)
+        "orl $0x00000020, %%eax\n"    // type = write (bits 16-17 = 01)
+        "movl %%eax, %%dr7\n"
+        :
+        : "r"(address)
+        : "eax"
+    );
+
+}
+
+extern uint8_t kernel_end;
+
+extern "C" void kernel_main(uintptr_t mbd, unsigned int magic) {
+	Serial::get().init();
+	size_t addr = (size_t)&kernel_end;
+
+	for (int i = (32 / 4) - 1; i >= 0; i--) {
+		uint8_t nibble = (addr >> (i * 4)) & 0xF;
+		char hexchar;
+		if (nibble < 10) {
+			hexchar = '0' + nibble;
+		} else {
+			hexchar = 'A' + (nibble - 10);
+		}
+		Serial::get().write(hexchar);
+	}
+
+	
+	TimeManager::get();
+	IDT::disable_interrupts();
+	if(magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
+		log(ERROR, "%p vs %p", magic, MULTIBOOT2_BOOTLOADER_MAGIC);
+		kn::panic("Invalid multiboot header magic");
+	}
+
+	log(INFO, "MBD: %p", mbd);
 	if(sse2_available()) init_sse2();
 	PagingManager::get().init();
-	MemoryManager::get().init(mbd, magic);
-	Serial::get().init();
-	GDT::get().init();
+	uintptr_t mbd2 = reinterpret_cast<uintptr_t>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
+	auto parsed = parse_multiboot2_info((uint8_t*)mbd2);
+	log(INFO, "Last module addr: %p", parsed.last_module_address);
+	log(INFO, "Framebuffer: %p", parsed.fb->common.framebuffer_addr);
+	
 	IDT::get().init();
+	
+	set_hw_watchpoint((void*)parsed.fb);
+	log(INFO, "Finished IDT");
+	MemoryManager::get().init(parsed.memory_map, parsed.last_module_address);
+	PIC pic;
+	IDT::enable_interrupts();
+	log(INFO, "Finished PIC");
+	
+	log(INFO, "Finished initializing Serial");
+	GDT::get().init();
+	log(INFO, "Finished initializing GDT");
+	log(INFO, "Framebuffer: %p", parsed.fb->common.framebuffer_addr);
 
-	multiboot_info_t* mbd2 = reinterpret_cast<multiboot_info_t*>(reinterpret_cast<uintptr_t>(mbd) + HIGHER_HALF_OFFSET);
+	// set up idt as read-only because something is corrupting it
+	PagingManager::get().map_page(PagingManager::get().get_physaddr(IDT::get().idt), IDT::get().idt, PRESENT);
+	log(INFO, "Finished initializing IDT (IDT addr: %p)", IDT::get().idt);
+	
+	uint8_t* buffer = (uint8_t*)kmalloc(512);
+	log(INFO, "Buffer malloced");
+	memset(buffer, 3, 512);
+	log(INFO, "Buffer memsetted");
+	kfree(buffer);
+	log(INFO, "Buffer freed");
+	
+	hal::IRQControllerManager::get().init();
+	hal::IRQControllerManager::get().register_controller(&pic);
+	log(INFO, "Finished initializing IRQ controller");
 
+	IDT::enable_interrupts();		
+	log(INFO, "Framebuffer: %p", parsed.fb->common.framebuffer_addr);
 	VESADriver vesa{
-		reinterpret_cast<uint8_t*>(mbd2->framebuffer_addr),
-		mbd2->framebuffer_width,
-		mbd2->framebuffer_height,
-		mbd2->framebuffer_pitch,
-		mbd2->framebuffer_bpp,
-		mbd2->framebuffer_red_field_position,
-		mbd2->framebuffer_green_field_position,
-		mbd2->framebuffer_blue_field_position,
-		mbd2->framebuffer_red_mask_size,
-		mbd2->framebuffer_green_mask_size,
-		mbd2->framebuffer_blue_mask_size
+		reinterpret_cast<uint8_t*>(parsed.fb->common.framebuffer_addr),
+		parsed.fb->common.framebuffer_width,
+		parsed.fb->common.framebuffer_height,
+		parsed.fb->common.framebuffer_pitch,
+		parsed.fb->common.framebuffer_bpp,
+		parsed.fb->framebuffer_red_field_position,
+		parsed.fb->framebuffer_green_field_position,
+		parsed.fb->framebuffer_blue_field_position,
+		parsed.fb->framebuffer_red_mask_size,
+		parsed.fb->framebuffer_green_mask_size,
+		parsed.fb->framebuffer_blue_mask_size
 	};
 	vesa.init();
+	log(INFO, "Finished initializing VESA");
 	hal::VideoManager::get().register_driver(&vesa);
+	log(INFO, "Finished registering VESA");
 	
 	log(INFO, "aVideoDriver vptr = %p", *(size_t*)&vesa);
-	multiboot_module_t* mbd_module = reinterpret_cast<multiboot_module_t*>(mbd2->mods_addr + HIGHER_HALF_OFFSET);
-	// First module loaded is the ramdisk
-	RAMUSTAR ramdisk{reinterpret_cast<uint8_t*>(mbd_module->mod_start+ HIGHER_HALF_OFFSET)};
+	log(INFO, "%d modules", parsed.modules_count);
 	
+	// First module loaded is the ramdisk
+	RAMUSTAR ramdisk{reinterpret_cast<uint8_t*>(parsed.modules[0].mod_start+ HIGHER_HALF_OFFSET)};
+	log(INFO, "Size of ramdisk %d", parsed.modules[0].mod_end - parsed.modules[0].mod_start);
+	log(INFO, "After RAMUSTAR");
 	init_fonts(ramdisk, vesa);
 	TTYManager::get().init(&vesa);
 	log(INFO, "bVideoDriver vptr = %p", *(size_t*)&vesa);
 	
-	PIC pic;
-	hal::IRQControllerManager::get().init();
-	hal::IRQControllerManager::get().register_controller(&pic);
 	PIT pit;
-	pit.init();
+	
 	hal::TimerManager::get().register_timer(&pit, 100*tc::us);
+	pit.init();
 	pit.set_is_scheduler_timer(true);
 
 	log(INFO, "cVideoDriver vptr = %p", *(size_t*)&vesa);

@@ -64,6 +64,12 @@ class IDT {
 		 */
 		[[gnu::no_caller_saved_registers]]
 		static void disable_interrupts();
+		uint32_t canary = 0xDEADBEEF;
+		/**
+			\brief Interrupt Descriptor Table
+		 */
+		[[gnu::aligned(4096)]]
+		idt_entry_t idt[IDT_MAX_DESCRIPTORS];
 	private:
 		/**
 			\brief sets the interrupt descriptor table register.
@@ -76,11 +82,6 @@ class IDT {
 			Fills the isr table with all exception handlers
 		 */
 		void fill_isr_table();
-		/**
-			\brief Interrupt Descriptor Table
-		 */
-		[[gnu::aligned(0x10)]]
-		idt_entry_t idt[IDT_MAX_DESCRIPTORS];
 		/**
 			\brief ISR temporary table.
 			Note that this structure is only for the exception handlers.

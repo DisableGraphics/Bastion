@@ -53,6 +53,14 @@ void tlb_flush(void);
 uint32_t get_eflags();
 uint32_t get_esp();
 
+// Debug registers
+void write_dr0(void*);
+void write_dr1(void*);
+void write_dr2(void*);
+void write_dr3(void*);
+unsigned int read_dr7(void);
+void write_dr7(unsigned int val);
+
 #ifdef __cplusplus
 }
 #endif

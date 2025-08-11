@@ -1,6 +1,8 @@
 #include <kernel/sync/spinlock.hpp>
+#include <kernel/drivers/interrupts.hpp>
 
 void SpinLock::lock() {
+	IDT::disable_interrupts();
 	uint32_t expected = SPINLOCK_UNLOCK;
 	while (true) {
 		asm volatile (
@@ -23,4 +25,5 @@ void SpinLock::unlock() {
 		:
 		: "memory"
 	);
+	IDT::enable_interrupts();
 }

@@ -86,6 +86,9 @@ class Scheduler {
 		void unlock();
 	private:
 		Scheduler();
+		Scheduler(const Scheduler&) = delete;
+    	Scheduler& operator=(const Scheduler&) = delete;
+
 		// Tasks queue
 		Vector<Task*> tasks;
 		// Current task running. Double pointer, changes when calling switch_task
@@ -105,4 +108,7 @@ class Scheduler {
 		int us_clock_tick = 0;
 		// Schedule early (when preempting the idle task)
 		bool early_sched = false;
+		
 };
+alignas(Scheduler) static char scheduler_buffer[sizeof(Scheduler)];
+static bool scheduler_initialized = false;

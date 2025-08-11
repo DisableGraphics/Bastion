@@ -3,6 +3,7 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/kernel/log.hpp>
 #include <kernel/assembly/inlineasm.h>
+#include <kernel/sync/spinlock.hpp>
 
 extern "C" void switch_task(Task** current_thread, Task *next_thread);
 

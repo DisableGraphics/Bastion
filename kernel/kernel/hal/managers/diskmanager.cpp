@@ -38,7 +38,7 @@ void hal::DiskManager::init_pci_disks() {
 						diskname dn{"ahci", numberdisk};
 						char * name = dn;
 						AHCI * ahcicont = new AHCI(devices[i]);
-						disk_controllers.emplace_back({dn, ahcicont});
+						disk_controllers.emplace_back(dn, ahcicont);
 						numberdisk++;
 					}
 					break;

@@ -8,6 +8,11 @@
 extern "C" {
 #endif
 
+// Stupid vector headers
+#ifdef _MM_MALLOC_H_INCLUDED
+#include "idiotpatch.h"
+#endif
+
 __attribute__((__noreturn__))
 void abort(void);
 

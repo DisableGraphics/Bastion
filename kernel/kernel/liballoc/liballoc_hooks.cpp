@@ -14,12 +14,12 @@ extern "C" int liballoc_unlock() {
 	return 0;
 }
 
-extern "C" void *liballoc_alloc(int pages) {
+extern "C" void *liballoc_alloc(size_t pages) {
 	return MemoryManager::get().alloc_pages_debug(pages, READ_WRITE);
 }
 
-extern "C" int liballoc_free(void* start, int pages) {
-	MemoryManager::get().free_pages_debug(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(start) - HIGHER_HALF_OFFSET), pages);
+extern "C" int liballoc_free(void* start, size_t pages) {
+	MemoryManager::get().free_pages_debug(start, pages);
 	return 0;
 }
 

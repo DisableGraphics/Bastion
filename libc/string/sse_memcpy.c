@@ -1,3 +1,4 @@
+#include <idiotpatch.h>
 #include <emmintrin.h>
 #include <string.h>
 #include <kernel/vector/sse2.h>

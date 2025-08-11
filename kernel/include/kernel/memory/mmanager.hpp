@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include <multiboot/multiboot.h>
+#include <multiboot/multiboot2.h>
 #include <kernel/memory/page.hpp>
 
 /**
@@ -31,7 +31,7 @@ struct used_region {
 class MemoryManager {
 	public:
 		static MemoryManager &get();
-		void init(multiboot_info_t* mbd, unsigned int magic);
+		void init(const multiboot_tag_mmap* mbd, const void* last_module_addr);
 		/**
 			\brief Allocate pages continuous pages.
 			\param pages The number of pages to allocate.
@@ -86,6 +86,9 @@ class MemoryManager {
 		// Size of the page tables vector in bytes
 		size_t pagevec_size = 0;
 
+		void mark_as_used(void* start, void* end);
+		const void * last_module_addr;
+
 		// 32 used region blocks. Should be enough.
 		used_region used_regions[32];
 		size_t ureg_size = 0;
@@ -94,4 +97,7 @@ class MemoryManager {
 		MemoryManager() {
 			memset(used_regions, 0, sizeof(used_regions));
 		};
+
+		typedef uintptr_t physaddr_t;
+		typedef uintptr_t virtaddr_t;
 };

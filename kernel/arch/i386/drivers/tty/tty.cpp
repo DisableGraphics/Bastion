@@ -1,5 +1,6 @@
 #include <kernel/drivers/tty/tty.hpp>
 #include <string.h>
+#include <kernel/kernel/log.hpp>
 
 TTY::TTY() {
 

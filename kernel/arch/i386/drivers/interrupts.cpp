@@ -2,6 +2,9 @@
 #include <kernel/drivers/interrupts.hpp>
 #include <kernel/drivers/serial.hpp>
 #include <stdio.h>
+#include <kernel/kernel/log.hpp>
+
+static bool idt_initialized = 0;
 
 struct interrupt_frame;
 
@@ -25,24 +28,31 @@ void IDT::set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 }
 
 void IDT::init() {
+	log(INFO, "IDT canary = %p", this->canary);
+
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
+	log(INFO, "Idtr base: %p, idtr.limit: %p", idtr.base, idtr.limit);
 
+	log(INFO, "Filled ISR table");
 	fill_isr_table();
-
 	for (uint32_t vector = 0; vector < 32; vector++) {
 		set_descriptor(vector, isr_table[vector], 0x8E);
 	}
+	log(INFO, "Filled vector");
 
 	set_idtr(idtr);
-	enable_interrupts();
+	log(INFO, "set idtr to %p", &idtr);
+	idt_initialized = true;
 }
 
 void IDT::enable_interrupts() {
+	log(INFO, "Interrupts enabled");
 	__asm__ __volatile__("sti");
 }
 
 void IDT::disable_interrupts() {
+	log(INFO, "Interrupts disabled");
 	__asm__ __volatile__("cli");
 }
 

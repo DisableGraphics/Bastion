@@ -9,5 +9,6 @@ add_subdirectory(drivers)
 add_subdirectory(vfs)
 add_subdirectory(distorm)
 add_subdirectory(stable)
+add_subdirectory(ubsan)
 
-target_sources(kernel_obj PRIVATE kernel.cpp mmanager.cpp panic.cpp test.cpp key_event.cpp log.cpp)
+target_sources(kernel_obj PRIVATE kernel.cpp mmanager.cpp panic.cpp test.cpp key_event.cpp log.cpp multibootparser.cpp)
