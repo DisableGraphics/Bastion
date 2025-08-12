@@ -1,2 +1,0 @@
-CompileFlags:
-  Remove: [-march=*, -mabi=*, -mcpu=*, -msse, -msse2, -fno-asynchronous-unwind-tables, -fno-exceptions, -fno-rtti, -fno-sized-deallocation, -ffreestanding, -nostdlib, -mgeneral-regs-only, -lgcc]

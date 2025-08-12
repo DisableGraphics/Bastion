@@ -1,1 +1,0 @@
-target_sources(kernel_platform_dependent PRIVATE keyboard.cpp keyboard_get_key.cpp)

@@ -1,1 +1,0 @@
-target_sources(kernel_obj PRIVATE physicalinode.cpp pipeinode.cpp)

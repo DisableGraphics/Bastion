@@ -1,1 +1,0 @@
-target_sources(kernel_obj PRIVATE part.cpp partmanager.cpp fat32.cpp cache.cpp ramustar.cpp)

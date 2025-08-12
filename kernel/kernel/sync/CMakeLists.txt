@@ -1,1 +1,0 @@
-target_sources(kernel_obj PRIVATE semaphore.cpp mutex.cpp pipe.cpp)

@@ -1,1 +1,0 @@
-target_sources(kernel_obj PRIVATE timer.cpp disk.cpp driver.cpp irqc.cpp pci.cpp video.cpp)

@@ -1,4 +1,0 @@
-#define PIT_CHAN0 0x40
-#define PIT_CHAN1 0x41
-#define PIT_CHAN2 0x42
-#define PIT_MODE_COMMAND 0x43

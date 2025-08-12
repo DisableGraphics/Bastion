@@ -1,1 +1,0 @@
-target_sources(kernel_obj PRIVATE cpp.cpp icxxabi.cpp stackp.cpp)

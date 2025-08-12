@@ -1,1 +1,0 @@
-target_sources(kernel_obj PRIVATE ubsan.cpp asanhooks.cpp)

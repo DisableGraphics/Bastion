@@ -1,1 +1,0 @@
-target_sources(kernel_platform_dependent PRIVATE switch_to_task.S jump_usermode.S)
