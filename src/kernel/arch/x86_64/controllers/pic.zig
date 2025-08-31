@@ -46,8 +46,7 @@ fn makeIRQ(comptime n: usize) type {
 					return; 
 				}
 			}
-			const fnptr = PIC.fn_table[n];
-			fnptr(PIC.arg_table[n]);
+			PIC.fn_table[n](PIC.arg_table[n]);
 			PIC.eoi(n);
         }
     };
@@ -61,12 +60,13 @@ pub const IRQs = blk: {
     break :blk funcs;
 };
 
-fn stub(irq: ?*volatile anyopaque) void {
+fn stub(irq: PIC.arg_type) void {
 	std.log.debug("No IRQ registered for #{any}", .{irq});
 }
 
 pub const PIC = struct {
-	const pic_func = fn(?*volatile anyopaque) void;
+	const arg_type = ?*volatile anyopaque;
+	const pic_func = fn(arg_type) void;
 	var fn_table: [16]*const pic_func = undefined;
 	var arg_table: [16]?*volatile anyopaque = undefined;
 	
@@ -82,14 +82,12 @@ pub const PIC = struct {
 	fn init_irq_fns() void {
 		for(0..fn_table.len) |i| {
 			fn_table[i] = &stub;
-		}
-		for(0..fn_table.len) |i| {
 			const vector = i + PIC1_MAP;
 			idt.insert_idt_entry(vector, IRQs[i]);
 		}
 	}
 
-	pub fn set_irq_handler(self: *PIC, irq: u4, argument: ?*volatile anyopaque, function: *const pic_func) void {
+	pub fn set_irq_handler(self: *PIC, irq: u4, argument: arg_type, function: *const pic_func) void {
 		_ = self;
 		fn_table[irq] = function;
 		arg_table[irq] = argument;
@@ -125,31 +123,21 @@ pub const PIC = struct {
 		assm.outb(PIC2_DATA, 0xFF);
 	}
 
-	pub fn enable_irq(self: *PIC, irqno: u4) void {
+	pub fn disable_irq(self: *PIC, irqno: u4) void {
 		_ = self;
-		var port: u16 = undefined;
-		var IRQline = irqno;
-		if(IRQline < 8) {
-			port = PIC1_DATA;
-		} else {
-			port = PIC2_DATA;
-			IRQline -= 8;
-		}
-		const value = assm.inb(port) | (@as(u8, 1) << @truncate(IRQline));
+		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
+		std.log.info("Port: {} {x}", .{port, port});
+		const irqline: u3 = @truncate(irqno);
+		const value = assm.inb(port) | (@as(u8, 1) << irqline);
 		assm.outb(port, value);
 	}
 
-	pub fn disable_irq(self: *PIC, irqno: u4) void {
+	pub fn enable_irq(self: *PIC, irqno: u4) void {
 		_ = self;
-		var port: u16 = undefined;
-		var IRQline = irqno;
-		if(IRQline < 8) {
-			port = PIC1_DATA;
-		} else {
-			port = PIC2_DATA;
-			IRQline -= 8;
-		}
-		const value = assm.inb(port) & ~(@as(u8, 1 << IRQline));
+		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
+		std.log.info("Port: {} {x}", .{port, port});
+		const irqline: u3 = @truncate(irqno);
+		const value = assm.inb(port) & ~(@as(u8, 1) << irqline);
 		assm.outb(port, value);
 	}
 

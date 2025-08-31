@@ -13,7 +13,7 @@ pub fn lapic_physaddr() u64 {
 
 pub const LAPIC = struct {
 	lapic_base: usize, 
-	pub fn init(lapic_table_virtaddr: usize, lapic_base_physaddr: usize) LAPIC {
+	pub fn init(lapic_table_virtaddr: usize, lapic_base_physaddr: usize, is_bsp: bool) LAPIC {
 		var self: LAPIC = .{
 			.lapic_base = lapic_table_virtaddr,
 		};
@@ -21,8 +21,11 @@ pub const LAPIC = struct {
 
 		// enable
 		self.write_reg(0xF0, self.read_reg(0xF0) | 0x100);
-
-		self.pic_passthrough();
+		if(is_bsp) {
+			self.pic_passthrough();
+		} else {
+			self.write_reg(0x350, self.read_reg(0x350) | (1 << 16));
+		}
 
 		return self;
 	}
@@ -69,7 +72,6 @@ pub const LAPIC = struct {
 
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		const self: *volatile LAPIC = @ptrCast(@alignCast(s.?));
-		std.log.info("Hey hey!", .{});
 		self.write_reg(0xB0, 0); // EOI
 	}
 };

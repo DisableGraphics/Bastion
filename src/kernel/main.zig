@@ -72,6 +72,27 @@ var pagealloc: framemanager.PageFrameAllocator = undefined;
 var pm: pagemanager.PageManager = undefined;
 var km: kmm.KernelMemoryManager = undefined;
 var acpiman: acpi.ACPIManager = undefined;
+var picc: pic.PIC = undefined;
+
+fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, is_bsp: bool) !lapic.LAPIC {
+	const lapic_base = lapic.lapic_physaddr();
+	const lapic_virt = lapic_base + hhdm_offset;
+	if(is_bsp) {
+		try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_virt, km.pfa);
+		pi.enable_irq(0);
+	}
+	var sin = spin.SpinLock.init();
+	sin.lock();
+	defer sin.unlock();
+	var pitt = pit.PIT.init();
+	pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
+	idt.enable_interrupts();
+	var lapicc = lapic.LAPIC.init(lapic_virt, lapic_base, is_bsp);
+	lapicc.init_timer(100, &pitt);
+	pitt.disable();
+	pi.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
+	return lapicc;
+}
 
 fn main() !void {
 	serial.Serial.init() catch return setup_error.SERIAL_UNAVAILABLE;
@@ -119,12 +140,9 @@ fn main() !void {
 		acpiman = try acpi.ACPIManager.init(rsdp_resp.revision, rsdp_resp.address + offset, offset, &km);
 	}
 
-	var pi = pic.PIC.init();
-	pi.disable();
-	
-	const lapic_base = lapic.lapic_physaddr();
-	try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_base + offset, km.pfa);
-	
+	picc = pic.PIC.init();
+	picc.disable();
+	_ = try setup_local_apic_timer(&picc, offset, true);
 
 	if(requests.mp_request.response) |mp_response| {
 		mp_cores = mp_response.cpu_count;
@@ -133,20 +151,11 @@ fn main() !void {
 		for(mp_response.getCpus()) |cpu| {
 			std.log.info("Cpu #{}: {}", .{cpu.processor_id, cpu.lapic_id});
 			cpu.goto_address = @ptrCast(&ap_begin);
+			cpu.extra_argument = offset;
 		}
 	} else {
 		return setup_error.NO_MULTIPROCESSOR;
 	}
-	
-	var pitt = pit.PIT.init();
-	pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
-	pi.enable_irq(0);
-	idt.enable_interrupts();
-	var lapicc = lapic.LAPIC.init(lapic_base + offset, lapic_base);
-	lapicc.init_timer(1000, &pitt);
-	pitt.disable();
-
-	pi.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
 	hcf();
 }
 
@@ -161,16 +170,12 @@ pub fn ap_begin(arg: *requests.SmpInfo) callconv(.C) void {
 }
 pub fn ap_start(arg: *requests.SmpInfo) !void {
 	const ap_data: ap_data_struct = .{.processor_id = arg.processor_id, .lapic_id = arg.lapic_id};
+	const hhdm_offset = arg.extra_argument;
 	std.log.info("Hello my name is {}", .{ap_data.processor_id});
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
-	const madt = (try acpiman.scan("APIC", 0, &km)).?;
-	std.log.info("{any}", .{madt});
-	const local_apic: ?*align(1) acpi.MADTLocalAPIC = switch (madt) {
-		.madt => |tabl| try acpiman.get_local_apic(tabl, ap_data.processor_id),
-	};
-	std.log.info("{any}", .{local_apic});
+	_ = try setup_local_apic_timer(&picc, hhdm_offset, false);
 
 	hcf();
 }

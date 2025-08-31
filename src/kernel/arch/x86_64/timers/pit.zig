@@ -7,8 +7,8 @@ pub const PIT = struct {
 	millis_per_tick: i32,
 	countdown: i32,
 	pub fn init() PIT {
-		const command = 0x30;
-		const div = PIT_FREQUENCY / 100;
+		const command = 0x34;
+		const div: u16 = @truncate((1193182 * 100_000)/1000000); // 100_000us -> 100 ms
 		assm.outb(PIT_COMMAND, command);
 		assm.outb(PIT_CHANNEL0, @as(u8,(div & 0xFF)));
 		assm.outb(PIT_CHANNEL0, @as(u8, ((div >> 8) & 0xFF)));
