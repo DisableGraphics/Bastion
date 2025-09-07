@@ -8,7 +8,7 @@
 				"command": "start -FilePath 'qemu-system-i386' -ArgumentList '-S -gdb tcp::1234 -boot d -cdrom bin/myos.iso -m 512'"
 			},
 			"linux": {
-				"command": "zig build -- -mnored-zone && ./diskimg.sh && ./qemu.sh debug"
+				"command": "./compile.sh && ./diskimg.sh && ./qemu.sh debug"
 			}
 		}
 

@@ -51,7 +51,7 @@ pub const KernelMemoryManager = struct {
 			};
 			break :value c;
 		};
-		@memset(@as([*]u8, @ptrFromInt(val+self.hhdm_offset))[0..npages*page.PAGE_SIZE], 0);
+		
 		if(self.finished_setup.load(.acquire)) {
 			self.page_lock.lock();
 			defer self.page_lock.unlock();
@@ -59,6 +59,8 @@ pub const KernelMemoryManager = struct {
 				try self.pm.map_4k(self.pm.root_table.?, val + (i << 12), val + self.hhdm_offset + (i << 12));
 			}
 		}
+
+		@memset(@as([*]u8, @ptrFromInt(val+self.hhdm_offset))[0..npages*page.PAGE_SIZE], 0);
 		
 		return val + self.hhdm_offset;
 	}

@@ -1,6 +1,7 @@
 const assm = @import("../asm.zig");
 const std = @import("std");
 const pitt = @import("../timers/pit.zig");
+const cpu = @import("../cpu_status.zig");
 
 const IA32_APIC_BASE_MSR = 0x1B;
 const IA32_APIC_BASE_MSR_ENABLE = 0x800;
@@ -12,10 +13,14 @@ pub fn lapic_physaddr() u64 {
 }
 
 pub const LAPIC = struct {
-	lapic_base: usize, 
+	lapic_base: usize,
+	timer_event: ?*const fn(?*anyopaque) void,
+	arg: ?*anyopaque,
 	pub fn init(lapic_table_virtaddr: usize, lapic_base_physaddr: usize, is_bsp: bool) LAPIC {
 		var self: LAPIC = .{
 			.lapic_base = lapic_table_virtaddr,
+			.timer_event = null,
+			.arg = null,
 		};
 		self.set_apic_base(lapic_base_physaddr);
 
@@ -70,8 +75,21 @@ pub const LAPIC = struct {
 		assm.write_msr(IA32_APIC_BASE_MSR, (base & 0xfffff0000) | IA32_APIC_BASE_MSR_ENABLE);
 	}
 
+	pub fn set_on_timer(self: *LAPIC, timer_event: ?*const fn(?*anyopaque) void, arg: ?*anyopaque)void {
+		self.timer_event = timer_event;
+		self.arg = arg;
+	}
+
+	pub fn get_cpuid(lapic_table: usize) u64 {
+		const id_reg: *volatile u32 = @ptrFromInt(lapic_table + 0x20);
+		return @as(u64, id_reg.*);
+	}
+
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		const self: *volatile LAPIC = @ptrCast(@alignCast(s.?));
 		self.write_reg(0xB0, 0); // EOI
+		if(self.timer_event) |ev| {
+			ev(self.arg);
+		}
 	}
 };

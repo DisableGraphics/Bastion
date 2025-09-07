@@ -1,4 +1,3 @@
-const ci = @import("controller.zig");
 const assm = @import("../asm.zig");
 const std = @import("std");
 const idt = @import("../../../interrupts/idt.zig");
@@ -47,8 +46,9 @@ fn makeIRQ(comptime n: usize) type {
 				}
 			}
 			PIC.fn_table[n](PIC.arg_table[n]);
-			PIC.eoi(n);
+			PIC.eoi(n);			
         }
+		
     };
 }
 

@@ -14,6 +14,10 @@ const acpi = @import("arch/x86_64/acpi/acpimanager.zig");
 const pic = @import("arch/x86_64/controllers/pic.zig");
 const lapic = @import("arch/x86_64/controllers/lapic.zig");
 const pit = @import("arch/x86_64/timers/pit.zig");
+const tsk  = @import("scheduler/task.zig");
+const sch  = @import("scheduler/scheduler.zig");
+const assm = @import("arch/x86_64/asm.zig");
+const tss = @import("memory/tss.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -81,17 +85,28 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, is_bsp: bool) !lapic
 		try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_virt, km.pfa);
 		pi.enable_irq(0);
 	}
-	var sin = spin.SpinLock.init();
-	sin.lock();
-	defer sin.unlock();
 	var pitt = pit.PIT.init();
 	pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
 	idt.enable_interrupts();
 	var lapicc = lapic.LAPIC.init(lapic_virt, lapic_base, is_bsp);
-	lapicc.init_timer(100, &pitt);
+	lapicc.init_timer(10, &pitt);
 	pitt.disable();
-	pi.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
+	idt.disable_interrupts();
 	return lapicc;
+}
+
+pub fn mycpuid() u64 {
+	const lapic_base = lapic.lapic_physaddr();
+	const lapic_virt = lapic_base + km.hhdm_offset;
+	return lapic.LAPIC.get_cpuid(lapic_virt);
+}
+
+fn test1() void {
+	while(true) {std.log.info("hey hey! (CPU #{})", .{mycpuid()});}
+}
+
+fn test2() void {
+	while(true) {std.log.info("tururu", .{});}
 }
 
 fn main() !void {
@@ -139,10 +154,10 @@ fn main() !void {
 		try pm.map_4k(pm.root_table.?, rsdp_resp.address & ~(@as(u64, 0xFFF)), (rsdp_resp.address + offset) & ~(@as(u64, 0xFFF)));
 		acpiman = try acpi.ACPIManager.init(rsdp_resp.revision, rsdp_resp.address + offset, offset, &km);
 	}
-
+	idt.set_enable_interrupts();
 	picc = pic.PIC.init();
 	picc.disable();
-	_ = try setup_local_apic_timer(&picc, offset, true);
+	var lapicc = try setup_local_apic_timer(&picc, offset, true);
 
 	if(requests.mp_request.response) |mp_response| {
 		mp_cores = mp_response.cpu_count;
@@ -151,14 +166,53 @@ fn main() !void {
 		for(mp_response.getCpus()) |cpu| {
 			std.log.info("Cpu #{}: {}", .{cpu.processor_id, cpu.lapic_id});
 			cpu.goto_address = @ptrCast(&ap_begin);
-			cpu.extra_argument = offset;
 		}
 	} else {
 		return setup_error.NO_MULTIPROCESSOR;
 	}
+
+	var rsp: u64 = undefined;
+	asm volatile(
+		\\mov %rsp, %[rsp]
+		: [rsp] "=r"(rsp)
+		:
+		:
+	);
+
+	var idle_task = tsk.Task.init_idle_task(
+		rsp,
+		assm.read_cr3(),
+	);
+
+	const kernel_stack_1 = (try km.alloc_virt(4)).?;
+	var test_task_1 = tsk.Task.init_kernel_task(
+		test1,
+		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+	);
+
+	const kernel_stack_2 = (try km.alloc_virt(4)).?;
+	var test_task_2 = tsk.Task.init_kernel_task(
+		test2,
+		@ptrFromInt(kernel_stack_2 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(kernel_stack_2 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+	);
+
+	std.log.info("task: {x} {x}", .{idle_task.stack, @as(*anyopaque, @ptrCast(&idle_task))});
+
+	var sched = sch.Scheduler.init(tss.get_tss(0));
+	picc.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
+	
+	sched.add_idle(&idle_task);
+	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
+	idt.enable_interrupts();
+	sched.add_task(&test_task_1);
+	sched.add_task(&test_task_2);
+
 	hcf();
 }
-
 
 const ap_data_struct = packed struct {
 	processor_id: u32,
@@ -168,14 +222,42 @@ const ap_data_struct = packed struct {
 pub fn ap_begin(arg: *requests.SmpInfo) callconv(.C) void {
 	ap_start(arg) catch |err| @panic(@errorName(err));
 }
+
 pub fn ap_start(arg: *requests.SmpInfo) !void {
 	const ap_data: ap_data_struct = .{.processor_id = arg.processor_id, .lapic_id = arg.lapic_id};
-	const hhdm_offset = arg.extra_argument;
 	std.log.info("Hello my name is {}", .{ap_data.processor_id});
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
-	_ = try setup_local_apic_timer(&picc, hhdm_offset, false);
+	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, false);
+	picc.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
 
+	var rsp: u64 = undefined;
+	asm volatile(
+		\\mov %rsp, %[rsp]
+		: [rsp] "=r"(rsp)
+		:
+		:
+	);
+	var idle_task = tsk.Task.init_idle_task(
+		rsp,
+		assm.read_cr3(),
+	);
+	var sched = sch.Scheduler.init(tss.get_tss(ap_data.processor_id));
+	
+	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
+	
+
+	const kernel_stack_1 = (try km.alloc_virt(4)).?;
+	var test_task_1 = tsk.Task.init_kernel_task(
+		test1,
+		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+	);
+	sched.add_idle(&idle_task);
+	sched.add_task(&test_task_1);
+	idt.enable_interrupts();
+	sched.schedule();
 	hcf();
 }

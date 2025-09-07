@@ -8,12 +8,12 @@ pub const PIT = struct {
 	countdown: i32,
 	pub fn init() PIT {
 		const command = 0x34;
-		const div: u16 = @truncate((1193182 * 100_000)/1000000); // 100_000us -> 100 ms
+		const div: u16 = @truncate((1193182 * 1_000)/1000000);
 		assm.outb(PIT_COMMAND, command);
 		assm.outb(PIT_CHANNEL0, @as(u8,(div & 0xFF)));
 		assm.outb(PIT_CHANNEL0, @as(u8, ((div >> 8) & 0xFF)));
 		return .{
-			.millis_per_tick = 100,
+			.millis_per_tick = 1,
 			.countdown = 0
 		};
 	}

@@ -6,3 +6,5 @@ bastion.serial
 iso_root/**
 limine/**
 meson-build
+qemu.log
+image.iso

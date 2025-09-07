@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/boot/boot.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/reloadSegments.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/setCr3.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/scheduler/switch_to_task.S"));
 	kernel.addIncludePath(b.path("lai/include"));
 	kernel.addObjectFile(b.path("meson-build/liblai.a"));
 	

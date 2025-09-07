@@ -1,6 +1,7 @@
 // Based on https://github.com/ThatDreche/spinlock/blob/main/spinlock.zig
 
 const std = @import("std");
+const idt = @import("../interrupts/idt.zig");
 
 const spinlock_state = enum(u8){Unlocked,Locked};
 
@@ -9,14 +10,20 @@ pub const SpinLock = struct {
 	state: std.atomic.Value(spinlock_state),
 
 	pub fn init() SpinLock {
+		if(idt.can_enable_interrupts())
+			idt.enable_interrupts();
 		return .{.state = std.atomic.Value(spinlock_state).init(.Unlocked)};
 	}
 
 	pub fn init_locked() SpinLock {
+		if(idt.can_enable_interrupts())
+			idt.disable_interrupts();
 		return .{.state = std.atomic.Value(spinlock_state).init(.Locked)};
 	}
 
 	pub fn lock(self: *SpinLock) void {
+		if(idt.can_enable_interrupts())
+			idt.disable_interrupts();
 		while (!self.try_lock()) {
 			std.atomic.spinLoopHint();
 		}
@@ -31,5 +38,7 @@ pub const SpinLock = struct {
 
 	pub fn unlock(self: *SpinLock) void {
 		self.state.store(.Unlocked, .release);
+		if(idt.can_enable_interrupts())
+			idt.enable_interrupts();
 	}
 };

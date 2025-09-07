@@ -86,6 +86,16 @@ pub fn disable_interrupts() void {
 	asm volatile("cli");
 }
 
+var eints = false;
+
+pub fn can_enable_interrupts() bool {
+	if(@inComptime()) return false;
+	return eints;
+}
+
+pub fn set_enable_interrupts() void {
+	eints = true;
+}
 
 pub fn init() void {
 	if(!idt_is_setup.load(.acquire)) {
