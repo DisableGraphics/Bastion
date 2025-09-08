@@ -22,18 +22,18 @@ pub fn build(b: *std.Build) void {
 
     const kernel = b.addExecutable(.{
         .name = "kernel.elf",
-        .root_source_file = b.path("src/kernel/main.zig"),
-        .target = b.resolveTargetQuery(target_query),
-        .optimize = optimize,
-        .code_model = .kernel,
+        .root_module = b.createModule(
+		.{
+			.root_source_file = b.path("src/kernel/main.zig"),
+        	.target = b.resolveTargetQuery(target_query),
+        	.optimize = optimize,
+        	.code_model = .kernel
+		})
     });
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/boot/boot.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/reloadSegments.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/setCr3.S"));
-	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/scheduler/switch_to_task.S"));
-	kernel.addIncludePath(b.path("lai/include"));
-	kernel.addObjectFile(b.path("meson-build/liblai.a"));
-	
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/scheduler/switch_to_task.S"));	
 
 	const limine_zig = b.dependency("limine_zig", .{
 		// The API revision of the Limine Boot Protocol to use, if not provided
