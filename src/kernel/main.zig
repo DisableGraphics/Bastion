@@ -226,12 +226,13 @@ pub fn ap_begin(arg: *requests.SmpInfo) callconv(.C) void {
 
 pub fn ap_start(arg: *requests.SmpInfo) !void {
 	const ap_data: ap_data_struct = .{.processor_id = arg.processor_id, .lapic_id = arg.lapic_id};
-	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
+	
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
 	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, false);
 	picc.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
+	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
 
 	var rsp: u64 = undefined;
 	asm volatile(
