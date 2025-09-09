@@ -82,7 +82,7 @@ pub const LAPIC = struct {
 
 	pub fn get_cpuid(lapic_table: usize) u64 {
 		const id_reg: *volatile u32 = @ptrFromInt(lapic_table + 0x20);
-		return @as(u64, id_reg.*);
+		return @as(u64, id_reg.* >> 24);
 	}
 
 	pub fn on_irq(s: ?*volatile anyopaque) void {

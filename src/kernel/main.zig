@@ -77,6 +77,7 @@ var pm: pagemanager.PageManager = undefined;
 var km: kmm.KernelMemoryManager = undefined;
 var acpiman: acpi.ACPIManager = undefined;
 var picc: pic.PIC = undefined;
+var cpu_schedulers: []sch.Scheduler = undefined;
 
 fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, is_bsp: bool) !lapic.LAPIC {
 	const lapic_base = lapic.lapic_physaddr();
@@ -225,7 +226,7 @@ pub fn ap_begin(arg: *requests.SmpInfo) callconv(.C) void {
 
 pub fn ap_start(arg: *requests.SmpInfo) !void {
 	const ap_data: ap_data_struct = .{.processor_id = arg.processor_id, .lapic_id = arg.lapic_id};
-	std.log.info("Hello my name is {}", .{ap_data.processor_id});
+	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
@@ -246,7 +247,6 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	var sched = sch.Scheduler.init(tss.get_tss(ap_data.processor_id));
 	
 	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
-	
 
 	const kernel_stack_1 = (try km.alloc_virt(4)).?;
 	var test_task_1 = tsk.Task.init_kernel_task(
