@@ -35,7 +35,7 @@ pub const LAPIC = struct {
 		return self;
 	}
 
-	pub fn init_timer(self: *LAPIC, freqms: i32, pit: *pitt.PIT) void {
+	pub fn init_timer_bsp(self: *LAPIC, freqms: i32, pit: *pitt.PIT) void {
 		self.write_reg(0x3E0, 0x3);
 		self.write_reg(0x380, 0xFFFFFFFF);
 	

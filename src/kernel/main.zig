@@ -82,17 +82,21 @@ var cpu_schedulers: []sch.Scheduler = undefined;
 fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, is_bsp: bool) !lapic.LAPIC {
 	const lapic_base = lapic.lapic_physaddr();
 	const lapic_virt = lapic_base + hhdm_offset;
+	var pitt: pit.PIT = undefined;
 	if(is_bsp) {
 		try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_virt, km.pfa);
 		pi.enable_irq(0);
+		pitt = pit.PIT.init();
+		pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
+		idt.enable_interrupts();
 	}
-	var pitt = pit.PIT.init();
-	pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
-	idt.enable_interrupts();
+	
 	var lapicc = lapic.LAPIC.init(lapic_virt, lapic_base, is_bsp);
-	lapicc.init_timer(10, &pitt);
-	pitt.disable();
-	idt.disable_interrupts();
+	if(is_bsp) { 
+		lapicc.init_timer_bsp(10, &pitt);
+		pitt.disable();
+		idt.disable_interrupts();
+	}
 	return lapicc;
 }
 
@@ -247,8 +251,6 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	);
 	var sched = sch.Scheduler.init(tss.get_tss(ap_data.processor_id));
 	
-	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
-
 	const kernel_stack_1 = (try km.alloc_virt(4)).?;
 	var test_task_1 = tsk.Task.init_kernel_task(
 		test1,
@@ -258,6 +260,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	);
 	sched.add_idle(&idle_task);
 	sched.add_task(&test_task_1);
+	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
 	idt.enable_interrupts();
 	sched.schedule();
 	hcf();
