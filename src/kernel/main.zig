@@ -18,6 +18,8 @@ const tsk  = @import("scheduler/task.zig");
 const sch  = @import("scheduler/scheduler.zig");
 const assm = @import("arch/x86_64/asm.zig");
 const tss = @import("memory/tss.zig");
+const schman = @import("scheduler/manager.zig");
+const lpicmn = @import("arch/x86_64/controllers/manager.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -77,9 +79,8 @@ var pm: pagemanager.PageManager = undefined;
 var km: kmm.KernelMemoryManager = undefined;
 var acpiman: acpi.ACPIManager = undefined;
 var picc: pic.PIC = undefined;
-var cpu_schedulers: []sch.Scheduler = undefined;
 
-fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, is_bsp: bool) !lapic.LAPIC {
+fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: bool) !*lapic.LAPIC {
 	const lapic_base = lapic.lapic_physaddr();
 	const lapic_virt = lapic_base + hhdm_offset;
 	var pitt: pit.PIT = undefined;
@@ -91,7 +92,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, is_bsp: bool) !lapic
 		idt.enable_interrupts();
 	}
 	
-	var lapicc = lapic.LAPIC.init(lapic_virt, lapic_base, is_bsp);
+	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
 	if(is_bsp) { 
 		lapicc.init_timer_bsp(10, &pitt);
 		pitt.disable();
@@ -162,10 +163,14 @@ fn main() !void {
 	idt.set_enable_interrupts();
 	picc = pic.PIC.init();
 	picc.disable();
-	var lapicc = try setup_local_apic_timer(&picc, offset, true);
-
 	if(requests.mp_request.response) |mp_response| {
 		mp_cores = mp_response.cpu_count;
+		try lpicmn.LAPICManager.ginit(mp_cores, &km);
+		try schman.SchedulerManager.ginit(mp_cores, &km);
+	}
+	var lapicc = try setup_local_apic_timer(&picc, offset, 0, true);
+
+	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
 		std.log.info("BSP: {}", .{mp_response.bsp_lapic_id});
 		for(mp_response.getCpus()) |cpu| {
@@ -207,8 +212,7 @@ fn main() !void {
 
 	std.log.info("task: {x} {x}", .{idle_task.stack, @as(*anyopaque, @ptrCast(&idle_task))});
 
-	var sched = sch.Scheduler.init(tss.get_tss(0));
-	picc.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
 	
 	sched.add_idle(&idle_task);
 	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
@@ -234,8 +238,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
-	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, false);
-	picc.set_irq_handler(0, @ptrCast(&lapicc), lapic.LAPIC.on_irq);
+	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
 	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
 
 	var rsp: u64 = undefined;
@@ -249,7 +252,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		rsp,
 		assm.read_cr3(),
 	);
-	var sched = sch.Scheduler.init(tss.get_tss(ap_data.processor_id));
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
 	const kernel_stack_1 = (try km.alloc_virt(4)).?;
 	var test_task_1 = tsk.Task.init_kernel_task(
