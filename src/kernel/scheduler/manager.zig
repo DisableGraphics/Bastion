@@ -2,6 +2,7 @@ const sch = @import("scheduler.zig");
 const page = @import("../memory/pagemanager.zig");
 const frame = @import("../memory/kmm.zig");
 const ts = @import("../memory/tss.zig");
+const main = @import("../main.zig");
 
 pub const SchedulerManager = struct {
 	var schedulers: []sch.Scheduler = undefined;
@@ -15,5 +16,11 @@ pub const SchedulerManager = struct {
 
 	pub fn get_scheduler_for_cpu(cpuid: u64) *sch.Scheduler {
 		return &schedulers[cpuid];
+	}
+
+	pub fn on_irq(arg: ?*anyopaque) void {
+		_ = arg;
+		const cpuid = main.mycpuid();
+		schedulers[cpuid].schedule();
 	}
 };

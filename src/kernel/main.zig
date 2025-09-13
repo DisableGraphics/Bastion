@@ -41,7 +41,7 @@ pub fn hcf() noreturn {
 }
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, panic_addr: ?usize) noreturn {
 	var writer = serial.Serial.writer();
-	writer.print("Error: {s} at {x}\n", .{msg, panic_addr orelse 0}) catch {
+	writer.print("\nError: {s} at {x}\n", .{msg, panic_addr orelse 0}) catch {
 		serial.Serial.write('a');
 		hcf();
 	};
@@ -56,7 +56,6 @@ pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, pani
 				hcf();
 			};
 		}
-	
 	}
 	hcf();
 }
@@ -112,14 +111,14 @@ pub fn mycpuid() u64 {
 fn test1() void {
 	while(true) {
 		std.log.info("hey hey! (CPU #{})", .{mycpuid()});
-		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tas.TaskStatus.SLEEPING);
+		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tsk.TaskStatus.SLEEPING);
 	}
 }
 
 fn test2() void {
 	while(true) {
 		std.log.info("tururu (CPU #{})", .{mycpuid()});
-		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tas.TaskStatus.SLEEPING);
+		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tsk.TaskStatus.SLEEPING);
 	}
 }
 
@@ -218,15 +217,18 @@ fn main() !void {
 		@ptrFromInt(assm.read_cr3()),
 	);
 
-	std.log.info("task: {x} {x}", .{idle_task.stack, @as(*anyopaque, @ptrCast(&idle_task))});
+	std.log.info("task: {any}", .{idle_task});
+	std.log.info("task: {any}", .{test_task_1});
+	std.log.info("task: {any}", .{test_task_2});
 
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
 	
 	sched.add_idle(&idle_task);
-	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
-	idt.enable_interrupts();
+	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
+	
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);
+	sched.schedule();
 
 	hcf();
 }
@@ -246,7 +248,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
-	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
+	_ = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
 	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
 
 	var rsp: u64 = undefined;
@@ -271,8 +273,8 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	);
 	sched.add_idle(&idle_task);
 	sched.add_task(&test_task_1);
-	lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
-	idt.enable_interrupts();
-	sched.schedule();
+	//lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
+	//idt.enable_interrupts();
+	//sched.schedule();
 	hcf();
 }

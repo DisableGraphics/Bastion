@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) void {
         .cpu_features_sub = disabled_features,
         .cpu_features_add = enabled_features,
     };
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{.preferred_optimize_mode = .ReleaseSafe});
 
     const kernel = b.addExecutable(.{
         .name = "kernel.elf",

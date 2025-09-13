@@ -1,4 +1,5 @@
 const page = @import("../memory/pagemanager.zig");
+const std = @import("std");
 pub const TaskStatus = enum(u64) {
 	READY,
 	RUNNING,
@@ -12,6 +13,29 @@ pub const Task = extern struct {
 	kernel_stack: *anyopaque,
 	next: ?*Task,
 	state: TaskStatus,
+
+	pub fn format(
+            self: @This(),
+            comptime fmt: []const u8,
+            options: std.fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            _ = fmt;
+            _ = options;
+            try writer.print("{}{{" ++ 
+				".stack = {x}, " ++
+				".root_page_table = {x}, " ++
+				".kernel_stack = {x}, " ++ 
+				".next = {x}, " ++ 
+				".state = {s} }}", .{
+				@This(),
+               	@intFromPtr(self.stack),
+               	@intFromPtr(self.root_page_table),
+				@intFromPtr(self.kernel_stack),
+				@intFromPtr(self.next),
+				@tagName(self.state)
+            });
+        }
 
 	pub fn init_kernel_task(
 		func: *const fn() void,

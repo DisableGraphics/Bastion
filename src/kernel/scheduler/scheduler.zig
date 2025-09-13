@@ -24,19 +24,23 @@ pub const Scheduler = struct {
 	}
 
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
+		idt.disable_interrupts();
 		if(self.tasks) |proc| {
 			var procn: ?*task.Task = proc.next;
 			procn.?.next = tas;
 			tas.next = proc;
 		} else {
 			self.tasks = tas;
-			self.tasks.?.next = self.tasks.?;
+			self.tasks.?.next = self.tasks;
 		}
+		idt.enable_interrupts();
 	}
 
 	pub fn add_idle(self: *Scheduler, tas: *task.Task) void {
+		idt.disable_interrupts();
 		self.idle_task = tas;
 		self.current_process = tas;
+		idt.enable_interrupts();
 	}
 
 	// Assumes tasks is a circular linked list (which should be with how processes are allocated)
@@ -76,7 +80,6 @@ pub const Scheduler = struct {
 		if(self.tasks) |_| {
 			if(self.current_process) |_| {
 				const t = self.next_task();
-				std.log.debug("{x}", .{&t});
 				switch_task(
 					&self.current_process.?,
 					t,
