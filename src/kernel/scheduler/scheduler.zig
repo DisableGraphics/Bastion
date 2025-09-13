@@ -25,13 +25,18 @@ pub const Scheduler = struct {
 
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
 		idt.disable_interrupts();
-		if(self.tasks) |proc| {
-			var procn: ?*task.Task = proc.next;
-			procn.?.next = tas;
-			tas.next = proc;
+		if(self.tasks) |_| {
+			var head = self.tasks.?;
+			var last = head.prev.?;
+			var data = tas;
+			data.next = head;
+			data.prev = last;
+			head.prev = data;
+			last.next = data;
 		} else {
 			self.tasks = tas;
 			self.tasks.?.next = self.tasks;
+			self.tasks.?.prev = self.tasks;
 		}
 		idt.enable_interrupts();
 	}
@@ -47,10 +52,12 @@ pub const Scheduler = struct {
 	fn search_available_task(self: *Scheduler, start_at: *task.Task) ?*task.Task {
 		_ = self;
 		var tptr = start_at.next.?;
-		while(tptr != start_at) : (tptr = tptr.next.?) {
+		var one_advance = true;
+		while(tptr != start_at or one_advance) : (tptr = tptr.next.?) {
 			if(tptr.state == task.TaskStatus.READY) {
 				return tptr;
 			}
+			one_advance = false;
 		}
 		return null;
 	}
@@ -75,8 +82,22 @@ pub const Scheduler = struct {
 		return self.idle_task.?;
 	}
 
+	fn clear_deleted_tasks(self: *Scheduler) void {
+		if(self.tasks) |_| {
+			var tptr = self.tasks.?;
+			var one_advance = true;
+			while(tptr != self.tasks.? or one_advance) : (tptr = tptr.next.?) {
+				if(tptr.state == task.TaskStatus.FINISHED) {
+					self.remove(tptr);
+				}
+				one_advance = false;
+			}
+		}
+	}
+
 	pub fn schedule(self: *Scheduler) void {
 		idt.disable_interrupts();
+		self.clear_deleted_tasks();
 		if(self.tasks) |_| {
 			if(self.current_process) |_| {
 				const t = self.next_task();
@@ -90,10 +111,40 @@ pub const Scheduler = struct {
 		idt.enable_interrupts();
 	}
 
-	pub fn block(self: *Scheduler, reason: task.TaskStatus) void {
+	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
 		idt.disable_interrupts();
-		self.current_process.?.state = reason;
+		tsk.state = reason;
 		self.schedule();
 	}
+	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
+		idt.disable_interrupts();
+		_ = self;
+		tsk.state = task.TaskStatus.READY;
+		idt.enable_interrupts();
+	}
 
+	fn remove(self: *Scheduler, tsk: *task.Task) void {
+		self.remove_task_from_list(tsk);
+		if(tsk.deinitfn) |_| {
+			tsk.deinitfn.?(tsk, tsk.extra_arg);
+		}
+	}
+
+	fn remove_task_from_list(self: *Scheduler, tsk: *task.Task) void {
+		if(self.tasks) |proc| {
+			if(tsk.next.? == tsk and tsk.prev.? == tsk and tsk == proc) {
+				self.tasks = null;
+			} else {
+				if(tsk == proc) {
+					self.tasks = tsk.next;
+				}
+				if (tsk.prev) |prev| {
+					prev.next = tsk.next;
+				}
+				if (tsk.next) |next| {
+					next.prev = tsk.prev;
+				}
+			}
+		}
+	}
 };

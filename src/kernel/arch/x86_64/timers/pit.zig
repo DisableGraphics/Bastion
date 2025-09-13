@@ -7,8 +7,9 @@ pub const PIT = struct {
 	millis_per_tick: i32,
 	countdown: i32,
 	pub fn init() PIT {
+		const result = (1193182 * 1_000)/1000000;
 		const command = 0x34;
-		const div: u16 = @truncate((1193182 * 1_000)/1000000);
+		const div: u16 = @truncate(result);
 		assm.outb(PIT_COMMAND, command);
 		assm.outb(PIT_CHANNEL0, @as(u8,(div & 0xFF)));
 		assm.outb(PIT_CHANNEL0, @as(u8, ((div >> 8) & 0xFF)));
@@ -26,7 +27,8 @@ pub const PIT = struct {
 
 	pub fn sleep(self: *volatile PIT, ms: i32) void {
 		self.countdown = ms;
-		while(self.countdown > 0) {
+		@atomicStore(i32, &self.countdown, ms, .seq_cst);
+		while(@atomicLoad(i32, &self.countdown, .seq_cst) > 0) {
 			asm volatile("hlt");
 		}
 	}
@@ -41,6 +43,6 @@ pub const PIT = struct {
 
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		var self: *volatile PIT = @ptrCast(@alignCast(s.?));
-		self.countdown -= self.millis_per_tick;
+		@atomicStore(i32, &self.countdown, self.countdown - self.millis_per_tick, .seq_cst);
 	}
 };

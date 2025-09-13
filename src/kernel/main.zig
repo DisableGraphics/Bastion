@@ -111,14 +111,20 @@ pub fn mycpuid() u64 {
 fn test1() void {
 	while(true) {
 		std.log.info("hey hey! (CPU #{})", .{mycpuid()});
-		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tsk.TaskStatus.SLEEPING);
+		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+		if(sched.current_process) |_| {
+			sched.block(sched.current_process.?, tsk.TaskStatus.FINISHED);
+		}
 	}
 }
 
 fn test2() void {
 	while(true) {
 		std.log.info("tururu (CPU #{})", .{mycpuid()});
-		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tsk.TaskStatus.SLEEPING);
+		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+		if(sched.current_process) |_| {
+			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
+		}
 	}
 }
 
@@ -201,20 +207,22 @@ fn main() !void {
 		assm.read_cr3(),
 	);
 
-	const kernel_stack_1 = (try km.alloc_virt(4)).?;
+	const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var test_task_1 = tsk.Task.init_kernel_task(
 		test1,
-		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
-		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
 		@ptrFromInt(assm.read_cr3()),
+		&km
 	);
 
-	const kernel_stack_2 = (try km.alloc_virt(4)).?;
+	const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var test_task_2 = tsk.Task.init_kernel_task(
 		test2,
-		@ptrFromInt(kernel_stack_2 + 4*pagemanager.PAGE_SIZE),
-		@ptrFromInt(kernel_stack_2 + 4*pagemanager.PAGE_SIZE),
+		@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
 		@ptrFromInt(assm.read_cr3()),
+		&km
 	);
 
 	std.log.info("task: {any}", .{idle_task});
@@ -248,7 +256,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	gdt.init(ap_data.processor_id);
 	idt.init();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
-	_ = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
+	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
 	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
 
 	var rsp: u64 = undefined;
@@ -270,10 +278,11 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
 		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
 		@ptrFromInt(assm.read_cr3()),
+		&km
 	);
 	sched.add_idle(&idle_task);
 	sched.add_task(&test_task_1);
-	//lapicc.set_on_timer(@ptrCast(&sch.Scheduler.schedule), @ptrCast(&sched));
+	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	//idt.enable_interrupts();
 	//sched.schedule();
 	hcf();
