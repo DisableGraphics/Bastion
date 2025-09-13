@@ -92,4 +92,5 @@ pub const Scheduler = struct {
 		self.current_process.?.state = reason;
 		self.schedule();
 	}
+
 };

@@ -20,6 +20,7 @@ const assm = @import("arch/x86_64/asm.zig");
 const tss = @import("memory/tss.zig");
 const schman = @import("scheduler/manager.zig");
 const lpicmn = @import("arch/x86_64/controllers/manager.zig");
+const tas = @import("scheduler/task.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -28,7 +29,7 @@ extern const virt_kernel_end: u8;
 pub const std_options: std.Options = .{
     // Set the log level to debug
     .log_level = .debug,
-
+	.page_size_max = 1*1024*1024*1024,
     // Define logFn to override the std implementation
     .logFn = log.logfn,
 };
@@ -38,7 +39,6 @@ pub fn hcf() noreturn {
 		asm volatile("hlt");
 	}
 }
-
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, panic_addr: ?usize) noreturn {
 	var writer = serial.Serial.writer();
 	writer.print("Error: {s} at {x}\n", .{msg, panic_addr orelse 0}) catch {
@@ -56,8 +56,9 @@ pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, pani
 				hcf();
 			};
 		}
+	
 	}
-    hcf();
+	hcf();
 }
 
 pub const MAX_CORES = 64;
@@ -97,6 +98,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		lapicc.init_timer_bsp(10, &pitt);
 		pitt.disable();
 		idt.disable_interrupts();
+		picc.set_irq_handler(0, null, &lpicmn.LAPICManager.on_irq);
 	}
 	return lapicc;
 }
@@ -108,11 +110,17 @@ pub fn mycpuid() u64 {
 }
 
 fn test1() void {
-	while(true) {std.log.info("hey hey! (CPU #{})", .{mycpuid()});}
+	while(true) {
+		std.log.info("hey hey! (CPU #{})", .{mycpuid()});
+		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tas.TaskStatus.SLEEPING);
+	}
 }
 
 fn test2() void {
-	while(true) {std.log.info("tururu", .{});}
+	while(true) {
+		std.log.info("tururu (CPU #{})", .{mycpuid()});
+		schman.SchedulerManager.get_scheduler_for_cpu(mycpuid()).block(tas.TaskStatus.SLEEPING);
+	}
 }
 
 fn main() !void {
