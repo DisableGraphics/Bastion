@@ -6,7 +6,8 @@ const idt = @import("../interrupts/idt.zig");
 extern fn switch_task(
 	current_task: **task.Task,
 	next_task: *task.Task,
-	tss: *ts.tss_t
+	tss: *ts.tss_t,
+	current_task_deleted: u64,
 	) callconv(.C) void;
 // NOTE: ONE SCHEDULER PER CPU CORE
 pub const Scheduler = struct {
@@ -14,11 +15,13 @@ pub const Scheduler = struct {
 	current_process: ?*task.Task,
 	idle_task: ?*task.Task,
 	cpu_tss: *ts.tss_t,
+	finished_tasks: ?*task.Task,
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
 			.idle_task = null,
 			.current_process = null,
 			.tasks = null,
+			.finished_tasks = null,
 			.cpu_tss = cpu_tss,
 		};
 	}
@@ -74,6 +77,14 @@ pub const Scheduler = struct {
 				}
 				return proc;
 			} else {
+				if(proc.state == task.TaskStatus.FINISHED) {
+					if(self.tasks) |start| {
+						if(self.search_available_task(start)) |t| {
+							return t;
+						}
+					}
+					return self.idle_task.?;
+				}
 				if(self.search_available_task(proc)) |t| {
 					return t;
 				}
@@ -86,7 +97,7 @@ pub const Scheduler = struct {
 		if(self.tasks) |_| {
 			var tptr = self.tasks.?;
 			var one_advance = true;
-			while(tptr != self.tasks.? or one_advance) : (tptr = tptr.next.?) {
+			while(self.tasks != null and (tptr != self.tasks.? or one_advance)) : (tptr = tptr.next.?) {
 				if(tptr.state == task.TaskStatus.FINISHED) {
 					self.remove(tptr);
 				}
@@ -97,14 +108,15 @@ pub const Scheduler = struct {
 
 	pub fn schedule(self: *Scheduler) void {
 		idt.disable_interrupts();
-		self.clear_deleted_tasks();
 		if(self.tasks) |_| {
 			if(self.current_process) |_| {
+				self.clear_deleted_tasks();
 				const t = self.next_task();
 				switch_task(
 					&self.current_process.?,
 					t,
-					self.cpu_tss);
+					self.cpu_tss,
+					@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
 			}
 			// Hasn't been setup with an idle task
 		}

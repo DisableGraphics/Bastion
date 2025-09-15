@@ -123,7 +123,7 @@ fn test2() void {
 		std.log.info("tururu (CPU #{})", .{mycpuid()});
 		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 		if(sched.current_process) |_| {
-			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
+			sched.block(sched.current_process.?, tsk.TaskStatus.FINISHED);
 		}
 	}
 }
@@ -273,7 +273,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
 	const kernel_stack_1 = (try km.alloc_virt(4)).?;
-	var test_task_1 = tsk.Task.init_kernel_task(
+	var ttask1 = tsk.Task.init_kernel_task(
 		test1,
 		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
 		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
@@ -281,7 +281,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		&km
 	);
 	sched.add_idle(&idle_task);
-	sched.add_task(&test_task_1);
+	sched.add_task(&ttask1);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	//idt.enable_interrupts();
 	//sched.schedule();

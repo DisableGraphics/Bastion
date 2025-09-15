@@ -1,12 +1,17 @@
 .global switch_task
-# void switch_task(Task** current_thread, Task *next_thread, tss_t* tss);
+# void switch_task(Task** current_thread, Task *next_thread, tss_t* tss, bool current_thread_deleted);
 # System V x86_64 ABI: 
 #   rdi = &current_thread
 #   rsi = next_thread
 #	rdx = tss
+#	
 
 switch_task:
-    # Save previous task's state (callee-saved regs only)
+    # rdi = current_thread
+    mov (%rdi), %rcx        # rcx = *current_thread (pointer to TCB of current task)
+	cmp $0,%rcx				# Check if current_thread has been deleted
+	jne .no_stack			# If it is, we don't need to save the register state
+	# Save previous task's state (callee-saved regs only)
     push %rbx
     push %rbp
     push %r12
@@ -14,11 +19,8 @@ switch_task:
     push %r14
     push %r15
     pushfq
-
-    # rdi = &current_thread
-    mov (%rdi), %rcx        # rcx = *current_thread (pointer to TCB of current task)
-    mov %rsp, (%rcx)        # Save kernel stack pointer (RSP) into TCB
-
+    mov %rsp, (%rcx)        # Save kernel stack pointer (RSP) into TCB (If current_task isn't deleted of course)
+.no_stack:
     # Load next task's state
     mov %rsi, (%rdi)        # *current_thread = next_thread
 
