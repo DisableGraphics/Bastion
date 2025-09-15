@@ -4,13 +4,13 @@
 #	rdi = &current_thread
 #	rsi = next_thread
 #	rdx = tss
-#	
+#	rcx = current_thread_deleted
 
 switch_task:
 	# rdi = current_thread
 	mov (%rdi), %rcx        # rcx = *current_thread (pointer to TCB of current task)
 	cmp $0,%rcx				# Check if current_thread has been deleted
-	jne .no_stack			# If it is, we don't need to save the register state
+	jne .no_current			# If it is, we don't need to save the register state
 	# Save previous task's state (callee-saved regs only)
 	push %rbx
 	push %rbp
@@ -20,7 +20,7 @@ switch_task:
 	push %r15
 	pushfq
 	mov %rsp, (%rcx)        # Save kernel stack pointer (RSP) into TCB (If current_task isn't deleted of course)
-.no_stack:
+.no_current:
 	# Load next task's state
 	mov %rsi, (%rdi)        # *current_thread = next_thread
 
