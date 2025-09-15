@@ -8,7 +8,7 @@
 
 switch_task:
 	# rdi = current_thread
-	mov (%rdi), %rcx        # rcx = *current_thread (pointer to TCB of current task)
+	mov (%rdi), %r10        # rcx = *current_thread (pointer to TCB of current task)
 	cmp $0,%rcx				# Check if current_thread has been deleted
 	jne .no_current			# If it is, we don't need to save the register state
 	# Save previous task's state (callee-saved regs only)
@@ -19,7 +19,7 @@ switch_task:
 	push %r14
 	push %r15
 	pushfq
-	mov %rsp, (%rcx)        # Save kernel stack pointer (RSP) into TCB (If current_task isn't deleted of course)
+	mov %rsp, (%r10)        # Save kernel stack pointer (RSP) into TCB (If current_task isn't deleted of course)
 .no_current:
 	# Load next task's state
 	mov %rsi, (%rdi)        # *current_thread = next_thread
@@ -32,8 +32,8 @@ switch_task:
 	mov %rbx, 4(%rdx)       # adjust rsp0 field in TSS
 
 	# Switch address space if needed
-	mov %cr3, %rcx
-	cmp %rax, %rcx
+	mov %cr3, %r10
+	cmp %rax, %r10
 	je .doneVAS
 	mov %rax, %cr3
 .doneVAS:

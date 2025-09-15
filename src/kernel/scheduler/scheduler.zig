@@ -110,8 +110,8 @@ pub const Scheduler = struct {
 		idt.disable_interrupts();
 		if(self.tasks) |_| {
 			if(self.current_process) |_| {
-				self.clear_deleted_tasks();
 				const t = self.next_task();
+				self.clear_deleted_tasks();
 				switch_task(
 					&self.current_process.?,
 					t,
