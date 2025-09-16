@@ -119,11 +119,15 @@ fn test1() void {
 }
 
 fn test2() void {
+	var v: u64 = 1;
 	while(true) {
 		std.log.info("tururu (CPU #{})", .{mycpuid()});
-		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-		if(sched.current_process) |_| {
-			sched.block(sched.current_process.?, tsk.TaskStatus.FINISHED);
+		v += 1;
+		if(v > 5) {
+			var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+			if(sched.current_process) |_| {
+				sched.block(sched.current_process.?, tsk.TaskStatus.FINISHED);
+			}
 		}
 	}
 }
