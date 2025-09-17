@@ -14,6 +14,7 @@ pub const Scheduler = struct {
 	tasks: ?*task.Task,
 	current_process: ?*task.Task,
 	idle_task: ?*task.Task,
+	cleanup_task: ?*task.Task,
 	cpu_tss: *ts.tss_t,
 	finished_tasks: ?*task.Task,
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
@@ -22,6 +23,7 @@ pub const Scheduler = struct {
 			.current_process = null,
 			.tasks = null,
 			.finished_tasks = null,
+			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
 		};
 	}
@@ -51,6 +53,13 @@ pub const Scheduler = struct {
 		idt.enable_interrupts();
 	}
 
+	pub fn add_cleanup(self: *Scheduler, tas: *task.Task) void {
+		idt.disable_interrupts();
+		self.cleanup_task = tas;
+		self.cleanup_task.?.state = task.TaskStatus.SLEEPING;
+		idt.enable_interrupts();
+	}
+
 	// Assumes tasks is a circular linked list (which should be with how processes are allocated)
 	fn search_available_task(self: *Scheduler, start_at: *task.Task) ?*task.Task {
 		_ = self;
@@ -67,15 +76,18 @@ pub const Scheduler = struct {
 
 	// Needs to have a idle task set up, or it will panic
 	fn next_task(self: *Scheduler) *task.Task {
+		if(self.cleanup_task) |t| {
+			if(t.state == task.TaskStatus.READY) return t;
+		}
 		if(self.current_process) |proc| {
-			if(proc == self.idle_task.?) {
+			if(proc == self.idle_task.? or proc == self.cleanup_task.?) {
 				if(self.tasks) |start| {
 					// If tasks are available, return task
 					if(self.search_available_task(start)) |t| {
 						return t;
 					}
 				}
-				return proc;
+				return self.idle_task.?;
 			} else {
 				if(proc.state == task.TaskStatus.FINISHED) {
 					if(self.tasks) |start| {
@@ -93,7 +105,8 @@ pub const Scheduler = struct {
 		return self.idle_task.?;
 	}
 
-	fn clear_deleted_tasks(self: *Scheduler) void {
+	pub fn clear_deleted_tasks(self: *Scheduler) void {
+		idt.disable_interrupts();
 		if(self.tasks) |_| {
 			var tptr = self.tasks.?;
 			var one_advance = true;
@@ -104,14 +117,14 @@ pub const Scheduler = struct {
 				one_advance = false;
 			}
 		}
+		idt.enable_interrupts();
 	}
 
 	pub fn schedule(self: *Scheduler) void {
 		idt.disable_interrupts();
-		if(self.tasks) |_| {
-			if(self.current_process) |_| {
+		if(self.tasks != null){
+			if(self.current_process != null) {
 				const t = self.next_task();
-				self.clear_deleted_tasks();
 				switch_task(
 					&self.current_process.?,
 					t,
@@ -119,6 +132,13 @@ pub const Scheduler = struct {
 					@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
 			}
 			// Hasn't been setup with an idle task
+		} else if(self.current_process != null) {
+			// No tasks available
+			switch_task(
+				&self.current_process.?,
+				self.idle_task.?,
+				self.cpu_tss,
+				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
 		}
 		idt.enable_interrupts();
 	}
@@ -133,6 +153,12 @@ pub const Scheduler = struct {
 		_ = self;
 		tsk.state = task.TaskStatus.READY;
 		idt.enable_interrupts();
+	}
+	pub fn exit(self: *Scheduler, tsk: *task.Task) void {
+		if(self.cleanup_task != null) {
+			self.unblock(self.cleanup_task.?);
+		}
+		self.block(tsk, task.TaskStatus.FINISHED);
 	}
 
 	fn remove(self: *Scheduler, tsk: *task.Task) void {

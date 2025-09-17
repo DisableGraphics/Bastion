@@ -113,7 +113,7 @@ fn test1() void {
 		std.log.info("hey hey! (CPU #{})", .{mycpuid()});
 		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 		if(sched.current_process) |_| {
-			sched.block(sched.current_process.?, tsk.TaskStatus.FINISHED);
+			sched.exit(sched.current_process.?);
 		}
 	}
 }
@@ -126,9 +126,18 @@ fn test2() void {
 		if(v > 5) {
 			var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 			if(sched.current_process) |_| {
-				sched.block(sched.current_process.?, tsk.TaskStatus.FINISHED);
+				sched.exit(sched.current_process.?);
 			}
 		}
+	}
+}
+
+fn cleanup() void {
+	while(true) {
+		std.log.debug("Deleting dead tasks", .{});
+		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+		sched.clear_deleted_tasks();
+		sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
 	}
 }
 
@@ -228,6 +237,14 @@ fn main() !void {
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
+	const cleanup_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	var cleanup_task = tsk.Task.init_kernel_task(
+		cleanup,
+		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+		&km
+	);
 
 	std.log.info("task: {any}", .{idle_task});
 	std.log.info("task: {any}", .{test_task_1});
@@ -237,7 +254,7 @@ fn main() !void {
 	
 	sched.add_idle(&idle_task);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
-	
+	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);
 	sched.schedule();
@@ -284,7 +301,16 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
+	const cleanup_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	var cleanup_task = tsk.Task.init_kernel_task(
+		cleanup,
+		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+		&km
+	);
 	sched.add_idle(&idle_task);
+	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&ttask1);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	//idt.enable_interrupts();
