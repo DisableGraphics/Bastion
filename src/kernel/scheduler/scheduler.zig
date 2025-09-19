@@ -11,7 +11,10 @@ extern fn switch_task(
 	) callconv(.C) void;
 // NOTE: ONE SCHEDULER PER CPU CORE
 pub const Scheduler = struct {
-	tasks: ?*task.Task,
+	l1_tasks: ?*task.Task,
+	l2_tasks: ?*task.Task,
+	l3_tasks: ?*task.Task,
+	l4_tasks: ?*task.Task,
 	current_process: ?*task.Task,
 	blocked_tasks: ?*task.Task,
 	idle_task: ?*task.Task,
@@ -23,7 +26,10 @@ pub const Scheduler = struct {
 			.idle_task = null,
 			.current_process = null,
 			.blocked_tasks = null,
-			.tasks = null,
+			.l1_tasks = null,
+			.l2_tasks = null,
+			.l3_tasks = null,
+			.l4_tasks = null,
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
@@ -32,7 +38,7 @@ pub const Scheduler = struct {
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
 		idt.disable_interrupts();
-		self.add_task_to_list(tas, &self.tasks);
+		self.add_task_to_list(tas, &self.l1_tasks);
 		idt.enable_interrupts();
 	}
 	// adds an idle task & sets up current process
@@ -70,7 +76,7 @@ pub const Scheduler = struct {
 		//    - If it hasn't finished, return the next task.
 		if(self.current_process) |proc| {
 			if(proc == self.idle_task.? or proc == self.cleanup_task.?) {
-				if(self.tasks) |start| {
+				if(self.l1_tasks) |start| {
 					// If tasks are available, return task
 					if(self.search_available_task(start)) |t| {
 						return t;
@@ -79,7 +85,7 @@ pub const Scheduler = struct {
 				return self.idle_task.?;
 			} else {
 				if(proc.state == task.TaskStatus.FINISHED) {
-					if(self.tasks) |start| {
+					if(self.l1_tasks) |start| {
 						if(self.search_available_task(start)) |t| {
 							return t;
 						}
@@ -131,7 +137,7 @@ pub const Scheduler = struct {
 		const was_unlocked = tsk.state == task.TaskStatus.READY;
 		tsk.state = reason;
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_unlocked) {
-			self.remove_task_from_list(tsk, &self.tasks);
+			self.remove_task_from_list(tsk, &self.l1_tasks);
 			self.add_task_to_list(tsk, &self.blocked_tasks);
 		}
 		self.schedule();
@@ -145,7 +151,7 @@ pub const Scheduler = struct {
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_locked) {
 			// Move the task from
 			self.remove_task_from_list(tsk, &self.blocked_tasks);
-			self.add_task_to_list(tsk, &self.tasks);
+			self.add_task_to_list(tsk, &self.l1_tasks);
 		}
 		if(self.current_process.? == self.idle_task.?) {
 			// Preempt the idle task if it was the current running process
