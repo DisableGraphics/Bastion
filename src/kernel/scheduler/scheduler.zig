@@ -239,4 +239,10 @@ pub const Scheduler = struct {
 			}
 		}
 	}
+
+	pub fn get_priority(self:* Scheduler, tsk: *task.Task) i8 {
+		return for(0..self.queues.len) |i| {
+			if(tsk.current_queue == &self.queues[i]) {break @truncate(@as(i64, @intCast(i)));}
+		} else -1;
+	}
 };

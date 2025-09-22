@@ -126,6 +126,7 @@ fn test2() void {
 		if(v > 10000) {
 			var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 			if(sched.current_process) |_| {
+				std.log.info("Priority at the end (should be 3) {}", .{sched.get_priority(sched.current_process.?)});
 				sched.exit(sched.current_process.?);
 			}
 		}
