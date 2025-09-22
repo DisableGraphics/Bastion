@@ -141,7 +141,7 @@ pub const Scheduler = struct {
 		// then we just search for the next one.
 		if(self.current_process != null) {
 			const t = self.next_task();
-			self.move_task_down(t);
+			self.move_task_down(self.current_process.?);
 			switch_task(
 				&self.current_process.?,
 				t,
