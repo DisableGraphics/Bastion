@@ -19,6 +19,7 @@ pub const Task = extern struct {
 	kernel_stack_top: *anyopaque,
 	deinitfn: ?*const fn(*Task, ?*anyopaque) void,
 	extra_arg: ?*anyopaque,
+	current_queue: ?*?*Task,
 
 	pub fn format(
             self: @This(),
@@ -70,7 +71,8 @@ pub const Task = extern struct {
 			.state = TaskStatus.READY,
 			.kernel_stack_top = @ptrFromInt(@intFromPtr(stack) - KERNEL_STACK_SIZE),
 			.deinitfn = deinit_kernel_task,
-			.extra_arg = @ptrCast(allocator)
+			.extra_arg = @ptrCast(allocator),
+			.current_queue = null
 		};
 	}
 
@@ -86,7 +88,8 @@ pub const Task = extern struct {
 			.state = TaskStatus.READY,
 			.kernel_stack_top = @ptrFromInt(16),
 			.deinitfn = null,
-			.extra_arg = null
+			.extra_arg = null,
+			.current_queue = null,
 		};
 	}
 

@@ -123,7 +123,7 @@ fn test2() void {
 	while(true) {
 		std.log.info("tururu (CPU #{})", .{mycpuid()});
 		v += 1;
-		if(v > 5) {
+		if(v > 10000) {
 			var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 			if(sched.current_process) |_| {
 				sched.exit(sched.current_process.?);

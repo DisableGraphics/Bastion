@@ -11,10 +11,7 @@ extern fn switch_task(
 	) callconv(.C) void;
 // NOTE: ONE SCHEDULER PER CPU CORE
 pub const Scheduler = struct {
-	l1_tasks: ?*task.Task,
-	l2_tasks: ?*task.Task,
-	l3_tasks: ?*task.Task,
-	l4_tasks: ?*task.Task,
+	queues: [4]?*task.Task,
 	current_process: ?*task.Task,
 	blocked_tasks: ?*task.Task,
 	idle_task: ?*task.Task,
@@ -26,10 +23,7 @@ pub const Scheduler = struct {
 			.idle_task = null,
 			.current_process = null,
 			.blocked_tasks = null,
-			.l1_tasks = null,
-			.l2_tasks = null,
-			.l3_tasks = null,
-			.l4_tasks = null,
+			.queues = [_]?*task.Task{null} ** 4,
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
@@ -38,7 +32,7 @@ pub const Scheduler = struct {
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
 		idt.disable_interrupts();
-		self.add_task_to_list(tas, &self.l1_tasks);
+		self.add_task_to_list(tas, &self.queues[0]);
 		idt.enable_interrupts();
 	}
 	// adds an idle task & sets up current process
@@ -57,11 +51,51 @@ pub const Scheduler = struct {
 		idt.enable_interrupts();
 	}
 
+	fn get_queue_level(self: *Scheduler, queue: ?*?*task.Task) i64 {
+		if(queue) |q| {
+			for(0..self.queues.len) |i| {
+				if(q == &self.queues[i]) return @intCast(i);
+			} else return -1;
+		} else return -1;
+	}
+
+	fn tasks_queued_for_execution(self: *Scheduler) bool {
+		for(self.queues) |queue| {
+			if(queue != null) return true;
+		} else return false;
+	}
+
+	fn first_task_with_higher_priority(self: *Scheduler, priority: usize) ?*task.Task {
+		for(0..priority) |i| {
+			if(self.queues[i] != null) return self.queues[i];
+		} else return null;
+	}
+
+	fn move_task_down(self: *Scheduler, tsk: *task.Task) void {
+		const tsk_level = self.get_queue_level(tsk.current_queue);
+		if(tsk_level >= 0 and tsk_level < 3) {
+			std.log.debug("Reduced priority of task", .{});
+			self.remove_task_from_list(tsk, tsk.current_queue.?);
+			self.add_task_to_list(tsk, &self.queues[@intCast(tsk_level + 1)]);
+		}
+	}
+
 	// Assumes tasks is a circular linked list (which should be with how processes are allocated)
-	// Also O(1)
-	fn search_available_task(self: *Scheduler, start_at: *task.Task) ?*task.Task {
-		_ = self;
-		return start_at.next.?;
+	fn search_available_task(self: *Scheduler, start_at: ?*task.Task) ?*task.Task {
+		if(start_at) |t| {
+			const queue_level: i64 = self.get_queue_level(t.current_queue.?);
+			const level: usize = switch (queue_level == -1) {
+				true => 4,
+				false => @intCast(queue_level),
+			};
+			const task_with_higher_priority = self.first_task_with_higher_priority(level);
+			const next = t.next;
+			if(task_with_higher_priority) |h| {return h;} else return next;
+		} else {
+			const task_with_higher_priority = self.first_task_with_higher_priority(4);
+			if(task_with_higher_priority) |t| {return t;} else return null;
+		}
+		return null;
 	}
 
 	// Needs to have a idle task set up, or it will panic
@@ -71,30 +105,16 @@ pub const Scheduler = struct {
 			if(t.state == task.TaskStatus.READY) return t;
 		}
 		// Basically:
-		//    - If current process is a special task (either idle or cleanup) search for another task. If there isn't one, just return the idle
+		//    - If current process is a special task (either idle or cleanup) or finished search for another task. If there isn't one, just return the idle
 		//    - If current process is a normal task, just check if hasn't finished. If it is, search for another task (if no tasks available return the idle)
 		//    - If it hasn't finished, return the next task.
 		if(self.current_process) |proc| {
-			if(proc == self.idle_task.? or proc == self.cleanup_task.?) {
-				if(self.l1_tasks) |start| {
-					// If tasks are available, return task
-					if(self.search_available_task(start)) |t| {
-						return t;
-					}
-				}
-				return self.idle_task.?;
-			} else {
-				if(proc.state == task.TaskStatus.FINISHED) {
-					if(self.l1_tasks) |start| {
-						if(self.search_available_task(start)) |t| {
-							return t;
-						}
-					}
-					return self.idle_task.?;
-				}
-				if(self.search_available_task(proc)) |t| {
-					return t;
-				}
+			const task_param = switch(proc == self.idle_task.? or proc == self.cleanup_task.? or proc.state == task.TaskStatus.FINISHED) {
+				true => null,
+				false => proc
+			};
+			if(self.search_available_task(task_param)) |t| {
+				return t;
 			}
 		}
 		return self.idle_task.?;
@@ -121,11 +141,12 @@ pub const Scheduler = struct {
 		// then we just search for the next one.
 		if(self.current_process != null) {
 			const t = self.next_task();
-				switch_task(
-					&self.current_process.?,
-					t,
-					self.cpu_tss,
-					@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
+			self.move_task_down(t);
+			switch_task(
+				&self.current_process.?,
+				t,
+				self.cpu_tss,
+				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
 		}
 		idt.enable_interrupts();
 	}
@@ -137,7 +158,7 @@ pub const Scheduler = struct {
 		const was_unlocked = tsk.state == task.TaskStatus.READY;
 		tsk.state = reason;
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_unlocked) {
-			self.remove_task_from_list(tsk, &self.l1_tasks);
+			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			self.add_task_to_list(tsk, &self.blocked_tasks);
 		}
 		self.schedule();
@@ -151,7 +172,7 @@ pub const Scheduler = struct {
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_locked) {
 			// Move the task from
 			self.remove_task_from_list(tsk, &self.blocked_tasks);
-			self.add_task_to_list(tsk, &self.l1_tasks);
+			self.add_task_to_list(tsk, &self.queues[0]);
 		}
 		if(self.current_process.? == self.idle_task.?) {
 			// Preempt the idle task if it was the current running process
@@ -197,6 +218,7 @@ pub const Scheduler = struct {
 			list.*.?.next = list.*;
 			list.*.?.prev = list.*;
 		}
+		tas.current_queue = list;
 	}
 
 	fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *?*task.Task) void {
