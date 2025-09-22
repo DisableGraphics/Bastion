@@ -57,8 +57,8 @@ pub const Task = extern struct {
 		) Task {
 
 		var stack_p: [*]usize = @ptrCast(@alignCast(stack));
-		stack_p = stack_p - 8;
-		stack_p[7] = @intFromPtr(func);
+		stack_p = stack_p - 9;
+		stack_p[8] = @intFromPtr(func);
 		stack_p[0] = 0x202;
 		_ = kernel_stack;
 
