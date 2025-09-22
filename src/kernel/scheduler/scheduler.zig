@@ -2,6 +2,7 @@ const task = @import("task.zig");
 const ts = @import("../memory/tss.zig");
 const std = @import("std");
 const idt = @import("../interrupts/idt.zig");
+const queue_len = 4;
 
 extern fn switch_task(
 	current_task: **task.Task,
@@ -12,7 +13,7 @@ extern fn switch_task(
 // NOTE: ONE SCHEDULER PER CPU CORE
 // NOTE2: DO NOT LOG ANYTHING EXCEPT IN NON-INTERRUPT CONTEXTS.
 pub const Scheduler = struct {
-	queues: [4]?*task.Task,
+	queues: [queue_len]?*task.Task,
 	current_process: ?*task.Task,
 	blocked_tasks: ?*task.Task,
 	idle_task: ?*task.Task,
@@ -24,7 +25,7 @@ pub const Scheduler = struct {
 			.idle_task = null,
 			.current_process = null,
 			.blocked_tasks = null,
-			.queues = [_]?*task.Task{null} ** 4,
+			.queues = [_]?*task.Task{null} ** queue_len,
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
@@ -74,7 +75,7 @@ pub const Scheduler = struct {
 
 	fn move_task_down(self: *Scheduler, tsk: *task.Task) void {
 		const tsk_level = self.get_queue_level(tsk.current_queue);
-		if(tsk_level >= 0 and tsk_level < 3) {
+		if(tsk_level >= 0 and tsk_level < (queue_len - 1)) {
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			self.add_task_to_list(tsk, &self.queues[@intCast(tsk_level + 1)]);
 		}
@@ -85,14 +86,14 @@ pub const Scheduler = struct {
 		if(start_at) |t| {
 			const queue_level: i64 = self.get_queue_level(t.current_queue.?);
 			const level: usize = switch (queue_level == -1) {
-				true => 4,
+				true => self.queues.len,
 				false => @intCast(queue_level),
 			};
 			const task_with_higher_priority = self.first_task_with_higher_priority(level);
 			const next = t.next;
 			if(task_with_higher_priority) |h| {return h;} else return next;
 		} else {
-			const task_with_higher_priority = self.first_task_with_higher_priority(4);
+			const task_with_higher_priority = self.first_task_with_higher_priority(self.queues.len);
 			if(task_with_higher_priority) |t| {return t;} else return null;
 		}
 		return null;
