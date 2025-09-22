@@ -1,5 +1,7 @@
 const tss = @import("tss.zig");
 const main = @import("../main.zig");
+const kmm = @import("kmm.zig");
+const page = @import("pagemanager.zig");
 
 fn encodeGdtEntry(limit: u32, base: u32, access_byte: u8, flags: u8) u64 {
 	return (@as(u64, limit & 0xFFFF))
@@ -16,15 +18,7 @@ const gdtr = packed struct {
 	base: u64,
 };
 
-var gdts: [main.MAX_CORES]gdt_type = undefined;
-var gdtr_reg: [main.MAX_CORES]gdtr = undefined;
-
-fn set_gdtr(addr: *const gdt_type, gdtreg: *gdtr) void {
-	const size = @sizeOf(gdt_type);
-	gdtreg.limit = size - 1;
-	gdtreg.base = @intFromPtr(addr);
-	load_gdt(gdtreg);
-}
+var gdts: []gdt_type = undefined;
 
 fn load_gdt(gdtreg: *const gdtr) void {
 	asm volatile ("lgdt (%[gdtreg])"
@@ -36,18 +30,26 @@ fn load_gdt(gdtreg: *const gdtr) void {
 
 extern fn reloadSegments() callconv(.C) void;
 
-pub fn gdt_init(local_gdt: *gdt_type, gdtreg: *gdtr, core_id: u32) void {
+pub fn gdt_init(local_gdt: *gdt_type, core_id: u32) void {
+	const size = @sizeOf(gdt_type);
+	const gdtreg: gdtr = .{.limit = size - 1, .base = @intFromPtr(local_gdt)};
 	local_gdt[0] = encodeGdtEntry(0, 0, 0, 0); // Null entry
 	local_gdt[1] = encodeGdtEntry(0xFFFFF, 0, 0x9A, 0xA);
 	local_gdt[2] = encodeGdtEntry(0xFFFFF, 0, 0x92, 0xC);
 	local_gdt[3] = encodeGdtEntry(0xFFFFF, 0, 0xFA, 0xA);
 	local_gdt[4] = encodeGdtEntry(0xFFFFF, 0, 0xF2, 0xC);
 	local_gdt[5] = encodeGdtEntry(@sizeOf(tss.tss_t) - 1, @truncate(@intFromPtr(tss.get_tss(core_id))), 0x89, 0);
-	set_gdtr(local_gdt, gdtreg);
+	load_gdt(&gdtreg);
+}
+
+pub fn alloc(ncores: u64, allocator: *kmm.KernelMemoryManager) !void {
+	const pages_gdt = ((ncores * @sizeOf(gdt_type)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
+	const ptr = (try allocator.alloc_virt(pages_gdt)).?;
+	gdts = @as([*]gdt_type, @ptrFromInt(ptr))[0..ncores];
 }
 
 pub fn init(core_id: u32) void {
 	tss.init(core_id);
-	gdt_init(&gdts[core_id], &gdtr_reg[core_id], core_id);
+	gdt_init(&gdts[core_id], core_id);
 	reloadSegments();
 }

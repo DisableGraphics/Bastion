@@ -60,8 +60,6 @@ pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, pani
 	hcf();
 }
 
-pub const MAX_CORES = 64;
-
 export fn kmain() callconv(.C) void {
 	main() catch |err| @panic(@errorName(err));
 }
@@ -148,9 +146,6 @@ fn main() !void {
 	@intFromPtr(&virt_kernel_end) - @intFromPtr(&virt_kernel_start)});
 	var mp_cores: u64 = undefined;
 
-	gdt.init(0);
-	idt.init();
-
 	if (requests.framebuffer_request.response) |framebuffer_response| {
 		const framebuffer = framebuffer_response.getFramebuffers()[0];
 		for (0..256) |i| {
@@ -167,7 +162,7 @@ fn main() !void {
 	} else {
 		return setup_error.HHDM_NOT_PRESENT;
 	}
-	
+
 	if(requests.memory_map_request.response) |response| {
 		pagealloc = try framemanager.PageFrameAllocator.init();
 		pm = try pagemanager.PageManager.init(4, offset);
@@ -183,6 +178,13 @@ fn main() !void {
 	} else {
 		return setup_error.MEMORY_MAP_NOT_PRESENT;
 	}
+	if(requests.mp_request.response) |mp_response| {
+		mp_cores = mp_response.cpu_count;
+		try tss.alloc(mp_cores, &km);
+		try gdt.alloc(mp_cores, &km);
+		gdt.init(0);
+		idt.init();
+	}
 	if(requests.rsdp_request.response) |rsdp_resp| {
 		try pm.map_4k(pm.root_table.?, rsdp_resp.address & ~(@as(u64, 0xFFF)), (rsdp_resp.address + offset) & ~(@as(u64, 0xFFF)));
 		acpiman = try acpi.ACPIManager.init(rsdp_resp.revision, rsdp_resp.address + offset, offset, &km);
@@ -190,8 +192,7 @@ fn main() !void {
 	idt.set_enable_interrupts();
 	picc = pic.PIC.init();
 	picc.disable();
-	if(requests.mp_request.response) |mp_response| {
-		mp_cores = mp_response.cpu_count;
+	if(requests.mp_request.response != null) {
 		try lpicmn.LAPICManager.ginit(mp_cores, &km);
 		try schman.SchedulerManager.ginit(mp_cores, &km);
 	}

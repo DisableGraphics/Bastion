@@ -1,4 +1,6 @@
 const main = @import("../main.zig");
+const kmm = @import("kmm.zig");
+const page = @import("pagemanager.zig");
 
 pub const tss_t = packed struct { 
 	reserved_1: u32, 
@@ -17,7 +19,7 @@ pub const tss_t = packed struct {
 	reserved_4: u16, 
 	iopb: u16 
 };
-var tss_s: [main.MAX_CORES]tss_t = undefined;
+var tss_s: []tss_t = undefined;
 pub fn init(core_id: u32) void {
 	tss_s[core_id] = .{
 		.reserved_1 = 0,
@@ -36,6 +38,12 @@ pub fn init(core_id: u32) void {
 		.reserved_4 = 0,
 		.iopb = 0
 	};
+}
+
+pub fn alloc(ncores: u64, allocator: *kmm.KernelMemoryManager) !void {
+	const pages_tss = ((ncores * @sizeOf(tss_t)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
+	const ptr = (try allocator.alloc_virt(pages_tss)).?;
+	tss_s = @as([*]tss_t, @ptrFromInt(ptr))[0..ncores];
 }
 
 pub fn get_tss(core_id: u32) *tss_t {
