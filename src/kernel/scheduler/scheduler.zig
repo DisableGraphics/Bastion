@@ -10,6 +10,7 @@ extern fn switch_task(
 	current_task_deleted: u64,
 	) callconv(.C) void;
 // NOTE: ONE SCHEDULER PER CPU CORE
+// NOTE2: DO NOT LOG ANYTHING EXCEPT IN NON-INTERRUPT CONTEXTS.
 pub const Scheduler = struct {
 	queues: [4]?*task.Task,
 	current_process: ?*task.Task,
@@ -74,7 +75,6 @@ pub const Scheduler = struct {
 	fn move_task_down(self: *Scheduler, tsk: *task.Task) void {
 		const tsk_level = self.get_queue_level(tsk.current_queue);
 		if(tsk_level >= 0 and tsk_level < 3) {
-			std.log.debug("Reduced priority of task", .{});
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			self.add_task_to_list(tsk, &self.queues[@intCast(tsk_level + 1)]);
 		}
