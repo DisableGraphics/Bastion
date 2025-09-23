@@ -123,14 +123,10 @@ pub const Scheduler = struct {
 
 	pub fn clear_deleted_tasks(self: *Scheduler) void {
 		idt.disable_interrupts();
-		if(self.blocked_tasks) |_| {
-			var tptr = self.blocked_tasks.?;
-			var one_advance = true;
-			while(self.blocked_tasks != null and (tptr != self.blocked_tasks.? or one_advance)) : (tptr = tptr.next.?) {
-				if(tptr.state == task.TaskStatus.FINISHED) {
-					self.remove(tptr);
-				}
-				one_advance = false;
+		if(self.finished_tasks) |_| {
+			var tptr = self.finished_tasks;
+			while(self.finished_tasks != null) : (tptr = self.finished_tasks) {
+				self.remove(tptr.?);
 			}
 		}
 		idt.enable_interrupts();
@@ -155,12 +151,14 @@ pub const Scheduler = struct {
 	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
 		idt.disable_interrupts();
 		// If it was unlocked, we need to move it to the correct list.
-		// If it wasn't unlocked, this would be a no-op.
-		const was_unlocked = tsk.state == task.TaskStatus.READY;
 		tsk.state = reason;
-		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_unlocked) {
+		if(tsk != self.idle_task.? and tsk != self.cleanup_task.?) {
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
-			self.add_task_to_list(tsk, &self.blocked_tasks);
+			const list = switch(reason) {
+				task.TaskStatus.FINISHED => &self.finished_tasks,
+				else => &self.blocked_tasks
+			};
+			self.add_task_to_list(tsk, list);
 		}
 		if(tsk == self.current_process.?) {
 			self.schedule();
@@ -197,7 +195,7 @@ pub const Scheduler = struct {
 	fn remove(self: *Scheduler, tsk: *task.Task) void {
 		// As when finalizing tasks we call block(), the task is in the
 		// blocked_tasks list
-		self.remove_task_from_list(tsk, &self.blocked_tasks);
+		self.remove_task_from_list(tsk, tsk.current_queue.?);
 		if(tsk.deinitfn) |_| {
 			tsk.deinitfn.?(tsk, tsk.extra_arg);
 		}
