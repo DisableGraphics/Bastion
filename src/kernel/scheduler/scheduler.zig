@@ -162,7 +162,11 @@ pub const Scheduler = struct {
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			self.add_task_to_list(tsk, &self.blocked_tasks);
 		}
-		self.schedule();
+		if(tsk == self.current_process.?) {
+			self.schedule();
+		} else {
+			idt.enable_interrupts();
+		}
 	}
 	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
 		idt.disable_interrupts();

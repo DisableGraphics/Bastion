@@ -111,23 +111,21 @@ fn test1() void {
 		std.log.info("hey hey! (CPU #{})", .{mycpuid()});
 		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 		if(sched.current_process) |_| {
-			sched.exit(sched.current_process.?);
+			std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
+			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
 		}
 	}
 }
 
 fn test2() void {
-	var v: u64 = 1;
-	while(true) {
-		std.log.info("tururu (CPU #{})", .{mycpuid()});
-		v += 1;
-		if(v > 10000) {
-			var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-			if(sched.current_process) |_| {
-				std.log.info("Priority at the end (should be 3) {}", .{sched.get_priority(sched.current_process.?)});
-				sched.exit(sched.current_process.?);
-			}
-		}
+	for(0..1000) |_| {
+		std.log.info("tururu! (CPU #{})", .{mycpuid()});
+	}
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	if(sched.current_process) |_| {
+		std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
+		sched.exit(sched.blocked_tasks.?);
+		sched.exit(sched.current_process.?);
 	}
 }
 
