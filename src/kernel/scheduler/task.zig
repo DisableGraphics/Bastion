@@ -1,6 +1,7 @@
 const page = @import("../memory/pagemanager.zig");
 const kmm = @import("../memory/kmm.zig");
 const std = @import("std");
+const tss = @import("../memory/tss.zig");
 pub const TaskStatus = enum(u64) {
 	READY,
 	SLEEPING,
@@ -20,6 +21,7 @@ pub const Task = extern struct {
 	deinitfn: ?*const fn(*Task, ?*anyopaque) void,
 	extra_arg: ?*anyopaque,
 	current_queue: ?*?*Task,
+	iopb_bitmap: ?*tss.io_bitmap_t,
 
 	pub fn format(
             self: @This(),
@@ -72,7 +74,8 @@ pub const Task = extern struct {
 			.kernel_stack_top = @ptrFromInt(@intFromPtr(stack) - KERNEL_STACK_SIZE),
 			.deinitfn = deinit_kernel_task,
 			.extra_arg = @ptrCast(allocator),
-			.current_queue = null
+			.current_queue = null,
+			.iopb_bitmap = null,
 		};
 	}
 
@@ -90,6 +93,7 @@ pub const Task = extern struct {
 			.deinitfn = null,
 			.extra_arg = null,
 			.current_queue = null,
+			.iopb_bitmap = null
 		};
 	}
 
