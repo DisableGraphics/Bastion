@@ -139,6 +139,7 @@ pub const Scheduler = struct {
 		if(self.current_process != null) {
 			const t = self.next_task();
 			self.move_task_down(self.current_process.?);
+			self.copy_iobitmap(t);
 			switch_task(
 				&self.current_process.?,
 				t,
@@ -247,5 +248,14 @@ pub const Scheduler = struct {
 		return for(0..self.queues.len) |i| {
 			if(tsk.current_queue == &self.queues[i]) {break @truncate(@as(i64, @intCast(i)));}
 		} else -1;
+	}
+
+	fn copy_iobitmap(self: *Scheduler, tsk: *task.Task) void {
+		if(tsk.iopb_bitmap) |bitmap| {
+			@memcpy(&self.cpu_tss.io_bitmap, bitmap);
+			self.cpu_tss.iopb = @sizeOf(@TypeOf(self.cpu_tss.*)) - @sizeOf(@TypeOf(self.cpu_tss.io_bitmap));
+		} else {
+			self.cpu_tss.iopb = 65535;
+		}
 	}
 };
