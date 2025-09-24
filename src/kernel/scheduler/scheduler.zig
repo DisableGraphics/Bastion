@@ -164,9 +164,8 @@ pub const Scheduler = struct {
 		}
 		if(tsk == self.current_process.?) {
 			self.schedule();
-		} else {
-			idt.enable_interrupts();
 		}
+		idt.enable_interrupts();
 	}
 	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
 		idt.disable_interrupts();
@@ -187,12 +186,14 @@ pub const Scheduler = struct {
 		idt.enable_interrupts();
 	}
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {
+		idt.disable_interrupts();
 		// Unblock the cleanup task to free the deleted task's resources
 		if(self.cleanup_task != null) {
 			self.unblock(self.cleanup_task.?);
 		}
 		// Mark the task as finished
 		self.block(tsk, task.TaskStatus.FINISHED);
+		idt.enable_interrupts();
 	}
 
 	fn remove(self: *Scheduler, tsk: *task.Task) void {
@@ -207,8 +208,8 @@ pub const Scheduler = struct {
 	fn add_task_to_list(self: *Scheduler, tas: *task.Task, list: *?*task.Task) void {
 		_ = self;
 		// Two cases: there is a node and no node
-		if(list.*) |_| {
-			// Add at the end the node
+		if(list.* != null) {
+			// Add at the end the list
 			var head = list.*.?;
 			var last = head.prev.?;
 			var data = tas;
@@ -230,7 +231,7 @@ pub const Scheduler = struct {
 	fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *?*task.Task) void {
 		_ = self;
 		if(list.*) |proc| {
-			if(tsk.next.? == tsk and tsk.prev.? == tsk and tsk == proc) { // Only one element in the list
+			if(tsk.next.? == tsk and tsk.prev.? == tsk) { // Only one element in the list
 				list.* = null;
 			} else { // More than one element in the list
 				if(tsk == proc) {

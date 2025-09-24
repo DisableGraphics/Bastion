@@ -27,11 +27,11 @@ extern const virt_kernel_start: u8;
 extern const virt_kernel_end: u8;
 
 pub const std_options: std.Options = .{
-    // Set the log level to debug
-    .log_level = .debug,
+	// Set the log level to debug
+	.log_level = .debug,
 	.page_size_max = 1*1024*1024*1024,
-    // Define logFn to override the std implementation
-    .logFn = log.logfn,
+	// Define logFn to override the std implementation
+	.logFn = log.logfn,
 };
 
 pub fn hcf() noreturn {
@@ -77,6 +77,7 @@ var pm: pagemanager.PageManager = undefined;
 var km: kmm.KernelMemoryManager = undefined;
 var acpiman: acpi.ACPIManager = undefined;
 var picc: pic.PIC = undefined;
+var framebuffer: *limine.Framebuffer = undefined;
 var fb_ptr: [*]volatile u32 = undefined;
 
 fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: bool) !*lapic.LAPIC {
@@ -108,32 +109,56 @@ pub fn mycpuid() u64 {
 }
 
 fn test1() void {
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
-		std.log.info("hey hey! (CPU #{})", .{mycpuid()});
-		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-		if(sched.current_process) |_| {
-			std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
+		std.log.info("hey hey! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
+		if(sched.current_process != null) {
 			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
-			fb_ptr[60] = 0xFF00FF;
 		}
 	}
 }
 
 fn test2() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	fb_ptr[0] = 0xFFFFFF;
+	const othertask = if(sched.blocked_tasks != null) sched.blocked_tasks.? else sched.current_process.?.next.?;
+	var p = true;
 	for(0..1000) |_| {
-		std.log.info("tururu! (CPU #{})", .{mycpuid()});
+		std.log.info("tururu! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
 		if(sched.blocked_tasks != null) { 
 			sched.unblock(sched.blocked_tasks.?);
+		} else {
+			std.log.info("no task test1(). test1() is has queue: {any} (priority {})", .{othertask.current_queue, sched.get_priority(othertask)});
+			if(p) {
+				colorpoint();
+				p = false;
+			}
 		}
 	}
-	if(sched.current_process) |_| {
+	colorpoint();
+	if(sched.current_process != null) {
 		std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
-		fb_ptr[120] = 0x0F0FFF;
-		sched.exit(sched.blocked_tasks.?);
+		colorpoint();
+		if(sched.blocked_tasks != null) { 
+			sched.exit(sched.blocked_tasks.?);
+		} else {
+			sched.exit(sched.current_process.?.next.?);
+		}
 		sched.exit(sched.current_process.?);
 	}
+}
+
+var colorpoint_id: u64 = 0;
+fn colorpoint() void {
+	colorpoint_id += 1;
+	const mask: u3 = @truncate(colorpoint_id);
+	var color: u32 = 0;
+	for(0..3) |i| {
+		const ir: u2 = @truncate(i);
+		const bit = (mask >> (ir)) & 1;
+		const nibble: u32 = if (bit == 1) 0xFF else 0x0;
+		color |= nibble << (@as(u5, ir) << 3);
+	}
+	fb_ptr[colorpoint_id << 4] = color;
 }
 
 fn cleanup() void {
@@ -148,11 +173,11 @@ fn cleanup() void {
 fn main() !void {
 	serial.Serial.init() catch return setup_error.SERIAL_UNAVAILABLE;
 	std.log.info("Kernel start: 0x{x}, kernel end: 0x{x} ({} bytes)", .{&virt_kernel_start, &virt_kernel_end,
-	@intFromPtr(&virt_kernel_end) - @intFromPtr(&virt_kernel_start)});
+		@intFromPtr(&virt_kernel_end) - @intFromPtr(&virt_kernel_start)});
 	var mp_cores: u64 = undefined;
 
 	if (requests.framebuffer_request.response) |framebuffer_response| {
-		const framebuffer = framebuffer_response.getFramebuffers()[0];
+		framebuffer = framebuffer_response.getFramebuffers()[0];
 		fb_ptr = @ptrCast(@alignCast(framebuffer.address));
 	} else {
 		return setup_error.FRAMEBUFFER_NOT_PRESENT;
@@ -314,9 +339,9 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		&km
 	);
 	sched.add_idle(&idle_task);
+	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&ttask1);
-	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	//idt.enable_interrupts();
 	//sched.schedule();
 	hcf();
