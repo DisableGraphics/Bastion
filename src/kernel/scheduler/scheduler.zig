@@ -67,8 +67,9 @@ pub const Scheduler = struct {
 		} else return false;
 	}
 
-	fn first_task_with_higher_priority(self: *Scheduler, priority: usize) ?*task.Task {
-		for(0..priority) |i| {
+	fn first_task_with_higher_priority(self: *Scheduler, priority: i8) ?*task.Task {
+		if(priority < 0) return null;
+		for(0..@intCast(priority)) |i| {
 			if(self.queues[i] != null) return self.queues[i];
 		} else return null;
 	}
@@ -89,11 +90,11 @@ pub const Scheduler = struct {
 				true => self.queues.len,
 				false => @intCast(queue_level),
 			};
-			const task_with_higher_priority = self.first_task_with_higher_priority(level);
+			const task_with_higher_priority = self.first_task_with_higher_priority(@intCast(level));
 			const next = t.next;
 			if(task_with_higher_priority) |h| {return h;} else return next;
 		} else {
-			const task_with_higher_priority = self.first_task_with_higher_priority(self.queues.len);
+			const task_with_higher_priority = self.first_task_with_higher_priority(@intCast(self.queues.len));
 			if(task_with_higher_priority) |t| {return t;} else return null;
 		}
 		return null;
@@ -178,10 +179,11 @@ pub const Scheduler = struct {
 			self.remove_task_from_list(tsk, &self.blocked_tasks);
 			self.add_task_to_list(tsk, &self.queues[0]);
 		}
-		if(self.current_process.? == self.idle_task.?) {
-			// Preempt the idle task if it was the current running process
+		if(self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null) {
+			// Preempt the lower priority tasks if a higher priority task is running
 			self.schedule();
 		}
+	
 		idt.enable_interrupts();
 	}
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {

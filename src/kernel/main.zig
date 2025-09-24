@@ -77,6 +77,7 @@ var pm: pagemanager.PageManager = undefined;
 var km: kmm.KernelMemoryManager = undefined;
 var acpiman: acpi.ACPIManager = undefined;
 var picc: pic.PIC = undefined;
+var fb_ptr: [*]volatile u32 = undefined;
 
 fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: bool) !*lapic.LAPIC {
 	const lapic_base = lapic.lapic_physaddr();
@@ -113,17 +114,23 @@ fn test1() void {
 		if(sched.current_process) |_| {
 			std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
 			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
+			fb_ptr[60] = 0xFF00FF;
 		}
 	}
 }
 
 fn test2() void {
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	fb_ptr[0] = 0xFFFFFF;
 	for(0..1000) |_| {
 		std.log.info("tururu! (CPU #{})", .{mycpuid()});
+		if(sched.blocked_tasks != null) { 
+			sched.unblock(sched.blocked_tasks.?);
+		}
 	}
-	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	if(sched.current_process) |_| {
 		std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
+		fb_ptr[120] = 0x0F0FFF;
 		sched.exit(sched.blocked_tasks.?);
 		sched.exit(sched.current_process.?);
 	}
@@ -146,10 +153,7 @@ fn main() !void {
 
 	if (requests.framebuffer_request.response) |framebuffer_response| {
 		const framebuffer = framebuffer_response.getFramebuffers()[0];
-		for (0..256) |i| {
-			const fb_ptr: [*]volatile u32 = @ptrCast(@alignCast(framebuffer.address));
-			fb_ptr[i * (framebuffer.pitch / 4) + i] = (0xffff << 8) | (@as(u32, @truncate(i & 0xff)));
-		}
+		fb_ptr = @ptrCast(@alignCast(framebuffer.address));
 	} else {
 		return setup_error.FRAMEBUFFER_NOT_PRESENT;
 	}
