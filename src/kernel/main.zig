@@ -282,7 +282,8 @@ fn main() !void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
 	
 	sched.add_idle(&idle_task);
-	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
+	//lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
+	lapicc.arg = null;
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);

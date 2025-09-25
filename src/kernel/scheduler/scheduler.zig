@@ -2,6 +2,7 @@ const task = @import("task.zig");
 const ts = @import("../memory/tss.zig");
 const std = @import("std");
 const idt = @import("../interrupts/idt.zig");
+const spin = @import("../sync/spinlock.zig");
 const queue_len = 4;
 
 extern fn switch_task(
