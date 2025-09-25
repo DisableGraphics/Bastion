@@ -31,26 +31,35 @@ pub const Scheduler = struct {
 			.cpu_tss = cpu_tss,
 		};
 	}
+
+	pub fn lock(self: *Scheduler) void {
+		_ = self;
+		idt.disable_interrupts();
+	}
+	pub fn unlock(self: *Scheduler) void {
+		_ = self;
+		idt.enable_interrupts();
+	}
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
-		idt.disable_interrupts();
+		self.lock();
 		self.add_task_to_list(tas, &self.queues[0]);
-		idt.enable_interrupts();
+		self.unlock();
 	}
 	// adds an idle task & sets up current process
 	// from now on we can schedule tasks
 	pub fn add_idle(self: *Scheduler, tas: *task.Task) void {
-		idt.disable_interrupts();
+		self.lock();
 		self.idle_task = tas;
 		self.current_process = tas;
-		idt.enable_interrupts();
+		self.unlock();
 	}
 	// adds a cleanup task
 	pub fn add_cleanup(self: *Scheduler, tas: *task.Task) void {
-		idt.disable_interrupts();
+		self.lock();
 		self.cleanup_task = tas;
 		self.cleanup_task.?.state = task.TaskStatus.SLEEPING;
-		idt.enable_interrupts();
+		self.unlock();
 	}
 
 	fn get_queue_level(self: *Scheduler, queue: ?*?*task.Task) i64 {
@@ -123,18 +132,18 @@ pub const Scheduler = struct {
 	}
 
 	pub fn clear_deleted_tasks(self: *Scheduler) void {
-		idt.disable_interrupts();
+		self.lock();
 		if(self.finished_tasks) |_| {
 			var tptr = self.finished_tasks;
 			while(self.finished_tasks != null) : (tptr = self.finished_tasks) {
 				self.remove(tptr.?);
 			}
 		}
-		idt.enable_interrupts();
+		self.unlock();
 	}
 
 	pub fn schedule(self: *Scheduler) void {
-		idt.disable_interrupts();
+		self.lock();
 		// If current process has been assigned (by setting up an idle task)
 		// then we just search for the next one.
 		if(self.current_process != null) {
@@ -147,11 +156,11 @@ pub const Scheduler = struct {
 				self.cpu_tss,
 				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
 		}
-		idt.enable_interrupts();
+		self.unlock();
 	}
 
 	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
-		idt.disable_interrupts();
+		self.lock();
 		// If it was unlocked, we need to move it to the correct list.
 		tsk.state = reason;
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.?) {
@@ -165,10 +174,10 @@ pub const Scheduler = struct {
 		if(tsk == self.current_process.?) {
 			self.schedule();
 		}
-		idt.enable_interrupts();
+		self.unlock();
 	}
 	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
-		idt.disable_interrupts();
+		self.lock();
 		// If it was locked, we need to move it to the correct list.
 		// If it wasn't locked, this would be a no-op.
 		const was_locked = tsk.state != task.TaskStatus.READY;
@@ -183,17 +192,17 @@ pub const Scheduler = struct {
 			self.schedule();
 		}
 	
-		idt.enable_interrupts();
+		self.unlock();
 	}
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {
-		idt.disable_interrupts();
+		self.lock();
 		// Unblock the cleanup task to free the deleted task's resources
 		if(self.cleanup_task != null) {
 			self.unblock(self.cleanup_task.?);
 		}
 		// Mark the task as finished
 		self.block(tsk, task.TaskStatus.FINISHED);
-		idt.enable_interrupts();
+		self.unlock();
 	}
 
 	fn remove(self: *Scheduler, tsk: *task.Task) void {
