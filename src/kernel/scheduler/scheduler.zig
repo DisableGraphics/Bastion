@@ -21,6 +21,7 @@ pub const Scheduler = struct {
 	cleanup_task: ?*task.Task,
 	cpu_tss: *ts.tss_t,
 	finished_tasks: ?*task.Task,
+	mutex: spin.SpinLock,
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
 			.idle_task = null,
@@ -30,15 +31,16 @@ pub const Scheduler = struct {
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
+			.mutex = spin.SpinLock.init()
 		};
 	}
 
 	pub fn lock(self: *Scheduler) void {
-		_ = self;
+		self.mutex.lock();
 		idt.disable_interrupts();
 	}
 	pub fn unlock(self: *Scheduler) void {
-		_ = self;
+		self.mutex.unlock();
 		idt.enable_interrupts();
 	}
 	// Adds a new task
@@ -188,22 +190,20 @@ pub const Scheduler = struct {
 			self.remove_task_from_list(tsk, &self.blocked_tasks);
 			self.add_task_to_list(tsk, &self.queues[0]);
 		}
-		if(self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null) {
+		const schedule_next = self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null;
+		self.unlock();
+		if(schedule_next) {
 			// Preempt the lower priority tasks if a higher priority task is running
 			self.schedule();
 		}
-	
-		self.unlock();
 	}
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {
-		self.lock();
 		// Unblock the cleanup task to free the deleted task's resources
 		if(self.cleanup_task != null) {
 			self.unblock(self.cleanup_task.?);
 		}
 		// Mark the task as finished
 		self.block(tsk, task.TaskStatus.FINISHED);
-		self.unlock();
 	}
 
 	fn remove(self: *Scheduler, tsk: *task.Task) void {

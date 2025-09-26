@@ -133,6 +133,7 @@ fn test2() void {
 				p = false;
 			}
 		}
+		sched.schedule();
 	}
 	colorpoint();
 	if(sched.current_process != null) {
