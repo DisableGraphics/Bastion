@@ -24,3 +24,7 @@ pub const SchedulerManager = struct {
 		schedulers[cpuid].schedule();
 	}
 };
+
+pub export fn unlock_scheduler_from_context_switch() callconv(.C) void {
+	SchedulerManager.get_scheduler_for_cpu(main.mycpuid()).unlock();
+}

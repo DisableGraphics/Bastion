@@ -48,6 +48,7 @@ switch_task:
 	pop %r12
 	pop %rbp
 	pop %rbx
-	sti
+	
+	call unlock_scheduler_from_context_switch
 
 	ret

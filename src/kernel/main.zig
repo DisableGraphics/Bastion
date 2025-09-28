@@ -114,26 +114,27 @@ fn test1() void {
 		std.log.info("hey hey! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
 		if(sched.current_process != null) {
 			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
+			std.log.info("Is null: {}", .{sched.blocked_tasks == null});
+		} else {
+			std.log.info("WHy is sched.current_process null?????", .{});
 		}
 	}
 }
 
 fn test2() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	const othertask = if(sched.blocked_tasks != null) sched.blocked_tasks.? else sched.current_process.?.next.?;
 	var p = true;
 	for(0..1000) |_| {
 		std.log.info("tururu! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
 		if(sched.blocked_tasks != null) { 
 			sched.unblock(sched.blocked_tasks.?);
 		} else {
-			std.log.info("no task test1(). test1() is has queue: {any} (priority {})", .{othertask.current_queue, sched.get_priority(othertask)});
+			std.log.info("no task :(", .{});
 			if(p) {
 				colorpoint();
 				p = false;
 			}
 		}
-		sched.schedule();
 	}
 	colorpoint();
 	if(sched.current_process != null) {
@@ -283,8 +284,8 @@ fn main() !void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
 	
 	sched.add_idle(&idle_task);
-	//lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
-	lapicc.arg = null;
+	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
+	//lapicc.arg = null;
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);

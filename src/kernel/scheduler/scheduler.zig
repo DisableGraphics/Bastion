@@ -22,6 +22,7 @@ pub const Scheduler = struct {
 	cpu_tss: *ts.tss_t,
 	finished_tasks: ?*task.Task,
 	mutex: spin.SpinLock,
+	nlocks: std.atomic.Value(u32),
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
 			.idle_task = null,
@@ -31,17 +32,22 @@ pub const Scheduler = struct {
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
-			.mutex = spin.SpinLock.init()
+			.mutex = spin.SpinLock.init(),
+			.nlocks = std.atomic.Value(u32).init(0)
 		};
 	}
 
 	pub fn lock(self: *Scheduler) void {
+		self.nlocks.store(self.nlocks.load(.acquire)+1, .release);
 		self.mutex.lock();
 		idt.disable_interrupts();
 	}
 	pub fn unlock(self: *Scheduler) void {
-		self.mutex.unlock();
-		idt.enable_interrupts();
+		self.nlocks.store(self.nlocks.load(.acquire)-1, .release);
+		if(self.nlocks.load(.acquire) == 0) { 
+			self.mutex.unlock();
+			idt.enable_interrupts();
+		}
 	}
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
@@ -158,8 +164,10 @@ pub const Scheduler = struct {
 				t,
 				self.cpu_tss,
 				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
+		} else {
+			// switch_task unlocks the scheduler at the end
+			self.unlock();
 		}
-		self.unlock();
 	}
 
 	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
@@ -174,10 +182,11 @@ pub const Scheduler = struct {
 			};
 			self.add_task_to_list(tsk, list);
 		}
-		if(tsk == self.current_process.?) {
+		const should_schedule = tsk == self.current_process.?;
+		self.unlock();
+		if(should_schedule) {
 			self.schedule();
 		}
-		self.unlock();
 	}
 	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
 		self.lock();
