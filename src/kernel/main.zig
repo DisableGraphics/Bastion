@@ -127,6 +127,7 @@ fn test2() void {
 	for(0..1000) |_| {
 		std.log.info("tururu! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
 		if(sched.blocked_tasks != null) { 
+			std.log.info("Yes task :)", .{});
 			sched.unblock(sched.blocked_tasks.?);
 		} else {
 			std.log.info("no task :(", .{});
