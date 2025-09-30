@@ -110,10 +110,10 @@ pub const Scheduler = struct {
 			};
 			const task_with_higher_priority = self.first_task_with_higher_priority(@intCast(level));
 			const next = t.next;
-			if(task_with_higher_priority) |h| {return h;} else return next;
+			if(task_with_higher_priority != null) {return task_with_higher_priority.?;} else return next;
 		} else {
 			const task_with_higher_priority = self.first_task_with_higher_priority(@intCast(self.queues.len));
-			if(task_with_higher_priority) |t| {return t;} else return null;
+			if(task_with_higher_priority != null) {return task_with_higher_priority.?;} else return null;
 		}
 		return null;
 	}
