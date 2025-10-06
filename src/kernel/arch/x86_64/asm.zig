@@ -54,3 +54,7 @@ pub fn write_msr(msr: u64, value: u64) void {
         : [msr]"{ecx}"(msr), [low]"{eax}"(low), [high]"{edx}"(high)
     );
 }
+
+pub fn mfence() void {
+	asm volatile("mfence");
+}
