@@ -86,8 +86,8 @@ pub const Scheduler = struct {
 	}
 
 	fn first_task_with_higher_priority(self: *Scheduler, priority: i8) ?*task.Task {
-		if(priority < 0) return null;
-		for(0..@intCast(priority)) |i| {
+		const prior = if(priority < 0) 4 else priority;
+		for(0..@intCast(prior)) |i| {
 			if(self.queues[i] != null) return self.queues[i];
 		} else return null;
 	}
