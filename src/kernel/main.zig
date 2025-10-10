@@ -129,6 +129,7 @@ fn test2() void {
 		if(sched.blocked_tasks != null) { 
 			std.log.info("Yes task :)", .{});
 			sched.unblock(sched.blocked_tasks.?);
+			std.log.info("Unblocked task", .{});
 		} else {
 			std.log.info("no task :(", .{});
 			if(p) {
@@ -136,6 +137,15 @@ fn test2() void {
 				p = false;
 			}
 		}
+		std.log.info("\tQ[0] = {?}\n\t Q[1] = {?}\n\t Q[2] = {?}\n\t Q[3] = {?}\n\t blocked_tasks = {?}\n\t terminated_tasks = {?}",
+		.{
+			sched.queues[0],
+			sched.queues[1],
+			sched.queues[2],
+			sched.queues[3],
+			sched.blocked_tasks,
+			sched.finished_tasks
+		});
 	}
 	colorpoint();
 	if(sched.current_process != null) {

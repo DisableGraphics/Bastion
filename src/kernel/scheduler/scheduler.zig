@@ -152,12 +152,21 @@ pub const Scheduler = struct {
 	}
 
 	pub fn schedule(self: *Scheduler) void {
+		std.log.info("schedule()\n\tQ[0] = {?}\n\t Q[1] = {?}\n\t Q[2] = {?}\n\t Q[3] = {?}\n\t blocked_tasks = {?}\n\t terminated_tasks = {?}",
+		.{
+			self.queues[0],
+			self.queues[1],
+			self.queues[2],
+			self.queues[3],
+			self.blocked_tasks,
+			self.finished_tasks
+		});
 		self.lock();
 		// If current process has been assigned (by setting up an idle task)
 		// then we just search for the next one.
 		if(self.current_process != null) {
 			const t = self.next_task();
-			self.move_task_down(self.current_process.?);
+			//self.move_task_down(self.current_process.?);
 			self.copy_iobitmap(t);
 			switch_task(
 				&self.current_process.?,
