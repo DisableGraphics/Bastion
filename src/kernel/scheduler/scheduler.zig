@@ -38,14 +38,17 @@ pub const Scheduler = struct {
 	}
 
 	pub fn lock(self: *Scheduler) void {
+		idt.disable_interrupts();
 		self.nlocks.store(self.nlocks.load(.acquire)+1, .release);
 		self.mutex.lock();
-		idt.disable_interrupts();
+		std.debug.assert(!idt.are_interrupts_enabled());
 	}
 	pub fn unlock(self: *Scheduler) void {
-		self.nlocks.store(self.nlocks.load(.acquire)-1, .release);
-		if(self.nlocks.load(.acquire) == 0) { 
-			self.mutex.unlock();
+		self.mutex.unlock();
+		const prev = self.nlocks.load(.acquire);
+
+		self.nlocks.store(prev - 1, .release);
+		if(prev == 1) { 
 			idt.enable_interrupts();
 		}
 	}
@@ -151,22 +154,17 @@ pub const Scheduler = struct {
 		self.unlock();
 	}
 
-	pub fn schedule(self: *Scheduler) void {
-		std.log.info("schedule()\n\tQ[0] = {?}\n\t Q[1] = {?}\n\t Q[2] = {?}\n\t Q[3] = {?}\n\t blocked_tasks = {?}\n\t terminated_tasks = {?}",
-		.{
-			self.queues[0],
-			self.queues[1],
-			self.queues[2],
-			self.queues[3],
-			self.blocked_tasks,
-			self.finished_tasks
-		});
+	pub fn on_irq_tick(self: *Scheduler) void {
+		self.schedule(true);
+	}
+
+	pub fn schedule(self: *Scheduler, on_interrupt: bool) void {
 		self.lock();
 		// If current process has been assigned (by setting up an idle task)
 		// then we just search for the next one.
 		if(self.current_process != null) {
 			const t = self.next_task();
-			//self.move_task_down(self.current_process.?);
+			if(on_interrupt) self.move_task_down(self.current_process.?);
 			self.copy_iobitmap(t);
 			switch_task(
 				&self.current_process.?,
@@ -194,7 +192,7 @@ pub const Scheduler = struct {
 		const should_schedule = tsk == self.current_process.?;
 		self.unlock();
 		if(should_schedule) {
-			self.schedule();
+			self.schedule(false);
 		}
 	}
 	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
@@ -212,7 +210,7 @@ pub const Scheduler = struct {
 		self.unlock();
 		if(schedule_next) {
 			// Preempt the lower priority tasks if a higher priority task is running
-			self.schedule();
+			self.schedule(false);
 		}
 	}
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {

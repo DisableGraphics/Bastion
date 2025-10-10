@@ -137,15 +137,6 @@ fn test2() void {
 				p = false;
 			}
 		}
-		std.log.info("\tQ[0] = {?}\n\t Q[1] = {?}\n\t Q[2] = {?}\n\t Q[3] = {?}\n\t blocked_tasks = {?}\n\t terminated_tasks = {?}",
-		.{
-			sched.queues[0],
-			sched.queues[1],
-			sched.queues[2],
-			sched.queues[3],
-			sched.blocked_tasks,
-			sched.finished_tasks
-		});
 	}
 	colorpoint();
 	if(sched.current_process != null) {
@@ -300,7 +291,7 @@ fn main() !void {
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);
-	sched.schedule();
+	sched.schedule(false);
 
 	hcf();
 }

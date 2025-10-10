@@ -21,10 +21,11 @@ pub const SchedulerManager = struct {
 	pub fn on_irq(arg: ?*anyopaque) void {
 		_ = arg;
 		const cpuid = main.mycpuid();
-		schedulers[cpuid].schedule();
+		schedulers[cpuid].on_irq_tick();
 	}
 };
 
+// Note: this function is called on every context switch. DO NOT DELETE.
 pub export fn unlock_scheduler_from_context_switch() callconv(.C) void {
 	SchedulerManager.get_scheduler_for_cpu(main.mycpuid()).unlock();
 }

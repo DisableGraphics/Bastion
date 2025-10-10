@@ -105,3 +105,14 @@ pub fn init() void {
 	}
 	load_idtr(&idtr);
 }
+
+pub fn are_interrupts_enabled() bool {
+	var rflags: usize = undefined;
+	asm volatile(
+		\\pushf
+		\\pop %[rflags]
+		: [rflags] "=r"(rflags)
+		:
+	);
+	return rflags & (1 << 9) != 0;
+}
