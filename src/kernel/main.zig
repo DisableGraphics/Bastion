@@ -154,7 +154,7 @@ fn test2() void {
 	}
 }
 
-fn throws_upwards() void {
+fn on_priority_boost() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
 		sched.sleep(1000, sched.current_process.?);
@@ -293,8 +293,8 @@ fn main() !void {
 	);
 
 	const kernel_stack_3 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	var test_task_3 = tsk.Task.init_kernel_task(
-		throws_upwards,
+	var priority_boost = tsk.Task.init_kernel_task(
+		on_priority_boost,
 		@ptrFromInt(kernel_stack_3 + tsk.KERNEL_STACK_SIZE),
 		@ptrFromInt(kernel_stack_3 + tsk.KERNEL_STACK_SIZE),
 		@ptrFromInt(assm.read_cr3()),
@@ -312,16 +312,16 @@ fn main() !void {
 	std.log.info("task: {any}", .{idle_task});
 	std.log.info("task: {any}", .{test_task_1});
 	std.log.info("task: {any}", .{test_task_2});
-	std.log.info("task: {any}", .{test_task_3});
+	std.log.info("task: {any}", .{priority_boost});
 
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
 	
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
+	sched.add_task(&priority_boost);
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);
-	sched.add_task(&test_task_3);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.schedule(false);
 
@@ -360,8 +360,8 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
 	const kernel_stack_1 = (try km.alloc_virt(4)).?;
-	var ttask1 = tsk.Task.init_kernel_task(
-		test1,
+	var priority_boost = tsk.Task.init_kernel_task(
+		on_priority_boost,
 		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
 		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
 		@ptrFromInt(assm.read_cr3()),
@@ -378,7 +378,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	sched.add_idle(&idle_task);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.add_cleanup(&cleanup_task);
-	sched.add_task(&ttask1);
+	sched.add_task(&priority_boost);
 	//idt.enable_interrupts();
 	//sched.schedule();
 	hcf();
