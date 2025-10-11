@@ -4,6 +4,7 @@ const std = @import("std");
 const tss = @import("../memory/tss.zig");
 pub const TaskStatus = enum(u64) {
 	READY,
+	BLOCKED,
 	SLEEPING,
 	FINISHED
 };

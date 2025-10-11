@@ -87,9 +87,10 @@ pub const LAPIC = struct {
 
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		const self: *volatile LAPIC = @ptrCast(@alignCast(s.?));
-		self.write_reg(0xB0, 0); // EOI
+		
 		if(self.timer_event) |ev| {
 			ev(self.arg);
+			self.write_reg(0xB0, 0); // EOI
 		}
 	}
 };

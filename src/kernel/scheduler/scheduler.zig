@@ -3,7 +3,9 @@ const ts = @import("../memory/tss.zig");
 const std = @import("std");
 const idt = @import("../interrupts/idt.zig");
 const spin = @import("../sync/spinlock.zig");
-const queue_len = 4;
+const tm = @import("timerman.zig");
+pub const queue_len = 4;
+const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
 
 extern fn switch_task(
 	current_task: **task.Task,
@@ -17,23 +19,30 @@ pub const Scheduler = struct {
 	queues: [queue_len]?*task.Task,
 	current_process: ?*task.Task,
 	blocked_tasks: ?*task.Task,
+	sleeping_tasks: ?*task.Task,
 	idle_task: ?*task.Task,
 	cleanup_task: ?*task.Task,
 	cpu_tss: *ts.tss_t,
 	finished_tasks: ?*task.Task,
 	mutex: spin.SpinLock,
 	nlocks: std.atomic.Value(u32),
+	ntick: u32,
+	timerman: tm.TimerManager,
+
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
 			.idle_task = null,
 			.current_process = null,
 			.blocked_tasks = null,
+			.sleeping_tasks = null,
 			.queues = [_]?*task.Task{null} ** queue_len,
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
 			.mutex = spin.SpinLock.init(),
-			.nlocks = std.atomic.Value(u32).init(0)
+			.nlocks = std.atomic.Value(u32).init(0),
+			.ntick = 0,
+			.timerman = tm.TimerManager.init()
 		};
 	}
 
@@ -132,7 +141,7 @@ pub const Scheduler = struct {
 		//    - If current process is a normal task, just check if hasn't finished. If it is, search for another task (if no tasks available return the idle)
 		//    - If it hasn't finished, return the next task.
 		if(self.current_process) |proc| {
-			const task_param = switch(proc == self.idle_task.? or proc == self.cleanup_task.? or proc.state == task.TaskStatus.FINISHED) {
+			const task_param = switch(proc == self.idle_task.? or proc == self.cleanup_task.? or proc.state != task.TaskStatus.READY) {
 				true => null,
 				false => proc
 			};
@@ -154,8 +163,21 @@ pub const Scheduler = struct {
 		self.unlock();
 	}
 
+	pub fn sleep(self: *Scheduler, ms: u64, tsk: *task.Task) void {
+		self.lock();
+		self.timerman.new_timer(ms, tsk);
+		self.unlock();
+		self.block(tsk, task.TaskStatus.SLEEPING);
+	}
+
 	pub fn on_irq_tick(self: *Scheduler) void {
-		self.schedule(true);
+		idt.disable_interrupts();
+		self.timerman.on_tick(self) catch {};
+		self.lock();
+		self.ntick = (self.ntick + 1) % CONTEXT_SWITCH_TICKS;
+		const should_schedule = self.ntick == 0;
+		self.unlock();
+		if(should_schedule) self.schedule(true);
 	}
 
 	pub fn schedule(self: *Scheduler, on_interrupt: bool) void {
@@ -185,6 +207,7 @@ pub const Scheduler = struct {
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			const list = switch(reason) {
 				task.TaskStatus.FINISHED => &self.finished_tasks,
+				task.TaskStatus.SLEEPING => &self.sleeping_tasks,
 				else => &self.blocked_tasks
 			};
 			self.add_task_to_list(tsk, list);
@@ -195,7 +218,8 @@ pub const Scheduler = struct {
 			self.schedule(false);
 		}
 	}
-	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
+
+	pub fn unblock_without_scheduling(self: *Scheduler, tsk: *task.Task) void {
 		self.lock();
 		// If it was locked, we need to move it to the correct list.
 		// If it wasn't locked, this would be a no-op.
@@ -203,9 +227,14 @@ pub const Scheduler = struct {
 		tsk.state = task.TaskStatus.READY;
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_locked) {
 			// Move the task from
-			self.remove_task_from_list(tsk, &self.blocked_tasks);
+			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			self.add_task_to_list(tsk, &self.queues[0]);
 		}
+		self.unlock();
+	}
+	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
+		self.unblock_without_scheduling(tsk);
+		self.lock();
 		const schedule_next = self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null;
 		self.unlock();
 		if(schedule_next) {
@@ -223,15 +252,14 @@ pub const Scheduler = struct {
 	}
 
 	fn remove(self: *Scheduler, tsk: *task.Task) void {
-		// As when finalizing tasks we call block(), the task is in the
-		// blocked_tasks list
+		// First we remove the task from its queue
 		self.remove_task_from_list(tsk, tsk.current_queue.?);
 		if(tsk.deinitfn) |_| {
 			tsk.deinitfn.?(tsk, tsk.extra_arg);
 		}
 	}
 
-	fn add_task_to_list(self: *Scheduler, tas: *task.Task, list: *?*task.Task) void {
+	pub fn add_task_to_list(self: *Scheduler, tas: *task.Task, list: *?*task.Task) void {
 		_ = self;
 		// Two cases: there is a node and no node
 		if(list.* != null) {
@@ -254,7 +282,7 @@ pub const Scheduler = struct {
 		tas.current_queue = list;
 	}
 
-	fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *?*task.Task) void {
+	pub fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *?*task.Task) void {
 		_ = self;
 		if(list.*) |proc| {
 			if(tsk.next.? == tsk and tsk.prev.? == tsk) { // Only one element in the list

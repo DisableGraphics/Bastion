@@ -21,6 +21,7 @@ const tss = @import("memory/tss.zig");
 const schman = @import("scheduler/manager.zig");
 const lpicmn = @import("arch/x86_64/controllers/manager.zig");
 const tas = @import("scheduler/task.zig");
+const ta = @import("scheduler/timeralloc.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -94,7 +95,9 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	
 	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
 	if(is_bsp) { 
-		lapicc.init_timer_bsp(10, &pitt);
+		lapicc.init_timer_bsp(1, &pitt);
+		lapicc.arg = null;
+		lapicc.timer_event = null;
 		pitt.disable();
 		idt.disable_interrupts();
 		picc.set_irq_handler(0, null, &lpicmn.LAPICManager.on_irq);
@@ -113,7 +116,7 @@ fn test1() void {
 	while(true) {
 		std.log.info("hey hey! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
 		if(sched.current_process != null) {
-			sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
+			sched.block(sched.current_process.?, tsk.TaskStatus.BLOCKED);
 			std.log.info("Is null: {}", .{sched.blocked_tasks == null});
 		} else {
 			std.log.info("WHy is sched.current_process null?????", .{});
@@ -124,7 +127,7 @@ fn test1() void {
 fn test2() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	var p = true;
-	for(0..1000) |_| {
+	for(0..20000) |_| {
 		std.log.info("tururu! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
 		if(sched.blocked_tasks != null) { 
 			std.log.info("Yes task :)", .{});
@@ -148,6 +151,22 @@ fn test2() void {
 			sched.exit(sched.current_process.?.next.?);
 		}
 		sched.exit(sched.current_process.?);
+	}
+}
+
+fn throws_upwards() void {
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	while(true) {
+		sched.sleep(1000, sched.current_process.?);
+		sched.lock();
+		for(1..sch.queue_len) |i| {
+			while(sched.queues[i] != null) {
+				const t = sched.queues[i];
+				sched.remove_task_from_list(t.?, &sched.queues[i]);
+				sched.add_task_to_list(t.?, &sched.queues[0]);
+			}
+		}
+		sched.unlock();
 	}
 }
 
@@ -253,6 +272,8 @@ fn main() !void {
 		assm.read_cr3(),
 	);
 
+	try ta.TimerAllocator.init();
+
 	const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var test_task_1 = tsk.Task.init_kernel_task(
 		test1,
@@ -270,6 +291,15 @@ fn main() !void {
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
+
+	const kernel_stack_3 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	var test_task_3 = tsk.Task.init_kernel_task(
+		throws_upwards,
+		@ptrFromInt(kernel_stack_3 + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(kernel_stack_3 + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+		&km
+	);
 	const cleanup_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var cleanup_task = tsk.Task.init_kernel_task(
 		cleanup,
@@ -282,15 +312,17 @@ fn main() !void {
 	std.log.info("task: {any}", .{idle_task});
 	std.log.info("task: {any}", .{test_task_1});
 	std.log.info("task: {any}", .{test_task_2});
+	std.log.info("task: {any}", .{test_task_3});
 
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
 	
 	sched.add_idle(&idle_task);
-	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
-	//lapicc.arg = null;
+	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);
+	sched.add_task(&test_task_3);
+	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.schedule(false);
 
 	hcf();

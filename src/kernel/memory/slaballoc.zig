@@ -40,13 +40,13 @@ pub fn SlabAllocator(comptime T: type) type {
 			current.next = null;
 		}
 
-		pub fn alloc(self: *SlabAllocator(T)) !*T {
+		pub fn alloc(self: *SlabAllocator(T)) ?*T {
 			if(self.free_list) |free_node| {
 				const addr: *T = @ptrCast(free_node);
 				self.free_list = free_node.next;
 				return addr;
 			} else {
-				return slaberr.OUT_OF_MEMORY;
+				return null;
 			}
 		}
 
