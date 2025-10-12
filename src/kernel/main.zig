@@ -22,6 +22,7 @@ const schman = @import("scheduler/manager.zig");
 const lpicmn = @import("arch/x86_64/controllers/manager.zig");
 const tas = @import("scheduler/task.zig");
 const ta = @import("scheduler/timeralloc.zig");
+const handlers = @import("interrupts/handlers.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -81,26 +82,40 @@ var picc: pic.PIC = undefined;
 var framebuffer: *limine.Framebuffer = undefined;
 var fb_ptr: [*]volatile u32 = undefined;
 
+
+var lock = spin.SpinLock.init();
+var mp_cores: u64 = undefined;
+var ifd = std.atomic.Value(bool).init(false);
+var has_pic: u64 = 0;
+var np: u64 = 0;
+
 fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: bool) !*lapic.LAPIC {
 	const lapic_base = lapic.lapic_physaddr();
 	const lapic_virt = lapic_base + hhdm_offset;
 	var pitt: pit.PIT = undefined;
 	if(is_bsp) {
-		try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_virt, km.pfa);
+		try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_virt, km.pfa,.{.pcd = 1});
+	}
+	
+	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
+	if(is_bsp) {
 		pi.enable_irq(0);
 		pitt = pit.PIT.init();
 		pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
 		idt.enable_interrupts();
-	}
-	
-	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
-	if(is_bsp) { 
+
 		lapicc.init_timer_bsp(1, &pitt);
 		lapicc.arg = null;
-		lapicc.timer_event = null;
+		lapicc.timer_event.store(null, .release);
 		pitt.disable();
+		pi.disable_irq(0);
 		idt.disable_interrupts();
-		picc.set_irq_handler(0, null, &lpicmn.LAPICManager.on_irq);
+		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq_bsp);
+	} else {
+		// IPI handler
+		// I'd love to set up local timer but it has proven to be too complicated (for some reason atomics on interrupt work like shit)
+		// Maybe I will tackle this some time in the future
+		pi.set_irq_handler(0x11, null, &lpicmn.LAPICManager.on_irq);
 	}
 	return lapicc;
 }
@@ -157,6 +172,7 @@ fn test2() void {
 fn on_priority_boost() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
+		std.log.info("Priority boosting on cpu #{}", .{mycpuid()});
 		sched.sleep(1000, sched.current_process.?);
 		sched.lock();
 		for(1..sch.queue_len) |i| {
@@ -197,7 +213,6 @@ fn main() !void {
 	serial.Serial.init() catch return setup_error.SERIAL_UNAVAILABLE;
 	std.log.info("Kernel start: 0x{x}, kernel end: 0x{x} ({} bytes)", .{&virt_kernel_start, &virt_kernel_end,
 		@intFromPtr(&virt_kernel_end) - @intFromPtr(&virt_kernel_start)});
-	var mp_cores: u64 = undefined;
 
 	if (requests.framebuffer_request.response) |framebuffer_response| {
 		framebuffer = framebuffer_response.getFramebuffers()[0];
@@ -236,7 +251,7 @@ fn main() !void {
 		idt.init();
 	}
 	if(requests.rsdp_request.response) |rsdp_resp| {
-		try pm.map_4k(pm.root_table.?, rsdp_resp.address & ~(@as(u64, 0xFFF)), (rsdp_resp.address + offset) & ~(@as(u64, 0xFFF)));
+		try pm.map_4k(pm.root_table.?, rsdp_resp.address & ~(@as(u64, 0xFFF)), (rsdp_resp.address + offset) & ~(@as(u64, 0xFFF)), .{});
 		acpiman = try acpi.ACPIManager.init(rsdp_resp.revision, rsdp_resp.address + offset, offset, &km);
 	}
 	idt.set_enable_interrupts();
@@ -274,23 +289,23 @@ fn main() !void {
 
 	try ta.TimerAllocator.init();
 
-	const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	var test_task_1 = tsk.Task.init_kernel_task(
-		test1,
-		@ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(assm.read_cr3()),
-		&km
-	);
+	// const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	// var test_task_1 = tsk.Task.init_kernel_task(
+	// test1,
+	// @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
+	// @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
+	// @ptrFromInt(assm.read_cr3()),
+	// &km
+	// );
 
-	const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	var test_task_2 = tsk.Task.init_kernel_task(
-		test2,
-		@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(assm.read_cr3()),
-		&km
-	);
+	// const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	// var test_task_2 = tsk.Task.init_kernel_task(
+	// test2,
+	// @ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
+	// @ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
+	// @ptrFromInt(assm.read_cr3()),
+	// &km
+	// );
 
 	const kernel_stack_3 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var priority_boost = tsk.Task.init_kernel_task(
@@ -310,18 +325,17 @@ fn main() !void {
 	);
 
 	std.log.info("task: {any}", .{idle_task});
-	std.log.info("task: {any}", .{test_task_1});
-	std.log.info("task: {any}", .{test_task_2});
+	//std.log.info("task: {any}", .{test_task_1});
+	//std.log.info("task: {any}", .{test_task_2});
 	std.log.info("task: {any}", .{priority_boost});
 
-	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);
-	
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);	
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
-	sched.add_task(&test_task_1);
-	sched.add_task(&test_task_2);
+	//sched.add_task(&test_task_1);
+	//sched.add_task(&test_task_2);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.schedule(false);
 
@@ -379,7 +393,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
-	//idt.enable_interrupts();
-	//sched.schedule();
+	idt.enable_interrupts();
+	sched.schedule(false);
 	hcf();
 }

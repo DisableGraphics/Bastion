@@ -43,56 +43,56 @@ const pml3_t = packed struct {
 };
 const pml2_t = pml3_t;
 const huge_page_t = packed struct {
-	p: u1,
-	rw: u1,
-	us: u1,
-	pwt: u1,
-	pcd: u1,
-	a: u1,
-	d: u1,
-	ps: u1,
-	g: u1,
-	avl1: u3,
-	pat: u1,
-	resvd: u17,
-	addr: u22,
-	avl3: u7,
-	pk: u4,
-	xd: u1,
+	p: u1 = 1,
+	rw: u1 = 1,
+	us: u1 = 0,
+	pwt: u1 = 0,
+	pcd: u1 = 0,
+	a: u1 = 0,
+	d: u1 = 0,
+	ps: u1 = 0,
+	g: u1 = 0,
+	avl1: u3 = 0,
+	pat: u1 = 0,
+	resvd: u17 = 0,
+	addr: u22 = 0,
+	avl3: u7 = 0,
+	pk: u4 = 0,
+	xd: u1 = 0,
 };
 const large_page_t = packed struct {
-	p: u1,
-	rw: u1,
-	us: u1,
-	pwt: u1,
-	pcd: u1,
-	a: u1,
-	d: u1,
-	ps: u1,
-	g: u1,
-	avl1: u3,
-	pat: u1,
-	resvd: u8,
-	addr: u31,
-	avl3: u7,
-	pk: u4,
-	xd: u1,
+	p: u1 = 1,
+	rw: u1 = 1,
+	us: u1 = 0,
+	pwt: u1 = 0,
+	pcd: u1 = 0,
+	a: u1 = 0,
+	d: u1 = 0,
+	ps: u1 = 0,
+	g: u1 = 0,
+	avl1: u3 = 0,
+	pat: u1 = 0,
+	resvd: u8 = 0,
+	addr: u31 = 0,
+	avl3: u7 = 0,
+	pk: u4 = 0,
+	xd: u1 = 0,
 };
 const page_t = packed struct {
-	p: u1,
-	rw: u1,
-	us: u1,
-	pwt: u1,
-	pcd: u1,
-	a: u1,
-	d: u1,
-	pat: u1,
-	g: u1,
-	avl1: u3,
-	addr: u40,
-	avl3: u7,
-	pk: u4,
-	xd: u1,
+	p: u1 = 1,
+	rw: u1 = 1,
+	us: u1 = 0,
+	pwt: u1 = 0,
+	pcd: u1 = 0,
+	a: u1 = 0,
+	d: u1 = 0,
+	pat: u1 = 0,
+	g: u1 = 0,
+	avl1: u3 = 0,
+	addr: u40 = 0,
+	avl3: u7 = 0,
+	pk: u4 = 0,
+	xd: u1 = 0,
 };
 
 pub const page_table_type = [512]u64;
@@ -192,7 +192,7 @@ pub const PageManager = struct {
 		}
 	}
 
-	pub fn map_4k(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize) !void {
+	pub fn map_4k(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: page_t) !void {
 		if(physaddr & 0xFFF != 0 or virtaddr & 0xFFF != 0) return error.BAD_ALIGN;
 		// Entries in each table level
 		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
@@ -212,25 +212,14 @@ pub const PageManager = struct {
 		if(pml2_entry.p == 0 or pml2_entry.ps == 1) return error.PATH_TO_TABLE_DOES_NOT_EXIST;
 		// Finally map at level 1 page table
 		const pml1: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml2_entry) + self.hhdm_offset);
-		pml1[virtaddr_pml1] = @bitCast(page_t{
-			.p = 1,
-			.rw = 1,
-			.us = 0,
-			.pwt = 0,
-			.pcd = 0,
-			.a = 0,
-			.d = 0,
-			.pat = 0,
-			.g = 0,
-			.avl1 = 0,
-			.addr = @truncate(physaddr >> 12),
-			.avl3 = 0,
-			.pk = 0,
-			.xd = 0
-		});
+
+		var opts = options;
+		opts.addr = @truncate(physaddr >> 12);
+
+		pml1[virtaddr_pml1] = @bitCast(opts);
 	}
 
-	pub fn map_2m(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize) !void {
+	pub fn map_2m(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: large_page_t) !void {
 		if(physaddr & 0x1FFFFF != 0 or virtaddr & 0x1FFFFF != 0) return error.BAD_ALIGN;
 		// Entries in each table level
 		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
@@ -246,27 +235,14 @@ pub const PageManager = struct {
 		// Map at level 2page table
 		const pml2: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml3_entry) + self.hhdm_offset);
 
-		pml2[virtaddr_pml2] = @bitCast(large_page_t{
-			.p = 1,
-			.rw = 1,
-			.us = 0,
-			.pwt = 0,
-			.pcd = 0,
-			.a = 0,
-			.d = 0,
-			.ps = 1,
-			.g = 0,
-			.avl1 = 0,
-			.pat = 0,
-			.resvd = 0,
-			.addr = @truncate(physaddr >> 21),
-			.avl3 = 0,
-			.pk = 0,
-			.xd = 0
-		});
+		var opts = options;
+		opts.addr = @truncate(physaddr >> 21);
+		opts.ps = 1;
+
+		pml2[virtaddr_pml2] = @bitCast(opts);
 	}
 
-	pub fn map_1g(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize) !void {
+	pub fn map_1g(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: huge_page_t) !void {
 		if(physaddr & 0x1FFFFF != 0 or virtaddr & 0x1FFFFF != 0) return error.BAD_ALIGN;
 		// Entries in each table level
 		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
@@ -277,24 +253,11 @@ pub const PageManager = struct {
 		// Look at level 3 page table
 		const pml3: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml4_entry) + self.hhdm_offset);
 
-		pml3[virtaddr_pml3] = @bitCast(huge_page_t{
-			.p = 1,
-			.rw = 1,
-			.us = 0,
-			.pwt = 0,
-			.pcd = 0,
-			.a = 0,
-			.d = 0,
-			.ps = 1,
-			.g = 0,
-			.avl1 = 0,
-			.pat = 0,
-			.resvd = 0,
-			.addr = @truncate(physaddr >> 30),
-			.avl3 = 0,
-			.pk = 0,
-			.xd = 0
-		});
+		var opts = options;
+		opts.addr = @truncate(physaddr >> 30);
+		opts.ps = 1;
+
+		pml3[virtaddr_pml3] = @bitCast(opts);
 	}
 
 	/// Add pml4 table to handle a region of 256 TiB
@@ -460,7 +423,12 @@ pub const PageManager = struct {
 		table[entry] = 0;
 	}
 
-	pub fn map_4k_alloc(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, alloc: *frame.PageFrameAllocator) !void {
+	pub fn map_4k_alloc(self: *PageManager, 
+		root_table: *page_table_type, 
+		physaddr: usize, 
+		virtaddr: usize, 
+		alloc: *frame.PageFrameAllocator,
+		options: page_t) !void {
 		if(physaddr & 0xFFF != 0 or virtaddr & 0xFFF != 0) return error.BAD_ALIGN;
 		// Entries in each table level
 		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
@@ -485,7 +453,7 @@ pub const PageManager = struct {
 				.avl3 = 0,
 				.xd = 0
 			};
-			try self.map_4k(self.root_table.?, ptl3, ptl3 + self.hhdm_offset);
+			try self.map_4k(self.root_table.?, ptl3, ptl3 + self.hhdm_offset, .{});
 		}
 		// Look at level 3 page table 
 		const pml3: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml4_entry.*) + self.hhdm_offset);
@@ -506,7 +474,7 @@ pub const PageManager = struct {
 				.avl3 = 0,
 				.xd = 0
 			};
-			try self.map_4k(self.root_table.?, ptl2, ptl2 + self.hhdm_offset);
+			try self.map_4k(self.root_table.?, ptl2, ptl2 + self.hhdm_offset, .{});
 		}
 		if(pml3_entry.ps == 1) return error.PATH_TO_TABLE_DOES_NOT_EXIST;
 		// Look at level 2 page table
@@ -528,26 +496,13 @@ pub const PageManager = struct {
 				.avl3 = 0,
 				.xd = 0
 			};
-			try self.map_4k(self.root_table.?, ptl1, ptl1 + self.hhdm_offset);
+			try self.map_4k(self.root_table.?, ptl1, ptl1 + self.hhdm_offset, .{});
 		}
 		if(pml2_entry.ps == 1) return error.PATH_TO_TABLE_DOES_NOT_EXIST;
 		// Finally map at level 1 page table
 		const pml1: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml2_entry.*) + self.hhdm_offset);
-		pml1[virtaddr_pml1] = @bitCast(page_t{
-			.p = 1,
-			.rw = 1,
-			.us = 0,
-			.pwt = 0,
-			.pcd = 0,
-			.a = 0,
-			.d = 0,
-			.pat = 0,
-			.g = 0,
-			.avl1 = 0,
-			.addr = @truncate(physaddr >> 12),
-			.avl3 = 0,
-			.pk = 0,
-			.xd = 0
-		});
+		var opts = options;
+		opts.addr = @truncate(physaddr >> 12);
+		pml1[virtaddr_pml1] = @bitCast(opts);
 	}
 };

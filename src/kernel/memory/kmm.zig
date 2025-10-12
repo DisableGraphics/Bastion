@@ -56,7 +56,7 @@ pub const KernelMemoryManager = struct {
 			self.page_lock.lock();
 			defer self.page_lock.unlock();
 			for(0..npages) |i| {
-				try self.pm.map_4k(self.pm.root_table.?, val + (i << 12), val + self.hhdm_offset + (i << 12));
+				try self.pm.map_4k(self.pm.root_table.?, val + (i << 12), val + self.hhdm_offset + (i << 12), .{});
 			}
 		}
 
@@ -217,7 +217,7 @@ pub const KernelMemoryManager = struct {
 		while(it < max_kernel_page) : (it += (1 << 12)) {
 			const physical = try self.pm.get_physaddr(it);
 			std.log.info("2m addr: {x}, physical: {x}", .{it, physical});
-			try self.pm.map_4k(self.pm.root_table.?, physical, it);
+			try self.pm.map_4k(self.pm.root_table.?, physical, it, .{});
 		}
 		return .{.pml3_kernel = pml3_kernel, .pml2_kernel = pml2_kernel, .pml1_kernel = pml1_kernel};
 	}
@@ -414,15 +414,15 @@ pub const KernelMemoryManager = struct {
 
 		for(pt3_array) |*pt3_virttable| {
 			const pt3_physaddr:usize = @intFromPtr(pt3_virttable) - self.hhdm_offset;
-			try self.pm.map_4k(self.pm.root_table.?, pt3_physaddr, @intFromPtr(pt3_virttable));
+			try self.pm.map_4k(self.pm.root_table.?, pt3_physaddr, @intFromPtr(pt3_virttable), .{});
 		}
 		for(pt2_array) |*pt2_virttable| {
 			const pt2_physaddr:usize = @intFromPtr(pt2_virttable) - self.hhdm_offset;
-			try self.pm.map_4k(self.pm.root_table.?, pt2_physaddr, @intFromPtr(pt2_virttable));
+			try self.pm.map_4k(self.pm.root_table.?, pt2_physaddr, @intFromPtr(pt2_virttable), .{});
 		}
 		for(pt1_array) |*pt1_virttable| {
 			const pt1_physaddr:usize = @intFromPtr(pt1_virttable) - self.hhdm_offset;
-			try self.pm.map_4k(self.pm.root_table.?, pt1_physaddr, @intFromPtr(pt1_virttable));
+			try self.pm.map_4k(self.pm.root_table.?, pt1_physaddr, @intFromPtr(pt1_virttable), .{});
 		}
 		std.log.info("Mapped page tables", .{});
 
@@ -430,7 +430,7 @@ pub const KernelMemoryManager = struct {
 		for(0..buffer_alloc_pages) |i| {
 			const virtaddr = @intFromPtr(fixedbuffer.ptr) + (i << 12);
 			const physaddr = virtaddr - self.hhdm_offset;
-			try self.pm.map_4k(self.pm.root_table.?, physaddr, virtaddr);
+			try self.pm.map_4k(self.pm.root_table.?, physaddr, virtaddr, .{});
 		}
 		std.log.info("Mapped buffer", .{});
 
@@ -444,22 +444,22 @@ pub const KernelMemoryManager = struct {
 				while(it < end_page) : (it += page.PAGE_SIZE) {
 					const physaddr = it;
 					const virtaddr = it + self.hhdm_offset;
-					try self.pm.map_4k(self.pm.root_table.?, physaddr, virtaddr);
+					try self.pm.map_4k(self.pm.root_table.?, physaddr, virtaddr, .{});
 				}
 			}
 		}
 		std.log.info("Mapped all necessary memory regions", .{});
 		std.log.info("Mapping page tables and bitmap", .{});
 
-		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(self.pm.root_table.?) - self.hhdm_offset, @intFromPtr(self.pm.root_table.?));
-		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(kt.pml3_kernel), @intFromPtr(kt.pml3_kernel) + self.hhdm_offset);
-		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(kt.pml2_kernel), @intFromPtr(kt.pml2_kernel) + self.hhdm_offset);
+		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(self.pm.root_table.?) - self.hhdm_offset, @intFromPtr(self.pm.root_table.?), .{});
+		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(kt.pml3_kernel), @intFromPtr(kt.pml3_kernel) + self.hhdm_offset, .{});
+		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(kt.pml2_kernel), @intFromPtr(kt.pml2_kernel) + self.hhdm_offset, .{});
 
 		const bitmap_size_pages =  (self.pfa.bitmap_n_entries*@sizeOf(framealloc.bitmap_t)) / page.PAGE_SIZE;
 		for(0..bitmap_size_pages) |i| {
 			const virtaddr = @intFromPtr(self.pfa.bitmap.?.ptr) + (i << 12);
 			const physaddr = virtaddr - self.hhdm_offset;
-			try self.pm.map_4k(self.pm.root_table.?, physaddr, virtaddr);
+			try self.pm.map_4k(self.pm.root_table.?, physaddr, virtaddr, .{});
 		}
 
 		std.log.info("Mapped page tables and bitmap", .{});
@@ -470,8 +470,8 @@ pub const KernelMemoryManager = struct {
 		const tmp_mapping: *page.page_table_type = @ptrFromInt((try self.alloc_virt(1)) orelse return error.OUT_OF_MEMORY);
 		defer self.dealloc_virt_noerr(@intFromPtr(tmp_mapping), 1);
 		try self.pm.add_pml3(self.pm.root_table.?, @ptrFromInt(@intFromPtr(tmp_mapping) - self.hhdm_offset), 0);
-		try self.pm.map_1g(self.pm.root_table.?, 0, 0);
-		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(tmp_mapping) - self.hhdm_offset, @intFromPtr(tmp_mapping));
+		try self.pm.map_1g(self.pm.root_table.?, 0, 0, .{});
+		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(tmp_mapping) - self.hhdm_offset, @intFromPtr(tmp_mapping), .{});
 
 		page.set_cr3(pt_phys_addr);
 		self.pm.delete_entry(self.pm.root_table.?, 0);

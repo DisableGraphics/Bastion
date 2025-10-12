@@ -217,13 +217,13 @@ pub const ACPIManager = struct {
 			try mapper.pm.map_4k_alloc(mapper.pm.root_table.?, 
 				(@intFromPtr(xsdt) - hhdm_offset) & ~@as(u64, 0xfff), 
 				(@intFromPtr(xsdt)) & ~@as(u64, 0xfff),
-				mapper.pfa);
+				mapper.pfa, .{.pcd = 1});
 		} else {
 			const rsdt: *align(1) RSDT = self.get_rsdt().?;
 			try mapper.pm.map_4k_alloc(mapper.pm.root_table.?, 
 				(@intFromPtr(rsdt) - hhdm_offset) & ~@as(u64, 0xfff), 
 				(@intFromPtr(rsdt)) & ~@as(u64, 0xfff),
-				mapper.pfa);
+				mapper.pfa, .{.pcd = 1});
 		}
 		return self;
 	}

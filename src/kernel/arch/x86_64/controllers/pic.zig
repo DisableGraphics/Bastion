@@ -46,15 +46,17 @@ fn makeIRQ(comptime n: usize) type {
 				}
 			}
 			PIC.fn_table[n](PIC.arg_table[n]);
-			PIC.eoi(n);			
+			if(n < 16) PIC.eoi(n);		
         }
 		
     };
 }
 
+const nirqs = 32;
+
 pub const IRQs = blk: {
-    var funcs: [16]*const fn(*handlers.IdtFrame) callconv(.Interrupt) void = undefined;
-    for (0..16) |i| {
+    var funcs: [nirqs]*const fn(*handlers.IdtFrame) callconv(.Interrupt) void = undefined;
+    for (0..nirqs) |i| {
         funcs[i] = makeIRQ(i).func;
     }
     break :blk funcs;
@@ -67,8 +69,8 @@ fn stub(irq: PIC.arg_type) void {
 pub const PIC = struct {
 	const arg_type = ?*volatile anyopaque;
 	const pic_func = fn(arg_type) void;
-	var fn_table: [16]*const pic_func = undefined;
-	var arg_table: [16]?*volatile anyopaque = undefined;
+	var fn_table: [nirqs]*const pic_func = undefined;
+	var arg_table: [nirqs]?*volatile anyopaque = undefined;
 	
 	const PIC1_MAP = 0x20;
 	const PIC2_MAP = 0x28;
@@ -80,14 +82,14 @@ pub const PIC = struct {
 	}
 
 	fn init_irq_fns() void {
-		for(0..fn_table.len) |i| {
+		for(0..nirqs) |i| {
 			fn_table[i] = &stub;
 			const vector = i + PIC1_MAP;
 			idt.insert_idt_entry(vector, IRQs[i]);
 		}
 	}
 
-	pub fn set_irq_handler(self: *PIC, irq: u4, argument: arg_type, function: *const pic_func) void {
+	pub fn set_irq_handler(self: *PIC, irq: u5, argument: arg_type, function: *const pic_func) void {
 		_ = self;
 		fn_table[irq] = function;
 		arg_table[irq] = argument;
@@ -126,7 +128,7 @@ pub const PIC = struct {
 	pub fn disable_irq(self: *PIC, irqno: u4) void {
 		_ = self;
 		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
-		std.log.info("Port: {} {x}", .{port, port});
+		std.log.info("Port: {x}", .{port});
 		const irqline: u3 = @truncate(irqno);
 		const value = assm.inb(port) | (@as(u8, 1) << irqline);
 		assm.outb(port, value);
@@ -135,7 +137,7 @@ pub const PIC = struct {
 	pub fn enable_irq(self: *PIC, irqno: u4) void {
 		_ = self;
 		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
-		std.log.info("Port: {} {x}", .{port, port});
+		std.log.info("Port: {x}", .{port});
 		const irqline: u3 = @truncate(irqno);
 		const value = assm.inb(port) & ~(@as(u8, 1) << irqline);
 		assm.outb(port, value);

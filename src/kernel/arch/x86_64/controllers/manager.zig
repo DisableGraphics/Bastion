@@ -15,10 +15,24 @@ pub const LAPICManager = struct {
 		return &lapics[cpuid];
 	}
 
+	pub fn get_lapic(cpuid: u64) *lapic.LAPIC {
+		return &lapics[cpuid];
+	}
+
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		_ = s;
 		const cpuid = main.mycpuid();
 		const lapicc = &lapics.ptr[cpuid];
 		lapic.LAPIC.on_irq(@ptrCast(lapicc));
+	}
+
+	pub fn on_irq_bsp(s: ?*volatile anyopaque) void {
+		_ = s;
+		const cpuid = main.mycpuid();
+		const lapicc = &lapics.ptr[cpuid];
+		lapic.LAPIC.on_irq(@ptrCast(lapicc));
+		for(0..lapics.len) |i| {
+			if(i != cpuid) lapicc.send_ipi(@intCast(i));
+		}
 	}
 };

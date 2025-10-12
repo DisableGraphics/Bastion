@@ -7,6 +7,9 @@ const IA32_APIC_BASE_MSR = 0x1B;
 const IA32_APIC_BASE_MSR_ENABLE = 0x800;
 const LAPIC_DM_EXTINT = (0x7 << 8);
 
+const ICR_HIGH = 0x310;
+const ICR_LOW = 0x300;
+
 pub fn lapic_physaddr() u64 {
 	const b = assm.read_msr(IA32_APIC_BASE_MSR);
 	return b & 0xfffff000;
@@ -14,12 +17,12 @@ pub fn lapic_physaddr() u64 {
 
 pub const LAPIC = struct {
 	lapic_base: usize,
-	timer_event: ?*const fn(?*anyopaque) void,
+	timer_event: std.atomic.Value(?*const fn(?*anyopaque) void),
 	arg: ?*anyopaque,
 	pub fn init(lapic_table_virtaddr: usize, lapic_base_physaddr: usize, is_bsp: bool) LAPIC {
 		var self: LAPIC = .{
 			.lapic_base = lapic_table_virtaddr,
-			.timer_event = null,
+			.timer_event = std.atomic.Value(?*const fn(?*anyopaque) void).init(null),
 			.arg = null,
 		};
 		self.set_apic_base(lapic_base_physaddr);
@@ -43,10 +46,22 @@ pub const LAPIC = struct {
 	
 		self.write_reg(0x320, (1 << 16));
 		const ticks: u32 = 0xFFFFFFFF - self.read_reg(0x390);
-		self.write_reg(0x320, 0x20 | (0b01 << 17));
+		self.write_reg(0x320, 0x30 | (0b01 << 17));
 		self.write_reg(0x3E0, 0x3);
 		self.write_reg(0x380, ticks);
-		std.log.info("ticks in one second: {}", .{ticks});
+	}
+
+	pub fn init_timer_ap_stage_1(self: *LAPIC) void {
+		self.write_reg(0x3E0, 0x3);
+		self.write_reg(0x380, 0xFFFFFFFF);
+	}
+
+	pub fn init_timer_ap_stage_2(self: *LAPIC) void {
+		self.write_reg(0x320, (1 << 16));
+		const ticks: u32 = 0xFFFFFFFF - self.read_reg(0x390);
+		self.write_reg(0x320, 0x30 | (0b01 << 17));
+		self.write_reg(0x3E0, 0x3);
+		self.write_reg(0x380, ticks);
 	}
 
 	fn pic_passthrough(self: *volatile LAPIC) void {
@@ -55,6 +70,11 @@ pub const LAPIC = struct {
 		lint0 &= ~@as(u32, (7 << 8));
 		lint0 |= LAPIC_DM_EXTINT;
 		self.write_reg(0x350, lint0);
+	}
+
+	pub fn transfer_pic_control(self: *LAPIC, other: *LAPIC) void {
+		self.write_reg(0x350, self.read_reg(0x350) | (1 << 16));
+		other.pic_passthrough();
 	}
 
 	fn write_reg(self: *volatile LAPIC, reg: usize, value: u32) void {
@@ -76,7 +96,7 @@ pub const LAPIC = struct {
 	}
 
 	pub fn set_on_timer(self: *LAPIC, timer_event: ?*const fn(?*anyopaque) void, arg: ?*anyopaque)void {
-		self.timer_event = timer_event;
+		self.timer_event.store(timer_event, .release);
 		self.arg = arg;
 	}
 
@@ -85,12 +105,21 @@ pub const LAPIC = struct {
 		return @as(u64, id_reg.* >> 24);
 	}
 
+	pub fn send_ipi(self: *volatile LAPIC, destination: u32) void {
+		self.write_reg(ICR_HIGH, destination << 24);
+		self.write_reg(ICR_LOW, 0x00004000 | 0x31);
+	}
+
+	pub fn eoi(self: *volatile LAPIC) void {
+		self.write_reg(0xB0, 0);
+	}
+
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		const self: *volatile LAPIC = @ptrCast(@alignCast(s.?));
-		
-		if(self.timer_event) |ev| {
+		const s2: *LAPIC = @volatileCast(self);
+		if(s2.timer_event.load(.acquire)) |ev| {
 			ev(self.arg);
-			self.write_reg(0xB0, 0); // EOI
 		}
+		self.eoi(); // EOI
 	}
 };

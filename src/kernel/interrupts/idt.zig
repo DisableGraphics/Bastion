@@ -116,3 +116,11 @@ pub fn are_interrupts_enabled() bool {
 	);
 	return rflags & (1 << 9) != 0;
 }
+
+pub fn dump_idt_raw_entry(idx: u8) void {
+    const base: [*]const u8 = @ptrFromInt(idtr.idt_base_address);
+    const entry = base + (@as(usize, @intCast(idx)) * 16);
+    std.log.info("IDT[{}] raw bytes:", .{idx});
+    var i: usize = 0;
+    while (i < 16) : (i += 1) std.log.info("{x}", .{entry[i]});
+}
