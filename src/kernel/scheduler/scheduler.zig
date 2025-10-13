@@ -26,7 +26,7 @@ pub const Scheduler = struct {
 	cpu_tss: *ts.tss_t,
 	finished_tasks: ?*task.Task,
 	mutex: spin.SpinLock,
-	nlocks: std.atomic.Value(u32),
+	lock_flag: std.atomic.Value(bool),
 	ntick: u32,
 	timerman: tm.TimerManager,
 	tick: u64,
@@ -43,7 +43,7 @@ pub const Scheduler = struct {
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
 			.mutex = spin.SpinLock.init(),
-			.nlocks = std.atomic.Value(u32).init(0),
+			.lock_flag = std.atomic.Value(bool).init(false),
 			.ntick = 0,
 			.timerman = tm.TimerManager.init(),
 			.tick = 0,
@@ -71,18 +71,13 @@ pub const Scheduler = struct {
 
 	pub fn lock(self: *Scheduler) void {
 		idt.disable_interrupts();
-		self.nlocks.store(self.nlocks.load(.acquire)+1, .release);
-		self.mutex.lock();
-		std.debug.assert(!idt.are_interrupts_enabled());
+		while (self.lock_flag.swap(true, .acquire)) {
+			std.atomic.spinLoopHint();
+		}
 	}
 	pub fn unlock(self: *Scheduler) void {
-		self.mutex.unlock();
-		const prev = self.nlocks.load(.acquire);
-
-		self.nlocks.store(prev - 1, .release);
-		if(prev == 1) { 
-			idt.enable_interrupts();
-		}
+		self.lock_flag.store(false, .release);
+		idt.enable_interrupts();
 	}
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
