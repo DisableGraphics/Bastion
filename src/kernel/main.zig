@@ -23,6 +23,7 @@ const lpicmn = @import("arch/x86_64/controllers/manager.zig");
 const tas = @import("scheduler/task.zig");
 const ta = @import("scheduler/timeralloc.zig");
 const handlers = @import("interrupts/handlers.zig");
+const lb = @import("scheduler/loadbalancer.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -180,6 +181,14 @@ fn on_priority_boost() void {
 	}
 }
 
+fn idle() void {
+	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	while(true) {
+		lb.LoadBalancer.steal_task(sched);
+		asm volatile("hlt");
+	}
+}
+
 var colorpoint_id: u64 = 0;
 fn colorpoint() void {
 	colorpoint_id += 1;
@@ -283,14 +292,14 @@ fn main() !void {
 
 	try ta.TimerAllocator.init();
 
-	// const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	// var test_task_1 = tsk.Task.init_kernel_task(
-	// test1,
-	// @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
-	// @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
-	// @ptrFromInt(assm.read_cr3()),
-	// &km
-	// );
+	 const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	 var test_task_1 = tsk.Task.init_kernel_task(
+	 test1,
+	 @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
+	 @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
+	 @ptrFromInt(assm.read_cr3()),
+	 &km
+	 );
 
 	// const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	// var test_task_2 = tsk.Task.init_kernel_task(
@@ -328,12 +337,13 @@ fn main() !void {
 	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
-	//sched.add_task(&test_task_1);
+	test_task_1.is_pinned = false;
+	sched.add_task(&test_task_1);
 	//sched.add_task(&test_task_2);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.schedule(false);
 
-	hcf();
+	idle();
 }
 
 const ap_data_struct = packed struct {
@@ -389,5 +399,5 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	sched.add_task(&priority_boost);
 	idt.enable_interrupts();
 	sched.schedule(false);
-	hcf();
+	idle();
 }

@@ -23,7 +23,7 @@ pub const SpinLock = struct {
 		}
 	}
 
-	pub fn try_lock(self: *SpinLock) bool {
+	pub inline fn try_lock(self: *SpinLock) bool {
 		return switch (self.state.swap(.Locked, .acquire)) {
 			.Locked => false,
 			.Unlocked => true,

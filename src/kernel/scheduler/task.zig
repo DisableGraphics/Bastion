@@ -18,6 +18,7 @@ pub const Task = extern struct {
 	next: ?*Task,
 	prev: ?*Task,
 	state: TaskStatus,
+	is_pinned: bool,
 	kernel_stack_top: *anyopaque,
 	deinitfn: ?*const fn(*Task, ?*anyopaque) void,
 	extra_arg: ?*anyopaque,
@@ -77,6 +78,7 @@ pub const Task = extern struct {
 			.extra_arg = @ptrCast(allocator),
 			.current_queue = null,
 			.iopb_bitmap = null,
+			.is_pinned = true,
 		};
 	}
 
@@ -94,7 +96,8 @@ pub const Task = extern struct {
 			.deinitfn = null,
 			.extra_arg = null,
 			.current_queue = null,
-			.iopb_bitmap = null
+			.iopb_bitmap = null,
+			.is_pinned = true
 		};
 	}
 

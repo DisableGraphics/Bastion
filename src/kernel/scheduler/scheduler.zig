@@ -4,6 +4,7 @@ const std = @import("std");
 const idt = @import("../interrupts/idt.zig");
 const spin = @import("../sync/spinlock.zig");
 const tm = @import("timerman.zig");
+const lb = @import("loadbalancer.zig");
 pub const queue_len = 4;
 const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
 
