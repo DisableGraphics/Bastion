@@ -5,7 +5,7 @@ const ts = @import("../memory/tss.zig");
 const main = @import("../main.zig");
 
 pub const SchedulerManager = struct {
-	var schedulers: []sch.Scheduler = undefined;
+	pub var schedulers: []sch.Scheduler = undefined;
 	pub fn ginit(cpus: u64, allocator: *frame.KernelMemoryManager) !void {
 		const pages = ((cpus * @sizeOf(sch.Scheduler)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
 		schedulers = @as([*]sch.Scheduler, @ptrFromInt((try allocator.alloc_virt(pages)).?))[0..cpus];

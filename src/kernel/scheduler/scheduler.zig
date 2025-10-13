@@ -28,6 +28,8 @@ pub const Scheduler = struct {
 	nlocks: std.atomic.Value(u32),
 	ntick: u32,
 	timerman: tm.TimerManager,
+	tick: u64,
+	load_average: u32,
 
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
@@ -42,8 +44,28 @@ pub const Scheduler = struct {
 			.mutex = spin.SpinLock.init(),
 			.nlocks = std.atomic.Value(u32).init(0),
 			.ntick = 0,
-			.timerman = tm.TimerManager.init()
+			.timerman = tm.TimerManager.init(),
+			.tick = 0,
+			.load_average = 0
 		};
+	}
+
+	pub fn load_iter(self: *Scheduler) void {
+		if(self.current_process == null) return;
+		const itval: @TypeOf(self.load_average) = if(self.current_process.? == self.idle_task) 0 else std.math.maxInt(@TypeOf(self.load_average));
+		if(self.tick >= 256) {
+			// (itval + 255* self.load_average) / 256
+			self.load_average = @truncate(@as(u64, (@as(u64, itval) + ((@as(u64, self.load_average) << 8) - @as(u64, self.load_average)))) >> 8);
+		} else {
+			// (itval + (tick - 1) * self.load_average) / self.tick
+			self.load_average = @truncate((@as(u64, itval) * (@as(u64, self.load_average) * (self.tick - 1)))/@as(u64, self.tick));
+		}
+	}
+
+	pub fn get_load(self: *Scheduler) u32 {
+		self.lock();
+		defer self.unlock();
+		return self.load_average;
 	}
 
 	pub fn lock(self: *Scheduler) void {
@@ -175,6 +197,8 @@ pub const Scheduler = struct {
 		self.timerman.on_tick(self) catch {};
 		self.lock();
 		self.ntick = (self.ntick + 1) % CONTEXT_SWITCH_TICKS;
+		self.tick += 1;
+		self.load_iter();
 		const should_schedule = self.ntick == 0;
 		self.unlock();
 		if(should_schedule) self.schedule(true);

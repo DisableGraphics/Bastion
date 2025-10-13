@@ -130,12 +130,6 @@ fn test1() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
 		std.log.info("hey hey! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
-		if(sched.current_process != null) {
-			sched.block(sched.current_process.?, tsk.TaskStatus.BLOCKED);
-			std.log.info("Is null: {}", .{sched.blocked_tasks == null});
-		} else {
-			std.log.info("WHy is sched.current_process null?????", .{});
-		}
 	}
 }
 
@@ -172,7 +166,7 @@ fn test2() void {
 fn on_priority_boost() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
-		std.log.info("Priority boosting on cpu #{}", .{mycpuid()});
+		std.log.info("Priority boosting on cpu #{} (Load average: {})", .{mycpuid(), sched.get_load()});
 		sched.sleep(1000, sched.current_process.?);
 		sched.lock();
 		for(1..sch.queue_len) |i| {
