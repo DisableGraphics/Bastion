@@ -18,7 +18,7 @@ pub const LoadBalancer = struct {
 				var t = start.next;
 				var check_once = true;
 				while(t.? != start or check_once) {
-					if(!t.?.is_pinned) {
+					if(!t.?.is_pinned and sch.current_process != t) {
 						sch.remove_task_from_list(t.?, &sch.queues[i]);
 						return t;
 					}

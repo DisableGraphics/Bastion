@@ -5,6 +5,7 @@ const idt = @import("../interrupts/idt.zig");
 const spin = @import("../sync/spinlock.zig");
 const tm = @import("timerman.zig");
 const lb = @import("loadbalancer.zig");
+const main = @import("../main.zig");
 pub const queue_len = 4;
 const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
 
@@ -70,14 +71,18 @@ pub const Scheduler = struct {
 	}
 
 	pub fn lock(self: *Scheduler) void {
+		main.mask_ints();
 		idt.disable_interrupts();
+		
 		while (self.lock_flag.swap(true, .acquire)) {
 			std.atomic.spinLoopHint();
 		}
 	}
 	pub fn unlock(self: *Scheduler) void {
 		self.lock_flag.store(false, .release);
+		
 		idt.enable_interrupts();
+		main.unmask_ints();
 	}
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {

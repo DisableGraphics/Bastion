@@ -122,4 +122,20 @@ pub const LAPIC = struct {
 		}
 		self.eoi(); // EOI
 	}
+	// 0: Timer
+	// 1: Thermal
+	// 2: PMC
+	// 3: Lint0
+	// 4: Lint1
+	pub fn mask_irq(self: *volatile LAPIC, irq: u3) void {
+		const reg = 0x320 + @as(u32, irq)*0x10;
+		const read = self.read_reg(reg);
+		self.write_reg(reg, read | (1 << 16));
+	}
+
+	pub fn unmask_irq(self: *volatile LAPIC, irq: u3) void {
+		const reg = 0x320 + @as(u32, irq)*0x10;
+		const read = self.read_reg(reg);
+		self.write_reg(reg, read & ~@as(u32, (1 << 16)));
+	}
 };
