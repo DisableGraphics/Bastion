@@ -54,7 +54,7 @@ pub const Scheduler = struct {
 
 	pub fn load_iter(self: *Scheduler) void {
 		if(self.current_process == null) return;
-		const itval: @TypeOf(self.load_average) = if(self.current_process.? == self.idle_task) 0 else std.math.maxInt(@TypeOf(self.load_average));
+		const itval: @TypeOf(self.load_average) = if(self.current_process == self.idle_task) 0 else std.math.maxInt(@TypeOf(self.load_average));
 		if(self.tick >= 256) {
 			// (itval + 255* self.load_average) / 256
 			self.load_average = @truncate(@as(u64, (@as(u64, itval) + ((@as(u64, self.load_average) << 8) - @as(u64, self.load_average)))) >> 8);
@@ -71,18 +71,14 @@ pub const Scheduler = struct {
 	}
 
 	pub fn lock(self: *Scheduler) void {
-		main.mask_ints();
 		idt.disable_interrupts();
-		
 		while (self.lock_flag.swap(true, .acquire)) {
 			std.atomic.spinLoopHint();
 		}
 	}
 	pub fn unlock(self: *Scheduler) void {
 		self.lock_flag.store(false, .release);
-		
 		idt.enable_interrupts();
-		main.unmask_ints();
 	}
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {

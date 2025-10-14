@@ -127,25 +127,6 @@ pub fn mycpuid() u64 {
 	return lapic.LAPIC.get_cpuid(lapic_virt);
 }
 
-pub fn mask_ints() void {
-	const id = mycpuid();
-	const lapicc = lpicmn.LAPICManager.get_lapic(id);
-	if(id == 0) {
-		lapicc.mask_irq(0);
-	} else {
-		lapicc.mask_irq(3);
-	}
-}
-
-pub fn unmask_ints() void {
-	const id = mycpuid();
-	const lapicc = lpicmn.LAPICManager.get_lapic(id);
-	if(id == 0) {
-		lapicc.unmask_irq(0);
-	} else {
-		lapicc.unmask_irq(3);
-	}
-}
 
 fn test1() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
@@ -202,9 +183,9 @@ fn on_priority_boost() void {
 }
 
 fn idle() void {
-	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	//const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
-		lb.LoadBalancer.steal_task(sched);
+		//lb.LoadBalancer.steal_task(sched);
 		asm volatile("hlt");
 	}
 }
