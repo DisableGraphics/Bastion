@@ -24,6 +24,7 @@ const tas = @import("scheduler/task.zig");
 const ta = @import("scheduler/timeralloc.zig");
 const handlers = @import("interrupts/handlers.zig");
 const lb = @import("scheduler/loadbalancer.zig");
+const ipi = @import("interrupts/ipi_protocol.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -264,6 +265,7 @@ fn main() !void {
 	if(requests.mp_request.response != null) {
 		try lpicmn.LAPICManager.ginit(mp_cores, &km);
 		try schman.SchedulerManager.ginit(mp_cores, &km);
+		try ipi.IPIProtocolHandler.ginit(mp_cores, &km);
 	}
 	var lapicc = try setup_local_apic_timer(&picc, offset, 0, true);
 
