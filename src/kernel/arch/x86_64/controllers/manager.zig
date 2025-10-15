@@ -2,6 +2,7 @@ const lapic = @import("lapic.zig");
 const frame = @import("../../../memory/kmm.zig");
 const page = @import("../../../memory/pagemanager.zig");
 const main = @import("../../../main.zig");
+const ipi = @import("../../../interrupts/ipi_protocol.zig");
 
 pub const LAPICManager = struct {
 	var lapics: []lapic.LAPIC = undefined;
@@ -32,7 +33,7 @@ pub const LAPICManager = struct {
 		const lapicc = &lapics.ptr[cpuid];
 		lapic.LAPIC.on_irq(@ptrCast(lapicc));
 		for(0..lapics.len) |i| {
-			if(i != cpuid) lapicc.send_ipi(@intCast(i));
+			ipi.IPIProtocolHandler.send_ipi(@truncate(i), ipi.IPIProtocolPayload.init_with_data(.SCHEDULE, 0,0,0));
 		}
 	}
 };
