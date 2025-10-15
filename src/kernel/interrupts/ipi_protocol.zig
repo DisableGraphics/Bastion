@@ -1,6 +1,7 @@
 const std = @import("std");
 const kmm = @import("../memory/kmm.zig");
 const page = @import("../memory/pagemanager.zig");
+const main = @import("../main.zig");
 
 pub const IPIProtocolMessageType = enum(u8) {
 	NONE,
@@ -38,6 +39,16 @@ pub const IPIProtocolHandler = struct {
 		ipiprotocol_payloads = @as([*]std.atomic.Value(IPIProtocolPayload), @ptrFromInt((try alloc.alloc_virt(npages)).?))[0..cpus];
 		for(0..cpus) |i| {
 			ipiprotocol_payloads[i] = std.atomic.Value(IPIProtocolPayload).init(IPIProtocolPayload.init());
+		}
+	}
+
+	pub fn handle_ipi1(arg: ?*anyopaque) void {
+		_ = arg;
+		const mycpu = main.mycpuid();
+		const ask = ipiprotocol_payloads[mycpu];
+		const msg = ask.load(.acquire);
+		switch(msg.type) {
+			else => std.log.err("No handler for IPI payload of type: {}", .{@tagName(msg.type)})
 		}
 	}
 };

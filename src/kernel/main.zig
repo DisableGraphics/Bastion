@@ -119,6 +119,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		// Maybe I will tackle this some time in the future
 		pi.set_irq_handler(0x11, null, &lpicmn.LAPICManager.on_irq);
 	}
+	pi.set_irq_handler(0x12, null, &ipi.IPIProtocolHandler.handle_ipi1);
 	return lapicc;
 }
 
