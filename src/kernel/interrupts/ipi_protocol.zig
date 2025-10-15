@@ -5,8 +5,9 @@ const main = @import("../main.zig");
 
 pub const IPIProtocolMessageType = enum(u8) {
 	NONE,
+	SCHEDULE,
 	TASK_LOAD_BALANCING_REQUEST,
-	TASK_LOAD_BALANCING_RESPONSE
+	TASK_LOAD_BALANCING_RESPONSE,
 };
 
 pub const IPIProtocolPayload = extern struct {
@@ -42,7 +43,7 @@ pub const IPIProtocolHandler = struct {
 		}
 	}
 
-	pub fn handle_ipi1(arg: ?*anyopaque) void {
+	pub fn handle_ipi(arg: ?*anyopaque) void {
 		_ = arg;
 		const mycpu = main.mycpuid();
 		const ask = ipiprotocol_payloads[mycpu];
