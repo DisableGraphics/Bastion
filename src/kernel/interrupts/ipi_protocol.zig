@@ -56,6 +56,17 @@ pub const IPIProtocolHandler = struct {
 		lapic.send_ipi(destination);
 	}
 
+	pub fn send_ipi_broadcast(payload: IPIProtocolPayload) void {
+		const mycpuid = main.mycpuid();
+		const lapic = lpman.LAPICManager.get_lapic(mycpuid);
+		for(0..ipiprotocol_payloads.len) |i| {
+			if(i != mycpuid) {
+				lapic.send_ipi(@truncate(i));
+				ipiprotocol_payloads[i] = payload;
+			}
+		}
+	}
+
 	pub fn handle_ipi(arg: ?*volatile anyopaque) void {
 		_ = arg;
 		const mycpu = main.mycpuid();
@@ -63,11 +74,13 @@ pub const IPIProtocolHandler = struct {
 		const msgt = ask.t.load(.acquire);
 		const lapic = lpman.LAPICManager.get_lapic(mycpu);
 		switch(msgt) {
-			.SCHEDULE => {
+			IPIProtocolMessageType.SCHEDULE => {
 				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
 				sch.on_irq_tick();
 			},
-			else => std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)})
+			else => {
+				std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
+			}
 		}
 		lapic.eoi();
 	}

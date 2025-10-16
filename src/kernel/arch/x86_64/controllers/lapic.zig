@@ -110,6 +110,10 @@ pub const LAPIC = struct {
 		self.write_reg(ICR_LOW, 0x00004000 | 0x31);
 	}
 
+	pub fn send_ipi_broadcast(self: *volatile LAPIC) void {
+		self.write_reg(ICR_LOW, 0x00004000 | 0x31  | (0b11 << 18));
+	}
+
 	pub fn eoi(self: *volatile LAPIC) void {
 		self.write_reg(0xB0, 0);
 	}

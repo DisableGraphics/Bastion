@@ -113,6 +113,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		pi.disable_irq(0);
 		idt.disable_interrupts();
 		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq_bsp);
+		pi.set_irq_handler(0x11, null, &ipi.IPIProtocolHandler.handle_ipi);
 	} else {
 		// IPI handler
 		// I'd love to set up local timer but it has proven to be too complicated (for some reason atomics on interrupt work like shit)
@@ -267,7 +268,7 @@ fn main() !void {
 		try schman.SchedulerManager.ginit(mp_cores, &km);
 		try ipi.IPIProtocolHandler.ginit(mp_cores, &km);
 	}
-	var lapicc = try setup_local_apic_timer(&picc, offset, 0, true);
+	_ = try setup_local_apic_timer(&picc, offset, 0, true);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
@@ -343,7 +344,6 @@ fn main() !void {
 	test_task_1.is_pinned = false;
 	sched.add_task(&test_task_1);
 	//sched.add_task(&test_task_2);
-	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	sched.schedule(false);
 
 	idle();
