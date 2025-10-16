@@ -78,12 +78,11 @@ const setup_error = error {
 
 var pagealloc: framemanager.PageFrameAllocator = undefined;
 var pm: pagemanager.PageManager = undefined;
-var km: kmm.KernelMemoryManager = undefined;
+pub var km: kmm.KernelMemoryManager = undefined;
 var acpiman: acpi.ACPIManager = undefined;
 var picc: pic.PIC = undefined;
 var framebuffer: *limine.Framebuffer = undefined;
 var fb_ptr: [*]volatile u32 = undefined;
-
 
 var lock = spin.SpinLock.init();
 var mp_cores: u64 = undefined;
@@ -117,7 +116,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	} else {
 		// IPI handler
 		// I'd love to set up local timer but it has proven to be too complicated (for some reason atomics on interrupt work like shit)
-		// Maybe I will tackle this some time in the future
+		// Maybe I will tackle mycpuidthis some time in the future
 		pi.set_irq_handler(0x11, null, &ipi.IPIProtocolHandler.handle_ipi);
 	}
 	return lapicc;
@@ -187,7 +186,7 @@ fn on_priority_boost() void {
 fn idle() void {
 	//const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
-		//lb.LoadBalancer.steal_task(sched);
+		lb.LoadBalancer.steal_task_async();
 		asm volatile("hlt");
 	}
 }
@@ -305,14 +304,14 @@ fn main() !void {
 	 &km
 	 );
 
-	// const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	// var test_task_2 = tsk.Task.init_kernel_task(
-	// test2,
-	// @ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
-	// @ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
-	// @ptrFromInt(assm.read_cr3()),
-	// &km
-	// );
+	const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	var test_task_2 = tsk.Task.init_kernel_task(
+	test1,
+	@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
+	@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
+	@ptrFromInt(assm.read_cr3()),
+	&km
+	);
 
 	const kernel_stack_3 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var priority_boost = tsk.Task.init_kernel_task(
@@ -342,8 +341,9 @@ fn main() !void {
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
 	test_task_1.is_pinned = false;
+	test_task_2.is_pinned = false;
 	sched.add_task(&test_task_1);
-	//sched.add_task(&test_task_2);
+	sched.add_task(&test_task_2);
 	sched.schedule(false);
 
 	idle();

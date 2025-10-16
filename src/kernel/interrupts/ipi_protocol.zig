@@ -5,6 +5,8 @@ const main = @import("../main.zig");
 const lpman = @import("../arch/x86_64/controllers/manager.zig");
 const schmn = @import("../scheduler/manager.zig");
 const lpic = @import("../arch/x86_64/controllers/lapic.zig");
+const load = @import("../scheduler/loadbalancer.zig");
+const tsk = @import("../scheduler/task.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -72,11 +74,33 @@ pub const IPIProtocolHandler = struct {
 		const mycpu = main.mycpuid();
 		const ask = ipiprotocol_payloads[mycpu];
 		const msgt = ask.t.load(.acquire);
+		const p0 = ask.p0.load(.acquire);
+		_ = ask.p1.load(.acquire);
+		_ = ask.p2.load(.acquire);
+
 		const lapic = lpman.LAPICManager.get_lapic(mycpu);
 		switch(msgt) {
 			IPIProtocolMessageType.SCHEDULE => {
 				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
 				sch.on_irq_tick();
+			},
+			IPIProtocolMessageType.TASK_LOAD_BALANCING_REQUEST => {
+				std.log.info("                                                                  task load balancing                                    ", .{});
+				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+				const task = load.LoadBalancer.find_task(sch);
+				if(task != null and p0 < main.km.hhdm_offset) {
+					IPIProtocolHandler.send_ipi(@truncate(p0), 
+						IPIProtocolPayload.init_with_data(IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
+						@intFromPtr(task.?), 0,0));
+				}
+
+			},
+			IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE => {
+				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+				if(p0 >= main.km.hhdm_offset) {
+					const task: *tsk.Task = @ptrFromInt(p0);
+					sch.add_task(task);
+				}
 			},
 			else => {
 				std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
