@@ -7,6 +7,7 @@ const tm = @import("timerman.zig");
 const lb = @import("loadbalancer.zig");
 const main = @import("../main.zig");
 pub const queue_len = 4;
+const LOAD_AVG_TICK_SIZE = 256;
 const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
 
 extern fn switch_task(
@@ -55,9 +56,10 @@ pub const Scheduler = struct {
 	pub fn load_iter(self: *Scheduler) void {
 		if(self.current_process == null) return;
 		const itval: @TypeOf(self.load_average) = if(self.current_process == self.idle_task) 0 else std.math.maxInt(@TypeOf(self.load_average));
-		if(self.tick >= 256) {
-			// (itval + 255* self.load_average) / 256
-			self.load_average = @truncate(@as(u64, (@as(u64, itval) + ((@as(u64, self.load_average) << 8) - @as(u64, self.load_average)))) >> 8);
+		if(self.tick >= LOAD_AVG_TICK_SIZE) {
+			const disp = @log2(LOAD_AVG_TICK_SIZE);
+			// (itval + (LOAD_AVG_TICK_SIZE -1)* self.load_average) / LOAD_AVG_TICK_SIZE
+			self.load_average = @truncate(@as(u64, (@as(u64, itval) + ((@as(u64, self.load_average) << disp) - @as(u64, self.load_average)))) >> disp);
 		} else {
 			// (itval + (tick - 1) * self.load_average) / self.tick
 			self.load_average = @truncate((@as(u64, itval) * (@as(u64, self.load_average) * (self.tick - 1)))/@as(u64, self.tick));
