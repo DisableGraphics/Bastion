@@ -7,7 +7,7 @@ const task = @import("task.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
 
 // Load threshold
-const high_load_threshold: comptime_int = @intFromFloat(@as(f64, @floatFromInt(std.math.maxInt(u32) / 10)) * 7);
+const high_load_threshold: comptime_int = @intFromFloat(@as(f64, @floatFromInt(@as(u64, sched.LOAD_AVG_TICK_SIZE) / 10)) * 7);
 
 pub const LoadBalancer = struct {
 	pub fn find_task(sch: *sched.Scheduler) ?*task.Task {
@@ -37,11 +37,13 @@ pub const LoadBalancer = struct {
 				const sch = schman.SchedulerManager.get_scheduler_for_cpu(i);
 				const load = sch.get_load();
 				if(load > high_load_threshold) { // TODO: See why this doesn't execute
+					std.log.info("{} > threshold {}", .{load, high_load_threshold});
 					ipi.IPIProtocolHandler.send_ipi(@truncate(i), ipi.IPIProtocolPayload.init_with_data(
 						ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_REQUEST,
 						myid,
 						0,
 						0));
+					break;
 				}
 			}
 		}
