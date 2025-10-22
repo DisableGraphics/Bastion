@@ -32,7 +32,7 @@ pub const Scheduler = struct {
 	ntick: u32,
 	timerman: tm.TimerManager,
 	tick: u64,
-	load_average: u32,
+	load_average: std.atomic.Value(u32),
 
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
@@ -49,27 +49,34 @@ pub const Scheduler = struct {
 			.ntick = 0,
 			.timerman = tm.TimerManager.init(),
 			.tick = 0,
-			.load_average = 0
+			.load_average = std.atomic.Value(u32).init(0)
 		};
 	}
 
 	pub fn load_iter(self: *Scheduler) void {
 		if(self.current_process == null) return;
-		const itval: @TypeOf(self.load_average) = if(self.current_process == self.idle_task) 0 else std.math.maxInt(@TypeOf(self.load_average));
-		if(self.tick >= LOAD_AVG_TICK_SIZE) {
-			const disp: comptime_int = @intFromFloat(@log2(LOAD_AVG_TICK_SIZE));
-			// (itval + (LOAD_AVG_TICK_SIZE -1)* self.load_average) / LOAD_AVG_TICK_SIZE
-			self.load_average = @truncate(@as(u64, (@as(u64, itval) + ((@as(u64, self.load_average) << disp) - @as(u64, self.load_average)))) >> disp);
-		} else {
-			// (itval + (tick - 1) * self.load_average) / self.tick
-			self.load_average = @truncate((@as(u64, itval) * (@as(u64, self.load_average) * (self.tick - 1)))/@as(u64, self.tick));
-		}
+		const itval: u64 = @intCast(if(self.current_process == self.idle_task) @as(u32,0) else std.math.maxInt(u32));
+		//const ldload: u64 = @intCast(self.load_average.load(.acquire));
+		// if(self.tick >= LOAD_AVG_TICK_SIZE) {
+		// const disp: comptime_int = @intFromFloat(@log2(LOAD_AVG_TICK_SIZE));
+		// // (itval + (LOAD_AVG_TICK_SIZE -1)* self.load_average) / LOAD_AVG_TICK_SIZE
+		// self.load_average.store(
+		// @truncate((itval + ((ldload << disp) - ldload)) >> disp),
+		// .release);
+		// } else {
+		// // (itval + (tick - 1) * self.load_average) / self.tick
+		// self.load_average.store(
+		// @truncate((itval + ((ldload * (self.tick - 1)))) / self.tick),
+		// .release
+		// );
+		// }
+		// Test
+		self.load_average.store(@truncate(itval), .release);
+		std.log.debug("                   l{}", .{itval});
 	}
 
 	pub fn get_load(self: *Scheduler) u32 {
-		self.lock();
-		defer self.unlock();
-		return self.load_average;
+		return self.load_average.load(.acquire);
 	}
 
 	pub fn lock(self: *Scheduler) void {

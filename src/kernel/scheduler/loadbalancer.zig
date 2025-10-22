@@ -33,12 +33,13 @@ pub const LoadBalancer = struct {
 	pub fn steal_task_async() void {
 		const myid = cpuid.mycpuid();
 		for(0..schman.SchedulerManager.schedulers.len) |i| {
-			if(i != myid) {
-				const sch = schman.SchedulerManager.get_scheduler_for_cpu(i);
+			const schtolook = (myid + i) % schman.SchedulerManager.schedulers.len;
+			if(schtolook != myid) {
+				const sch = schman.SchedulerManager.get_scheduler_for_cpu(schtolook);
 				const load = sch.get_load();
 				if(load > high_load_threshold) { // TODO: See why this doesn't execute
 					std.log.info("{} > threshold {}", .{load, high_load_threshold});
-					ipi.IPIProtocolHandler.send_ipi(@truncate(i), ipi.IPIProtocolPayload.init_with_data(
+					ipi.IPIProtocolHandler.send_ipi(@truncate(schtolook), ipi.IPIProtocolPayload.init_with_data(
 						ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_REQUEST,
 						myid,
 						0,
