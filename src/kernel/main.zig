@@ -267,7 +267,7 @@ fn main() !void {
 		try schman.SchedulerManager.ginit(mp_cores, &km);
 		try ipi.IPIProtocolHandler.ginit(mp_cores, &km);
 	}
-	_ = try setup_local_apic_timer(&picc, offset, 0, true);
+	var lapicc = try setup_local_apic_timer(&picc, offset, 0, true);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
@@ -344,6 +344,7 @@ fn main() !void {
 	test_task_2.is_pinned = false;
 	sched.add_task(&test_task_1);
 	sched.add_task(&test_task_2);
+	lapicc.set_on_timer(&schman.SchedulerManager.on_irq, null);
 	sched.schedule(false);
 
 	idle();

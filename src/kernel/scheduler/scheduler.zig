@@ -7,7 +7,7 @@ const tm = @import("timerman.zig");
 const lb = @import("loadbalancer.zig");
 const main = @import("../main.zig");
 pub const queue_len = 4;
-pub const LOAD_AVG_TICK_SIZE = 4.0;
+pub const LOAD_AVG_TICK_SIZE = 256.0;
 const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
 
 extern fn switch_task(
@@ -54,25 +54,23 @@ pub const Scheduler = struct {
 	}
 
 	pub fn load_iter(self: *Scheduler) void {
-		if(self.current_process == null) return;
-		const itval: u64 = @intCast(if(self.current_process == self.idle_task) @as(u32,0) else std.math.maxInt(u32));
-		//const ldload: u64 = @intCast(self.load_average.load(.acquire));
-		// if(self.tick >= LOAD_AVG_TICK_SIZE) {
-		// const disp: comptime_int = @intFromFloat(@log2(LOAD_AVG_TICK_SIZE));
-		// // (itval + (LOAD_AVG_TICK_SIZE -1)* self.load_average) / LOAD_AVG_TICK_SIZE
-		// self.load_average.store(
-		// @truncate((itval + ((ldload << disp) - ldload)) >> disp),
-		// .release);
-		// } else {
-		// // (itval + (tick - 1) * self.load_average) / self.tick
-		// self.load_average.store(
-		// @truncate((itval + ((ldload * (self.tick - 1)))) / self.tick),
-		// .release
-		// );
-		// }
-		// Test
-		self.load_average.store(@truncate(itval), .release);
-		std.log.debug("                   l{}", .{itval});
+		if(self.current_process == null or self.idle_task == null) return;
+		const itval: u64 = @intCast(if(self.current_process.? == self.idle_task.?) @as(u32,0) else std.math.maxInt(u32));
+		const ldload: u64 = @intCast(self.load_average.load(.acquire));
+		if(self.tick >= LOAD_AVG_TICK_SIZE) {
+			const disp: comptime_int = @intFromFloat(@log2(LOAD_AVG_TICK_SIZE));
+		 	// (itval + (LOAD_AVG_TICK_SIZE -1)* self.load_average) / LOAD_AVG_TICK_SIZE
+		 	self.load_average.store(
+		 		@truncate((itval + ((ldload << disp) - ldload)) >> disp),
+		 		.release
+			);
+		} else {
+			// (itval + (tick - 1) * self.load_average) / self.tick
+			self.load_average.store(
+				@truncate((itval + ((ldload * (self.tick - 1)))) / self.tick),
+				.release
+			);
+		}
 	}
 
 	pub fn get_load(self: *Scheduler) u32 {
