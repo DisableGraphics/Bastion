@@ -85,7 +85,6 @@ pub const IPIProtocolHandler = struct {
 				sch.on_irq_tick();
 			},
 			IPIProtocolMessageType.TASK_LOAD_BALANCING_REQUEST => {
-				std.log.info("                                                                  task load balancing                                    ", .{});
 				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
 				const task = load.LoadBalancer.find_task(sch);
 				if(task != null and p0 < main.km.hhdm_offset) {

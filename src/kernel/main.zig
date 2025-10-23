@@ -130,9 +130,8 @@ pub fn mycpuid() u64 {
 
 
 fn test1() void {
-	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
-		std.log.info("hey hey! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
+		std.log.info("#{}", .{mycpuid()});
 	}
 }
 
