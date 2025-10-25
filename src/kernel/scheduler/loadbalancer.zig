@@ -7,7 +7,8 @@ const task = @import("task.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
 
 // Load threshold
-const high_load_threshold: comptime_int = @intFromFloat(@as(f64, @floatFromInt(@as(u64, sched.LOAD_AVG_TICK_SIZE) / 10)) * 7);
+const high_load_threshold: comptime_int = @intFromFloat(@as(f64, @floatFromInt(@as(u64, std.math.maxInt(u32)) / 10)) * 7);
+const low_load_threshold: comptime_int = @intFromFloat(@as(f64, @floatFromInt(@as(u64, std.math.maxInt(u32)) / 10)) * 3);
 
 pub const LoadBalancer = struct {
 	pub fn find_task(sch: *sched.Scheduler) ?*task.Task {
@@ -32,6 +33,8 @@ pub const LoadBalancer = struct {
 	}
 	pub fn steal_task_async() void {
 		const myid = cpuid.mycpuid();
+		const myload = schman.SchedulerManager.get_scheduler_for_cpu(myid).get_load();
+		if(myload > low_load_threshold) return;
 		for(0..schman.SchedulerManager.schedulers.len) |i| {
 			const schtolook = (myid + i) % schman.SchedulerManager.schedulers.len;
 			if(schtolook != myid) {

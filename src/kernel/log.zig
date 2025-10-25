@@ -11,7 +11,10 @@ pub fn logfn(comptime level: std.log.Level,
     args: anytype,
 ) void  {
 	const scope_prefix = "(" ++ @tagName(scope) ++ "): ";
-	const prefix = "[" ++ comptime level.asText() ++ "] " ++ scope_prefix;
+	const prefix = "[" ++ comptime level.asText() ++ "] " ++ switch(scope) {
+		.default => "",
+		else => scope_prefix
+	};
 	//lock.lock();
 	//defer lock.unlock();
 	writer.print(prefix ++ format ++ "\n", args) catch return;

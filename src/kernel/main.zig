@@ -25,6 +25,7 @@ const ta = @import("scheduler/timeralloc.zig");
 const handlers = @import("interrupts/handlers.zig");
 const lb = @import("scheduler/loadbalancer.zig");
 const ipi = @import("interrupts/ipi_protocol.zig");
+const talloc = @import("scheduler/taskalloc.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -86,9 +87,28 @@ var fb_ptr: [*]volatile u32 = undefined;
 
 var lock = spin.SpinLock.init();
 var mp_cores: u64 = undefined;
-var ifd = std.atomic.Value(bool).init(false);
-var has_pic: u64 = 0;
-var np: u64 = 0;
+var ifd = std.atomic.Value(u32).init(0);
+
+fn stage_0_sync(arg: ?*anyopaque) void {
+	_ = arg;
+	const n_cores = ifd.load(.acquire);
+	if(n_cores == mp_cores - 1) {
+		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_1,0,0,0));
+		var lpic = lpicmn.LAPICManager.get_lapic(mycpuid());
+		lpic.set_on_timer(stage_1_sync, null);
+		ifd.store(0, .release);
+	}
+}
+
+fn stage_1_sync(arg: ?*anyopaque) void {
+	_ = arg;
+	const n_cores = ifd.load(.acquire);
+	if(n_cores == mp_cores - 1) {
+		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_2,0,0,0));
+		var lpic = lpicmn.LAPICManager.get_lapic(mycpuid());
+		lpic.set_on_timer(&schman.SchedulerManager.on_irq, null);
+	}
+}
 
 fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: bool) !*lapic.LAPIC {
 	const lapic_base = lapic.lapic_physaddr();
@@ -107,17 +127,23 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 
 		lapicc.init_timer_bsp(1, &pitt);
 		lapicc.arg = null;
-		lapicc.timer_event.store(null, .release);
+		lapicc.timer_event.store(stage_0_sync, .release);
 		pitt.disable();
 		pi.disable_irq(0);
 		idt.disable_interrupts();
-		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq_bsp);
+		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq);
 		pi.set_irq_handler(0x11, null, &ipi.IPIProtocolHandler.handle_ipi);
 	} else {
-		// IPI handler
-		// I'd love to set up local timer but it has proven to be too complicated (for some reason atomics on interrupt work like shit)
-		// Maybe I will tackle mycpuidthis some time in the future
-		pi.set_irq_handler(0x11, null, &ipi.IPIProtocolHandler.handle_ipi);
+		_ = ifd.fetchAdd(1, .acq_rel);
+		idt.enable_interrupts();
+		asm volatile("hlt");
+		lapicc.init_timer_ap_stage_1();
+		_ = ifd.fetchAdd(1, .acq_rel);
+		std.log.info("                        a", .{});
+		asm volatile("hlt");
+		idt.disable_interrupts();
+		lapicc.init_timer_ap_stage_2();
+		std.log.info("                        b", .{});
 	}
 	return lapicc;
 }
@@ -266,7 +292,7 @@ fn main() !void {
 		try schman.SchedulerManager.ginit(mp_cores, &km);
 		try ipi.IPIProtocolHandler.ginit(mp_cores, &km);
 	}
-	var lapicc = try setup_local_apic_timer(&picc, offset, 0, true);
+	_ = try setup_local_apic_timer(&picc, offset, 0, true);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
@@ -293,30 +319,13 @@ fn main() !void {
 	);
 
 	try ta.TimerAllocator.init();
+	try talloc.TaskAllocator.init(1000, mp_cores, &km);
 
-	 const kernel_stack_1 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	 var test_task_1 = tsk.Task.init_kernel_task(
-	 test1,
-	 @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
-	 @ptrFromInt(kernel_stack_1 + tsk.KERNEL_STACK_SIZE),
-	 @ptrFromInt(assm.read_cr3()),
-	 &km
-	 );
-
-	const kernel_stack_2 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
-	var test_task_2 = tsk.Task.init_kernel_task(
-	test1,
-	@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
-	@ptrFromInt(kernel_stack_2 + tsk.KERNEL_STACK_SIZE),
-	@ptrFromInt(assm.read_cr3()),
-	&km
-	);
-
-	const kernel_stack_3 = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	const kernel_stack_priority_boost = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
 	var priority_boost = tsk.Task.init_kernel_task(
 		on_priority_boost,
-		@ptrFromInt(kernel_stack_3 + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(kernel_stack_3 + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(kernel_stack_priority_boost + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(kernel_stack_priority_boost + tsk.KERNEL_STACK_SIZE),
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
@@ -329,21 +338,25 @@ fn main() !void {
 		&km
 	);
 
-	std.log.info("task: {any}", .{idle_task});
-	//std.log.info("task: {any}", .{test_task_1});
-	//std.log.info("task: {any}", .{test_task_2});
-	std.log.info("task: {any}", .{priority_boost});
-
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);	
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
-	test_task_1.is_pinned = false;
-	test_task_2.is_pinned = false;
-	sched.add_task(&test_task_1);
-	sched.add_task(&test_task_2);
-	lapicc.set_on_timer(&schman.SchedulerManager.on_irq, null);
+	for(0..7) |_| {
+		const kernel_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+		var test_task = talloc.TaskAllocator.alloc().?;
+		test_task.* = tsk.Task.init_kernel_task(
+		test1,
+		@ptrFromInt(kernel_stack + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(kernel_stack + tsk.KERNEL_STACK_SIZE),
+		@ptrFromInt(assm.read_cr3()),
+		&km
+		);
+		test_task.is_pinned = false;
+		sched.add_task(test_task);
+	}
+	
 	sched.schedule(false);
 
 	idle();
@@ -397,9 +410,10 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		&km
 	);
 	sched.add_idle(&idle_task);
-	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
+	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
+	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	idt.enable_interrupts();
 	sched.schedule(false);
 	idle();

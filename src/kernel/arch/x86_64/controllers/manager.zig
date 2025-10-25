@@ -32,6 +32,5 @@ pub const LAPICManager = struct {
 		const cpuid = main.mycpuid();
 		const lapicc = &lapics.ptr[cpuid];
 		lapic.LAPIC.on_irq(@ptrCast(lapicc));
-		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.SCHEDULE, 0,0,0));
 	}
 };

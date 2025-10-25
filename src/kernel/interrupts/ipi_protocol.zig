@@ -13,6 +13,9 @@ pub const IPIProtocolMessageType = enum(u64) {
 	SCHEDULE,
 	TASK_LOAD_BALANCING_REQUEST,
 	TASK_LOAD_BALANCING_RESPONSE,
+
+	LAPIC_TIMER_SYNC_STAGE_1,
+	LAPIC_TIMER_SYNC_STAGE_2,
 };
 
 pub const IPIProtocolPayload = struct {
@@ -100,6 +103,13 @@ pub const IPIProtocolHandler = struct {
 					const task: *tsk.Task = @ptrFromInt(p0);
 					sch.add_task(task);
 				}
+			},
+			IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_1 => {
+				std.log.info("                    s1", .{});
+			},
+			IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_2 => {
+				std.log.info("                    s2", .{});
+				// Otherwise do nothing since we're in an interrupt context
 			},
 			else => {
 				std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
