@@ -15,7 +15,7 @@ pub fn logfn(comptime level: std.log.Level,
 		.default => "",
 		else => scope_prefix
 	};
-	//lock.lock();
-	//defer lock.unlock();
+	lock.lock();
+	defer lock.unlock();
 	writer.print(prefix ++ format ++ "\n", args) catch return;
 }

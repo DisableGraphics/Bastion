@@ -11,6 +11,7 @@ const sa = @import("../memory/stackalloc.zig");
 const ta = @import("../scheduler/taskalloc.zig");
 const idt = @import("../interrupts/idt.zig");
 const assm = @import("../arch/x86_64/asm.zig");
+const q = @import("../datastr/ring_buffer_queue.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -25,60 +26,57 @@ pub const IPIProtocolMessageType = enum(u64) {
 };
 
 pub const IPIProtocolPayload = struct {
-	t: std.atomic.Value(IPIProtocolMessageType),
-	p0: std.atomic.Value(u64),
-	p1: std.atomic.Value(u64),
-	p2: std.atomic.Value(u64),
+	t: IPIProtocolMessageType,
+	p0: u64,
+	p1: u64,
+	p2: u64,
 	pub fn init() IPIProtocolPayload {
 		return .{
-			.t = std.atomic.Value(IPIProtocolMessageType).init(.NONE),
-			.p0 = std.atomic.Value(u64).init(0),
-			.p1 = std.atomic.Value(u64).init(0),
-			.p2 = std.atomic.Value(u64).init(0),
+			.t = .NONE,
+			.p0 = 0,
+			.p1 = 0,
+			.p2 = 0,
 		};
 	}
 
 	pub fn init_with_data(t: IPIProtocolMessageType, p0: u64, p1: u64, p2: u64) IPIProtocolPayload {
 		return .{
-			.t = std.atomic.Value(IPIProtocolMessageType).init(t),
-			.p0 = std.atomic.Value(u64).init(p0),
-			.p1 = std.atomic.Value(u64).init(p1),
-			.p2 = std.atomic.Value(u64).init(p2),
-
+			.t = t,
+			.p0 = p0,
+			.p1 = p1,
+			.p2 = p2,
 		};
 	}
 };
 
+const IPIQueue = q.FixedMPSCRingBuffer(IPIProtocolPayload, 64);
+
 pub const IPIProtocolHandler = struct {
-	var ipiprotocol_payloads: []IPIProtocolPayload = undefined;
+	var ipiprotocol_payloads: []IPIQueue = undefined;
 
 	pub fn ginit(cpus: u64, alloc: *kmm.KernelMemoryManager) !void {
-		const npages = ((cpus * @sizeOf(IPIProtocolPayload)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
-		ipiprotocol_payloads = @as([*]IPIProtocolPayload, @ptrFromInt((try alloc.alloc_virt(npages)).?))[0..cpus];
+		const npages = ((cpus * @sizeOf(IPIQueue)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
+		ipiprotocol_payloads = @as([*]IPIQueue, @ptrFromInt((try alloc.alloc_virt(npages)).?))[0..cpus];
 		for(0..cpus) |i| {
-			ipiprotocol_payloads[i] = IPIProtocolPayload.init();
+			ipiprotocol_payloads[i] = IPIQueue.init();
 		}
 	}
 
 	pub fn send_ipi(destination: u32, payload: IPIProtocolPayload) void {
 		const mask = assm.irqdisable();
-		ipiprotocol_payloads[destination].t.store(payload.t.load(.acquire), .release);
-		ipiprotocol_payloads[destination].p0.store(payload.p0.load(.acquire), .release);
-		ipiprotocol_payloads[destination].p1.store(payload.p1.load(.acquire), .release);
-		ipiprotocol_payloads[destination].p2.store(payload.p2.load(.acquire), .release);
+		const ret = ipiprotocol_payloads[destination].push(payload);
+		assm.irqrestore(mask);
+		if(!ret) return;
 		const mycpuid = main.mycpuid();
 		const lapic = lpman.LAPICManager.get_lapic(mycpuid);
-		assm.irqrestore(mask);
 		lapic.send_ipi(destination);
 	}
 
 	pub fn send_ipi_broadcast(payload: IPIProtocolPayload) void {
 		const mycpuid = main.mycpuid();
-		const lapic = lpman.LAPICManager.get_lapic(mycpuid);
 		for(0..ipiprotocol_payloads.len) |i| {
 			if(i != mycpuid) {
-				lapic.send_ipi(@truncate(i));
-				ipiprotocol_payloads[i] = payload;
+				send_ipi(@truncate(i), payload);
 			}
 		}
 	}
@@ -86,49 +84,51 @@ pub const IPIProtocolHandler = struct {
 	pub fn handle_ipi(arg: ?*volatile anyopaque) void {
 		_ = arg;
 		const mycpu = main.mycpuid();
-		const ask = ipiprotocol_payloads[mycpu];
-		const msgt = ask.t.load(.acquire);
-		const p0 = ask.p0.load(.acquire);
-		_ = ask.p1.load(.acquire);
-		_ = ask.p2.load(.acquire);
-
 		const lapic = lpman.LAPICManager.get_lapic(mycpu);
-		switch(msgt) {
-			IPIProtocolMessageType.SCHEDULE => {
-				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
-				sch.on_irq_tick();
-			},
-			IPIProtocolMessageType.TASK_LOAD_BALANCING_REQUEST => {
-				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
-				const task = load.LoadBalancer.find_task(sch);
-				if(task != null and p0 < main.km.hhdm_offset) {
-					IPIProtocolHandler.send_ipi(@truncate(p0), 
-						IPIProtocolPayload.init_with_data(IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
-						@intFromPtr(task.?), 0,0));
-				}
-
-			},
-			IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE => {
-				const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
-				if(p0 >= main.km.hhdm_offset) {
+		while(!ipiprotocol_payloads[mycpu].is_empty()) {
+			const ask = ipiprotocol_payloads[mycpu].pop();
+			if(ask == null) break; // It's empty
+			const ms = ask.?;
+			const msgt = ms.t;
+			const p0 = ms.p0;
+			_ = ms.p1;
+			_ = ms.p2;
+			switch(msgt) {
+				IPIProtocolMessageType.SCHEDULE => {
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					sch.on_irq_tick();
+				},
+				IPIProtocolMessageType.TASK_LOAD_BALANCING_REQUEST => {
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					const task = load.LoadBalancer.find_task(sch);
+					if(task != null and p0 < main.km.hhdm_offset) {
+						IPIProtocolHandler.send_ipi(@truncate(p0), 
+							IPIProtocolPayload.init_with_data(IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
+							@intFromPtr(task.?), 0,0));
+					}
+				},
+				IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE => {
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					if(p0 >= main.km.hhdm_offset) {
+						const task: *tsk.Task = @ptrFromInt(p0);
+						sch.add_task(task);
+					}
+				},
+				IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_1 => {
+					// Just swallow the error
+				},
+				IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_2 => {
+					// Just swallow the error
+				},
+				IPIProtocolMessageType.FREE_TASK => {
 					const task: *tsk.Task = @ptrFromInt(p0);
-					sch.add_task(task);
+					
+					sa.KernelStackAllocator.free(task.kernel_stack) catch |err| std.log.err("Error while freeing kernel stack: {}", .{err});
+					ta.TaskAllocator.free(task) catch |err| std.log.err("Error while freeing task: {}", .{err});
+				},
+				else => {
+					std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
 				}
-			},
-			IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_1 => {
-				// Just swallow the error
-			},
-			IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_2 => {
-				// Just swallow the error
-			},
-			IPIProtocolMessageType.FREE_TASK => {
-				const task: *tsk.Task = @ptrFromInt(p0);
-				
-				sa.KernelStackAllocator.free(task.kernel_stack) catch |err| std.log.err("Error while freeing kernel stack: {}", .{err});
-				ta.TaskAllocator.free(task) catch |err| std.log.err("Error while freeing task: {}", .{err});
-			},
-			else => {
-				std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
 			}
 		}
 		lapic.eoi();

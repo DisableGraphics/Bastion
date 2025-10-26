@@ -342,7 +342,7 @@ fn main() !void {
 	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
-	for(0..7) |_| {
+	for(0..17) |_| {
 		const kernel_stack = sa.KernelStackAllocator.alloc().?;
 		var test_task = talloc.TaskAllocator.alloc().?;
 		test_task.* = tsk.Task.init_kernel_task(

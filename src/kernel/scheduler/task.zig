@@ -133,12 +133,12 @@ pub const Task = extern struct {
 				std.log.err("Error: {}", .{err});
 			};
 		} else {
-			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_created_on), .{
-				.t = std.atomic.Value(ipi.IPIProtocolMessageType).init(ipi.IPIProtocolMessageType.FREE_TASK),
-				.p0 = std.atomic.Value(u64).init(@intFromPtr(self)),
-				.p1 = std.atomic.Value(u64).init(0),
-				.p2 = std.atomic.Value(u64).init(0),
-			});
+			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_created_on), ipi.IPIProtocolPayload.init_with_data(
+				ipi.IPIProtocolMessageType.FREE_TASK,
+				@intFromPtr(self),
+				0,
+				0
+			));
 		}
 	}
 };
