@@ -2,6 +2,10 @@ const page = @import("../memory/pagemanager.zig");
 const kmm = @import("../memory/kmm.zig");
 const std = @import("std");
 const tss = @import("../memory/tss.zig");
+const sa = @import("../memory/stackalloc.zig");
+const main = @import("../main.zig");
+const ipi = @import("../interrupts/ipi_protocol.zig");
+
 pub const TaskStatus = enum(u64) {
 	READY,
 	BLOCKED,
@@ -14,7 +18,7 @@ pub const KERNEL_STACK_SIZE = 16*1024;
 pub const Task = extern struct {
 	stack: *anyopaque,
 	root_page_table: *page.page_table_type,
-	kernel_stack: *anyopaque,
+	kernel_stack: *sa.KernelStack,
 	next: ?*Task,
 	prev: ?*Task,
 	state: TaskStatus,
@@ -24,6 +28,7 @@ pub const Task = extern struct {
 	extra_arg: ?*anyopaque,
 	current_queue: ?*?*Task,
 	iopb_bitmap: ?*tss.io_bitmap_t,
+	cpu_created_on: u64,
 
 	pub fn format(
             self: @This(),
@@ -54,17 +59,15 @@ pub const Task = extern struct {
 
 	pub fn init_kernel_task(
 		func: *const fn() void,
-		stack: *anyopaque, 
-		kernel_stack: *anyopaque,
+		kernel_stack: *sa.KernelStack,
 		root_page_table: *page.page_table_type,
 		allocator: *kmm.KernelMemoryManager
 		) Task {
 
-		var stack_p: [*]usize = @ptrCast(@alignCast(stack));
+		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
 		stack_p = stack_p - 9;
 		stack_p[8] = @intFromPtr(func);
 		stack_p[0] = 0x202;
-		_ = kernel_stack;
 
 		return .{
 			.stack = @ptrCast(stack_p),
@@ -73,12 +76,13 @@ pub const Task = extern struct {
 			.next = null,
 			.prev = null,
 			.state = TaskStatus.READY,
-			.kernel_stack_top = @ptrFromInt(@intFromPtr(stack) - KERNEL_STACK_SIZE),
+			.kernel_stack_top = @ptrCast(kernel_stack),
 			.deinitfn = deinit_kernel_task,
 			.extra_arg = @ptrCast(allocator),
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
+			.cpu_created_on = main.mycpuid()
 		};
 	}
 
@@ -97,16 +101,44 @@ pub const Task = extern struct {
 			.extra_arg = null,
 			.current_queue = null,
 			.iopb_bitmap = null,
-			.is_pinned = true
+			.is_pinned = true,
+			.cpu_created_on = main.mycpuid()
 		};
 	}
 
-	fn deinit_kernel_task(self: *Task, arg: ?*anyopaque) void {
-		std.log.info("Destroying kernel task {}", .{self});
-		const kmmalloc: *kmm.KernelMemoryManager = @ptrCast(@alignCast(arg.?));
-		kmmalloc.dealloc_virt(@intFromPtr(self.kernel_stack_top), KERNEL_STACK_SIZE/page.PAGE_SIZE) catch |err| {
-			std.log.err("Could not free kernel stack for kernel task: {}", .{self});
-			std.log.err("Error: {}", .{err});
+	pub fn init_ipc_interrupt_task() Task {
+		return .{
+			.stack = @ptrFromInt(16),
+			.kernel_stack = @ptrFromInt(16),
+			.root_page_table = @ptrFromInt(16),
+			.next = null,
+			.prev = null,
+			.state = TaskStatus.READY,
+			.kernel_stack_top = @ptrFromInt(16),
+			.deinitfn = null,
+			.extra_arg = null,
+			.current_queue = null,
+			.iopb_bitmap = null,
+			.is_pinned = true,
+			.cpu_created_on = main.mycpuid()
 		};
+	}
+
+	fn deinit_kernel_task(self: *Task, _: ?*anyopaque) void {
+		const mycpu = main.mycpuid();
+		if(self.cpu_created_on == mycpu) {
+			std.log.info("Destroying kernel task {}", .{self});
+			sa.KernelStackAllocator.free(self.kernel_stack) catch |err| {
+				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
+				std.log.err("Error: {}", .{err});
+			};
+		} else {
+			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_created_on), .{
+				.t = std.atomic.Value(ipi.IPIProtocolMessageType).init(ipi.IPIProtocolMessageType.FREE_TASK),
+				.p0 = std.atomic.Value(u64).init(@intFromPtr(self)),
+				.p1 = std.atomic.Value(u64).init(0),
+				.p2 = std.atomic.Value(u64).init(0),
+			});
+		}
 	}
 };

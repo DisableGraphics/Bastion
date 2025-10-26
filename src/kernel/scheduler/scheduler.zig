@@ -17,7 +17,7 @@ extern fn switch_task(
 	current_task_deleted: u64,
 	) callconv(.C) void;
 // NOTE: ONE SCHEDULER PER CPU CORE
-// NOTE2: DO NOT LOG ANYTHING EXCEPT IN NON-INTERRUPT CONTEXTS.
+// Note2: To ask any other core for anything else, look at the IPI protocol.
 pub const Scheduler = struct {
 	queues: [queue_len]?*task.Task,
 	current_process: ?*task.Task,
@@ -27,8 +27,6 @@ pub const Scheduler = struct {
 	cleanup_task: ?*task.Task,
 	cpu_tss: *ts.tss_t,
 	finished_tasks: ?*task.Task,
-	mutex: spin.SpinLock,
-	lock_flag: std.atomic.Value(bool),
 	ntick: u32,
 	timerman: tm.TimerManager,
 	tick: u64,
@@ -44,8 +42,6 @@ pub const Scheduler = struct {
 			.finished_tasks = null,
 			.cleanup_task = null,
 			.cpu_tss = cpu_tss,
-			.mutex = spin.SpinLock.init(),
-			.lock_flag = std.atomic.Value(bool).init(false),
 			.ntick = 0,
 			.timerman = tm.TimerManager.init(),
 			.tick = 0,
@@ -77,14 +73,10 @@ pub const Scheduler = struct {
 		return self.load_average.load(.acquire);
 	}
 
-	pub fn lock(self: *Scheduler) void {
+	pub fn lock(_: *Scheduler) void {
 		idt.disable_interrupts();
-		while (self.lock_flag.swap(true, .acquire)) {
-			std.atomic.spinLoopHint();
-		}
 	}
-	pub fn unlock(self: *Scheduler) void {
-		self.lock_flag.store(false, .release);
+	pub fn unlock(_: *Scheduler) void {
 		idt.enable_interrupts();
 	}
 	// Adds a new task

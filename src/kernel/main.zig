@@ -26,6 +26,7 @@ const handlers = @import("interrupts/handlers.zig");
 const lb = @import("scheduler/loadbalancer.zig");
 const ipi = @import("interrupts/ipi_protocol.zig");
 const talloc = @import("scheduler/taskalloc.zig");
+const sa = @import("memory/stackalloc.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -105,6 +106,7 @@ fn stage_1_sync(arg: ?*anyopaque) void {
 	const n_cores = ifd.load(.acquire);
 	if(n_cores == mp_cores - 1) {
 		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_2,0,0,0));
+		ifd.store(0, .release);
 		var lpic = lpicmn.LAPICManager.get_lapic(mycpuid());
 		lpic.set_on_timer(&schman.SchedulerManager.on_irq, null);
 	}
@@ -126,8 +128,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		idt.enable_interrupts();
 
 		lapicc.init_timer_bsp(1, &pitt);
-		lapicc.arg = null;
-		lapicc.timer_event.store(stage_0_sync, .release);
+		lapicc.set_on_timer(stage_0_sync, null);
 		pitt.disable();
 		pi.disable_irq(0);
 		idt.disable_interrupts();
@@ -139,11 +140,9 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		asm volatile("hlt");
 		lapicc.init_timer_ap_stage_1();
 		_ = ifd.fetchAdd(1, .acq_rel);
-		std.log.info("                        a", .{});
 		asm volatile("hlt");
 		idt.disable_interrupts();
 		lapicc.init_timer_ap_stage_2();
-		std.log.info("                        b", .{});
 	}
 	return lapicc;
 }
@@ -156,9 +155,11 @@ pub fn mycpuid() u64 {
 
 
 fn test1() void {
-	while(true) {
-		std.log.info("#{}", .{mycpuid()});
+	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	for(0..100) |_| {
+		std.log.info("#{}", .{mycpuid()});	
 	}
+	sched.exit(sched.current_process.?);
 }
 
 fn test2() void {
@@ -209,7 +210,6 @@ fn on_priority_boost() void {
 }
 
 fn idle() void {
-	//const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
 		lb.LoadBalancer.steal_task_async();
 		asm volatile("hlt");
@@ -320,20 +320,19 @@ fn main() !void {
 
 	try ta.TimerAllocator.init();
 	try talloc.TaskAllocator.init(1000, mp_cores, &km);
+	try sa.KernelStackAllocator.init(1000, mp_cores, &km);
 
-	const kernel_stack_priority_boost = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
 	var priority_boost = tsk.Task.init_kernel_task(
 		on_priority_boost,
-		@ptrFromInt(kernel_stack_priority_boost + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(kernel_stack_priority_boost + tsk.KERNEL_STACK_SIZE),
+		kernel_stack_priority_boost,
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
-	const cleanup_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	const cleanup_stack = sa.KernelStackAllocator.alloc().?;
 	var cleanup_task = tsk.Task.init_kernel_task(
 		cleanup,
-		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
+		cleanup_stack,
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
@@ -344,14 +343,13 @@ fn main() !void {
 	sched.add_cleanup(&cleanup_task);
 	sched.add_task(&priority_boost);
 	for(0..7) |_| {
-		const kernel_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+		const kernel_stack = sa.KernelStackAllocator.alloc().?;
 		var test_task = talloc.TaskAllocator.alloc().?;
 		test_task.* = tsk.Task.init_kernel_task(
-		test1,
-		@ptrFromInt(kernel_stack + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(kernel_stack + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(assm.read_cr3()),
-		&km
+			test1,
+			kernel_stack,
+			@ptrFromInt(assm.read_cr3()),
+			&km
 		);
 		test_task.is_pinned = false;
 		sched.add_task(test_task);
@@ -393,19 +391,17 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	);
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
-	const kernel_stack_1 = (try km.alloc_virt(4)).?;
+	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
 	var priority_boost = tsk.Task.init_kernel_task(
 		on_priority_boost,
-		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
-		@ptrFromInt(kernel_stack_1 + 4*pagemanager.PAGE_SIZE),
+		kernel_stack_priority_boost,
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);
-	const cleanup_stack = (try km.alloc_virt(tsk.KERNEL_STACK_SIZE/pagemanager.PAGE_SIZE)).?;
+	const cleanup_stack = sa.KernelStackAllocator.alloc().?;
 	var cleanup_task = tsk.Task.init_kernel_task(
 		cleanup,
-		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
-		@ptrFromInt(cleanup_stack + tsk.KERNEL_STACK_SIZE),
+		cleanup_stack,
 		@ptrFromInt(assm.read_cr3()),
 		&km
 	);

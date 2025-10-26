@@ -26,11 +26,4 @@ pub const LAPICManager = struct {
 		const lapicc = &lapics.ptr[cpuid];
 		lapic.LAPIC.on_irq(@ptrCast(lapicc));
 	}
-
-	pub fn on_irq_bsp(s: ?*volatile anyopaque) void {
-		_ = s;
-		const cpuid = main.mycpuid();
-		const lapicc = &lapics.ptr[cpuid];
-		lapic.LAPIC.on_irq(@ptrCast(lapicc));
-	}
 };

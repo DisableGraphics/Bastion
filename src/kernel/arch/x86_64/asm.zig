@@ -58,3 +58,18 @@ pub fn write_msr(msr: u64, value: u64) void {
 pub fn mfence() void {
 	asm volatile("mfence");
 }
+
+pub inline fn irqdisable() u64 {
+	return 
+	asm volatile ("pushf\n\tcli\n\tpop %[flags]" : [flags]"=r"(->u64) : : "memory");
+}
+
+pub inline fn irqrestore(mask: u64) void {
+	asm volatile ("push %[mask]\n\tpopf" : : [mask]"rm"(mask) : "memory","cc");
+}
+
+pub inline fn rdtsc() u64 {
+	var low: u32 = undefined; var high: u32 = undefined;
+    asm volatile("rdtsc":[low]"={eax}"(low),[high]"={edx}"(high));
+    return (@as(u64, high) << 32) | low;
+}

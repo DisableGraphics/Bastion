@@ -7,6 +7,10 @@ const schmn = @import("../scheduler/manager.zig");
 const lpic = @import("../arch/x86_64/controllers/lapic.zig");
 const load = @import("../scheduler/loadbalancer.zig");
 const tsk = @import("../scheduler/task.zig");
+const sa = @import("../memory/stackalloc.zig");
+const ta = @import("../scheduler/taskalloc.zig");
+const idt = @import("../interrupts/idt.zig");
+const assm = @import("../arch/x86_64/asm.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -16,6 +20,8 @@ pub const IPIProtocolMessageType = enum(u64) {
 
 	LAPIC_TIMER_SYNC_STAGE_1,
 	LAPIC_TIMER_SYNC_STAGE_2,
+
+	FREE_TASK,
 };
 
 pub const IPIProtocolPayload = struct {
@@ -55,9 +61,14 @@ pub const IPIProtocolHandler = struct {
 	}
 
 	pub fn send_ipi(destination: u32, payload: IPIProtocolPayload) void {
-		ipiprotocol_payloads[destination] = payload;
+		const mask = assm.irqdisable();
+		ipiprotocol_payloads[destination].t.store(payload.t.load(.acquire), .release);
+		ipiprotocol_payloads[destination].p0.store(payload.p0.load(.acquire), .release);
+		ipiprotocol_payloads[destination].p1.store(payload.p1.load(.acquire), .release);
+		ipiprotocol_payloads[destination].p2.store(payload.p2.load(.acquire), .release);
 		const mycpuid = main.mycpuid();
 		const lapic = lpman.LAPICManager.get_lapic(mycpuid);
+		assm.irqrestore(mask);
 		lapic.send_ipi(destination);
 	}
 
@@ -105,11 +116,16 @@ pub const IPIProtocolHandler = struct {
 				}
 			},
 			IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_1 => {
-				std.log.info("                    s1", .{});
+				// Just swallow the error
 			},
 			IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_2 => {
-				std.log.info("                    s2", .{});
-				// Otherwise do nothing since we're in an interrupt context
+				// Just swallow the error
+			},
+			IPIProtocolMessageType.FREE_TASK => {
+				const task: *tsk.Task = @ptrFromInt(p0);
+				
+				sa.KernelStackAllocator.free(task.kernel_stack) catch |err| std.log.err("Error while freeing kernel stack: {}", .{err});
+				ta.TaskAllocator.free(task) catch |err| std.log.err("Error while freeing task: {}", .{err});
 			},
 			else => {
 				std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
