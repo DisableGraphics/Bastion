@@ -16,61 +16,57 @@ extern fn switch_task(
 	tss: *ts.tss_t,
 	current_task_deleted: u64,
 	) callconv(.C) void;
+
+pub const scheduler_queue = struct {
+	head: ?*task.Task,
+	count: std.atomic.Value(u32),
+	fn init() @This() {
+		return .{.head = null, .count = std.atomic.Value(u32).init(0)};
+	}
+};
 // NOTE: ONE SCHEDULER PER CPU CORE
 // Note2: To ask any other core for anything else, look at the IPI protocol.
 pub const Scheduler = struct {
-	queues: [queue_len]?*task.Task,
+	queues: [queue_len]scheduler_queue,
 	current_process: ?*task.Task,
-	blocked_tasks: ?*task.Task,
-	sleeping_tasks: ?*task.Task,
+	blocked_tasks: scheduler_queue,
+	sleeping_tasks: scheduler_queue,
+	finished_tasks: scheduler_queue,
 	idle_task: ?*task.Task,
 	cleanup_task: ?*task.Task,
+	priority_boost_task: ?*task.Task,
 	cpu_tss: *ts.tss_t,
-	finished_tasks: ?*task.Task,
 	ntick: u32,
 	timerman: tm.TimerManager,
 	tick: u64,
-	load_average: std.atomic.Value(u32),
 
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
 			.idle_task = null,
 			.current_process = null,
-			.blocked_tasks = null,
-			.sleeping_tasks = null,
-			.queues = [_]?*task.Task{null} ** queue_len,
-			.finished_tasks = null,
+			.blocked_tasks = scheduler_queue.init(),
+			.sleeping_tasks = scheduler_queue.init(),
+			.queues = [_]scheduler_queue{scheduler_queue.init()} ** queue_len,
+			.finished_tasks = scheduler_queue.init(),
 			.cleanup_task = null,
+			.priority_boost_task = null,
 			.cpu_tss = cpu_tss,
 			.ntick = 0,
 			.timerman = tm.TimerManager.init(),
 			.tick = 0,
-			.load_average = std.atomic.Value(u32).init(0)
 		};
 	}
 
-	pub fn load_iter(self: *Scheduler) void {
-		if(self.current_process == null or self.idle_task == null) return;
-		const itval: u64 = @intCast(if(self.current_process.? == self.idle_task.?) @as(u32,0) else std.math.maxInt(u32));
-		const ldload: u64 = @intCast(self.load_average.load(.acquire));
-		if(self.tick >= LOAD_AVG_TICK_SIZE) {
-			const disp: comptime_int = @intFromFloat(@log2(LOAD_AVG_TICK_SIZE));
-		 	// (itval + (LOAD_AVG_TICK_SIZE -1)* self.load_average) / LOAD_AVG_TICK_SIZE
-		 	self.load_average.store(
-		 		@truncate((itval + ((ldload << disp) - ldload)) >> disp),
-		 		.release
-			);
-		} else {
-			// (itval + (tick - 1) * self.load_average) / self.tick
-			self.load_average.store(
-				@truncate((itval + ((ldload * (self.tick - 1)))) / self.tick),
-				.release
-			);
-		}
+	pub fn load_iter(_: *Scheduler) void {
+		
 	}
 
 	pub fn get_load(self: *Scheduler) u32 {
-		return self.load_average.load(.acquire);
+		var ret: u32 = 0;
+		for (self.queues) |q| {
+			ret += q.count.load(.acquire);
+		}
+		return ret;
 	}
 
 	pub fn lock(_: *Scheduler) void {
@@ -83,6 +79,12 @@ pub const Scheduler = struct {
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
 		self.lock();
 		self.add_task_to_list(tas, &self.queues[0]);
+		self.unlock();
+	}
+	// Adds a priority boost task
+	pub fn add_priority_boost(self: *Scheduler, tas: *task.Task) void {
+		self.lock();
+		self.priority_boost_task = tas;
 		self.unlock();
 	}
 	// adds an idle task & sets up current process
@@ -101,7 +103,7 @@ pub const Scheduler = struct {
 		self.unlock();
 	}
 
-	fn get_queue_level(self: *Scheduler, queue: ?*?*task.Task) i64 {
+	fn get_queue_level(self: *Scheduler, queue: ?*scheduler_queue) i64 {
 		if(queue) |q| {
 			for(0..self.queues.len) |i| {
 				if(q == &self.queues[i]) return @intCast(i);
@@ -118,7 +120,7 @@ pub const Scheduler = struct {
 	fn first_task_with_higher_priority(self: *Scheduler, priority: i8) ?*task.Task {
 		const prior = if(priority < 0) 4 else priority;
 		for(0..@intCast(prior)) |i| {
-			if(self.queues[i] != null) return self.queues[i];
+			if(self.queues[i].head != null) return self.queues[i].head;
 		} else return null;
 	}
 
@@ -154,6 +156,10 @@ pub const Scheduler = struct {
 		if(self.cleanup_task) |t| {
 			if(t.state == task.TaskStatus.READY) return t;
 		}
+		// Second highest priority goes to the priority boost task
+		if(self.priority_boost_task) |t| {
+			if(t.state == task.TaskStatus.READY) return t;
+		}
 		// Basically:
 		//    - If current process is a special task (either idle or cleanup) or finished search for another task. If there isn't one, just return the idle
 		//    - If current process is a normal task, just check if hasn't finished. If it is, search for another task (if no tasks available return the idle)
@@ -172,9 +178,9 @@ pub const Scheduler = struct {
 
 	pub fn clear_deleted_tasks(self: *Scheduler) void {
 		self.lock();
-		if(self.finished_tasks) |_| {
-			var tptr = self.finished_tasks;
-			while(self.finished_tasks != null) : (tptr = self.finished_tasks) {
+		if(self.finished_tasks.head) |_| {
+			var tptr = self.finished_tasks.head;
+			while(self.finished_tasks.head != null) : (tptr = self.finished_tasks.head) {
 				self.remove(tptr.?);
 			}
 		}
@@ -223,7 +229,7 @@ pub const Scheduler = struct {
 		self.lock();
 		// If it was unlocked, we need to move it to the correct list.
 		tsk.state = reason;
-		if(tsk != self.idle_task.? and tsk != self.cleanup_task.?) {
+		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and tsk != self.priority_boost_task) {
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			const list = switch(reason) {
 				task.TaskStatus.FINISHED => &self.finished_tasks,
@@ -245,7 +251,7 @@ pub const Scheduler = struct {
 		// If it wasn't locked, this would be a no-op.
 		const was_locked = tsk.state != task.TaskStatus.READY;
 		tsk.state = task.TaskStatus.READY;
-		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and was_locked) {
+		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and tsk != self.priority_boost_task and was_locked) {
 			// Move the task from
 			self.remove_task_from_list(tsk, tsk.current_queue.?);
 			self.add_task_to_list(tsk, &self.queues[0]);
@@ -279,12 +285,12 @@ pub const Scheduler = struct {
 		}
 	}
 
-	pub fn add_task_to_list(self: *Scheduler, tas: *task.Task, list: *?*task.Task) void {
+	pub fn add_task_to_list(self: *Scheduler, tas: *task.Task, list: *scheduler_queue) void {
 		_ = self;
 		// Two cases: there is a node and no node
-		if(list.* != null) {
+		if(list.head != null) {
 			// Add at the end the list
-			var head = list.*.?;
+			var head = list.head.?;
 			var last = head.prev.?;
 			var data = tas;
 			data.next = head;
@@ -295,21 +301,22 @@ pub const Scheduler = struct {
 			// Basically:
 			// - add the node
 			// - make the node point to itself
-			list.* = tas;
-			list.*.?.next = list.*;
-			list.*.?.prev = list.*;
+			list.head = tas;
+			list.head.?.next = list.head;
+			list.head.?.prev = list.head;
 		}
+		_ = list.count.fetchAdd(1, .acq_rel);
 		tas.current_queue = list;
 	}
 
-	pub fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *?*task.Task) void {
+	pub fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *scheduler_queue) void {
 		_ = self;
-		if(list.*) |proc| {
+		if(list.head) |proc| {
 			if(tsk.next.? == tsk and tsk.prev.? == tsk) { // Only one element in the list
-				list.* = null;
+				list.head = null;
 			} else { // More than one element in the list
 				if(tsk == proc) {
-					list.* = tsk.next;
+					list.head = tsk.next;
 				}
 				if (tsk.prev) |prev| {
 					prev.next = tsk.next;
@@ -318,6 +325,7 @@ pub const Scheduler = struct {
 					next.prev = tsk.prev;
 				}
 			}
+			_ = list.count.fetchSub(1, .acq_rel);
 		}
 	}
 

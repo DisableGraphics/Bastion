@@ -156,7 +156,7 @@ pub fn mycpuid() u64 {
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	for(0..100) |_| {
+	for(0..20000) |_| {
 		std.log.info("#{}", .{mycpuid()});	
 	}
 	sched.exit(sched.current_process.?);
@@ -199,8 +199,8 @@ fn on_priority_boost() void {
 		sched.sleep(1000, sched.current_process.?);
 		sched.lock();
 		for(1..sch.queue_len) |i| {
-			while(sched.queues[i] != null) {
-				const t = sched.queues[i];
+			while(sched.queues[i].head != null) {
+				const t = sched.queues[i].head;
 				sched.remove_task_from_list(t.?, &sched.queues[i]);
 				sched.add_task_to_list(t.?, &sched.queues[0]);
 			}
@@ -341,7 +341,7 @@ fn main() !void {
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
-	sched.add_task(&priority_boost);
+	sched.add_priority_boost(&priority_boost);
 	for(0..17) |_| {
 		const kernel_stack = sa.KernelStackAllocator.alloc().?;
 		var test_task = talloc.TaskAllocator.alloc().?;
@@ -408,7 +408,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
-	sched.add_task(&priority_boost);
+	sched.add_priority_boost(&priority_boost);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	idt.enable_interrupts();
 	sched.schedule(false);

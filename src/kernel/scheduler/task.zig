@@ -5,6 +5,7 @@ const tss = @import("../memory/tss.zig");
 const sa = @import("../memory/stackalloc.zig");
 const main = @import("../main.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
+const sch = @import("scheduler.zig");
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -26,7 +27,7 @@ pub const Task = extern struct {
 	kernel_stack_top: *anyopaque,
 	deinitfn: ?*const fn(*Task, ?*anyopaque) void,
 	extra_arg: ?*anyopaque,
-	current_queue: ?*?*Task,
+	current_queue: ?*sch.scheduler_queue,
 	iopb_bitmap: ?*tss.io_bitmap_t,
 	cpu_created_on: u64,
 
