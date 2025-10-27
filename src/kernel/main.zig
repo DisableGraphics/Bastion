@@ -206,6 +206,7 @@ fn on_priority_boost() void {
 			}
 		}
 		sched.unlock();
+		lb.LoadBalancer.steal_task_async();
 	}
 }
 
