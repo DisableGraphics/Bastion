@@ -6,6 +6,8 @@ const sa = @import("../memory/stackalloc.zig");
 const main = @import("../main.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
 const sch = @import("scheduler.zig");
+const buffer = @import("fpu_buffer_alloc.zig");
+const ta = @import("taskalloc.zig");
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -20,16 +22,19 @@ pub const Task = extern struct {
 	stack: *anyopaque,
 	root_page_table: *page.page_table_type,
 	kernel_stack: *sa.KernelStack,
-	next: ?*Task,
-	prev: ?*Task,
+	next: ?*Task = null,
+	prev: ?*Task = null,
 	state: TaskStatus,
 	is_pinned: bool,
 	kernel_stack_top: *anyopaque,
-	deinitfn: ?*const fn(*Task, ?*anyopaque) void,
-	extra_arg: ?*anyopaque,
-	current_queue: ?*sch.scheduler_queue,
-	iopb_bitmap: ?*tss.io_bitmap_t,
+	deinitfn: ?*const fn(*Task, ?*anyopaque) void = null,
+	extra_arg: ?*anyopaque = null,
+	current_queue: ?*sch.scheduler_queue = null,
+	iopb_bitmap: ?*tss.io_bitmap_t = null,
 	cpu_created_on: u64,
+	fpu_buffer: ?*buffer.fpu_buffer = null,
+	cpu_fpu_buffer_created_on: u64 = 0,
+	has_used_vector: bool = false,
 
 	pub fn format(
             self: @This(),
@@ -83,7 +88,7 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = main.mycpuid()
+			.cpu_created_on = main.mycpuid(),
 		};
 	}
 
@@ -103,7 +108,7 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = main.mycpuid()
+			.cpu_created_on = main.mycpuid(),
 		};
 	}
 
@@ -121,7 +126,7 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = main.mycpuid()
+			.cpu_created_on = main.mycpuid(),
 		};
 	}
 
@@ -140,6 +145,25 @@ pub const Task = extern struct {
 				0,
 				0
 			));
+		}
+
+		if(self.fpu_buffer != null and self.cpu_fpu_buffer_created_on == mycpu) {
+			std.log.info("Destroying FPU buffer for task task {}", .{self});
+			buffer.FPUBufferAllocator.free(self.fpu_buffer.?) catch |err| {
+				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
+				std.log.err("Error: {}", .{err});
+			};
+		} else if(self.fpu_buffer != null) {
+			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_fpu_buffer_created_on), ipi.IPIProtocolPayload.init_with_data(
+				ipi.IPIProtocolMessageType.FREE_FPU_BUFFER,
+				@intFromPtr(self),
+				0,
+				0
+			));
+		}
+
+		if(self.cpu_created_on == mycpu) {
+			ta.TaskAllocator.free(self) catch |err| std.log.err("Error while freeing task: {}", .{err});
 		}
 	}
 };

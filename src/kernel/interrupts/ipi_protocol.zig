@@ -12,6 +12,7 @@ const ta = @import("../scheduler/taskalloc.zig");
 const idt = @import("../interrupts/idt.zig");
 const assm = @import("../arch/x86_64/asm.zig");
 const q = @import("../datastr/ring_buffer_queue.zig");
+const ba = @import("../scheduler/fpu_buffer_alloc.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -23,6 +24,7 @@ pub const IPIProtocolMessageType = enum(u64) {
 	LAPIC_TIMER_SYNC_STAGE_2,
 
 	FREE_TASK,
+	FREE_FPU_BUFFER,
 };
 
 pub const IPIProtocolPayload = struct {
@@ -125,6 +127,10 @@ pub const IPIProtocolHandler = struct {
 					
 					sa.KernelStackAllocator.free(task.kernel_stack) catch |err| std.log.err("Error while freeing kernel stack: {}", .{err});
 					ta.TaskAllocator.free(task) catch |err| std.log.err("Error while freeing task: {}", .{err});
+				},
+				IPIProtocolMessageType.FREE_FPU_BUFFER => {
+					const buffer: *ba.fpu_buffer = @ptrFromInt(p0);
+					ba.FPUBufferAllocator.free(buffer) catch |err| std.log.err("Error while freeing FPU buffer: {}", .{err});
 				},
 				else => {
 					std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});

@@ -11,7 +11,7 @@ pub const FPU_SUPPORTED = enum {
 	AVX512,
 };
 
-const fpu_buffer = [2872]u8;
+pub const fpu_buffer = [2880]u8;
 
 pub const FPUBufferAllocator = struct {
 	var allocators: []slab.SlabAllocator(fpu_buffer) = undefined;
@@ -41,3 +41,13 @@ pub const FPUBufferAllocator = struct {
 		return allocators[myid].free(ts);
 	}
 };
+
+extern fn save_sse(ptr: *u8) callconv(.C) void;
+extern fn disable_sse() callconv(.C) void;
+
+pub fn save_fpu_buffer(task: *tsk.Task) void {
+	save_sse(&task.fpu_buffer.?.*[0]);
+	// So that it traps next time and we just load the SSE context
+	disable_sse();
+	task.has_used_vector = false;
+}

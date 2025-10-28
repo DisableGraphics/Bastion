@@ -157,9 +157,14 @@ pub fn mycpuid() u64 {
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	for(0..10) |_| {
-		asm volatile("pxor %xmm0, %xmm0");
-		std.log.info("#{}", .{mycpuid()});	
+	const val: u32 = @truncate(mycpuid());
+	asm volatile("movd %[v], %xmm0" : : [v] "r" (val) : "xmm0");
+	
+	for(0..5) |_| {
+		var read: u32 = 0;
+		asm volatile("movd %xmm0, %[v]": [v] "=r"(read) : : "memory");
+		std.log.info("#{} {}", .{mycpuid(), read});
+		sched.sleep(1000, sched.current_process.?);
 	}
 	sched.exit(sched.current_process.?);
 }
@@ -346,7 +351,7 @@ fn main() !void {
 	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_priority_boost(&priority_boost);
-	for(0..17) |_| {
+	for(0..1) |_| {
 		const kernel_stack = sa.KernelStackAllocator.alloc().?;
 		var test_task = talloc.TaskAllocator.alloc().?;
 		test_task.* = tsk.Task.init_kernel_task(

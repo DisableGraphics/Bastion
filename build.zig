@@ -35,6 +35,9 @@ pub fn build(b: *std.Build) void {
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/setCr3.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/scheduler/switch_to_task.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/enable_sse.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/disable_sse.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/fxsave.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/fxrstor.S"));
 
 	const limine_zig = b.dependency("limine_zig", .{
 		// The API revision of the Limine Boot Protocol to use, if not provided

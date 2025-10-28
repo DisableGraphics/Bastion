@@ -6,6 +6,8 @@ const spin = @import("../sync/spinlock.zig");
 const tm = @import("timerman.zig");
 const lb = @import("loadbalancer.zig");
 const main = @import("../main.zig");
+const fpu = @import("fpu_buffer_alloc.zig");
+
 pub const queue_len = 4;
 pub const LOAD_AVG_TICK_SIZE = 256.0;
 const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
@@ -214,6 +216,7 @@ pub const Scheduler = struct {
 			const t = self.next_task();
 			if(on_interrupt) self.move_task_down(self.current_process.?);
 			self.copy_iobitmap(t);
+			if(self.current_process.?.has_used_vector) fpu.save_fpu_buffer(self.current_process.?);
 			switch_task(
 				&self.current_process.?,
 				t,
