@@ -27,6 +27,7 @@ const lb = @import("scheduler/loadbalancer.zig");
 const ipi = @import("interrupts/ipi_protocol.zig");
 const talloc = @import("scheduler/taskalloc.zig");
 const sa = @import("memory/stackalloc.zig");
+const fpu = @import("scheduler/fpu_buffer_alloc.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -156,7 +157,8 @@ pub fn mycpuid() u64 {
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	for(0..20000) |_| {
+	for(0..10) |_| {
+		asm volatile("pxor %xmm0, %xmm0");
 		std.log.info("#{}", .{mycpuid()});	
 	}
 	sched.exit(sched.current_process.?);
@@ -322,6 +324,7 @@ fn main() !void {
 	try ta.TimerAllocator.init();
 	try talloc.TaskAllocator.init(1000, mp_cores, &km);
 	try sa.KernelStackAllocator.init(1000, mp_cores, &km);
+	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
 
 	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
 	var priority_boost = tsk.Task.init_kernel_task(
