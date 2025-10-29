@@ -158,23 +158,20 @@ pub fn mycpuid() u64 {
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	const val: u32 = @truncate(mycpuid()+1);
-	asm volatile("vmovd %[v], %xmm1" : : [v] "r" (val) : "xmm1");
-	asm volatile("vpxor %ymm0, %ymm0, %ymm0" : : : "ymm0");
-	asm volatile("vinsertf128 $0, %xmm1, %ymm0, %ymm0" : : : "ymm0");
-	
-	for(0..5) |_| {
-		var read: u32 = 0;
-		asm volatile(
-			\\vextracti128 $0, %%ymm0, %%xmm1
-			\\vmovd %%xmm1, %[r]
-			: [r]"=r"(read)
-			:
-			: "xmm1", "memory"
-		);
-		std.log.info("#{} {}", .{mycpuid(), read});
-		sched.sleep(1000, sched.current_process.?);
-	}
+	const a: [8]i32 = [8]i32{1,2,3,4,5,6,7,8};
+    const b: [8]i32 = [8]i32{8,7,6,5,4,3,2,1};
+	var result: [8]i32 = undefined;
+
+    asm volatile (
+        \\ vmovdqu (%[a]), %%ymm0
+        \\ vmovdqu (%[b]), %%ymm1
+        \\ vpaddd %%ymm1, %%ymm0, %%ymm2
+        \\ vmovdqu %%ymm2, (%[res])
+        :
+        : [a] "r" (&a), [b] "r" (&b), [res] "r" (&result)
+        : "ymm0", "ymm1", "ymm2", "memory"
+    );
+	std.log.info("{any}", .{result});
 	sched.exit(sched.current_process.?);
 }
 
