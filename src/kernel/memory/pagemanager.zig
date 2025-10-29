@@ -11,7 +11,7 @@ const assembly = @import("../arch/x86_64/asm.zig");
 const frame = @import("physicalalloc.zig");
 const std = @import("std");
 
-const pml5_t = packed struct {
+pub const pml5_t = packed struct {
 	p: u1,
 	rw: u1,
 	us: u1,
@@ -26,8 +26,8 @@ const pml5_t = packed struct {
 	xd: u1,
 };
 
-const pml4_t = pml5_t;
-const pml3_t = packed struct {
+pub const pml4_t = pml5_t;
+pub const pml3_t = packed struct {
 	p: u1,
 	rw: u1,
 	us: u1,
@@ -41,8 +41,8 @@ const pml3_t = packed struct {
 	avl3: u11,
 	xd: u1,
 };
-const pml2_t = pml3_t;
-const huge_page_t = packed struct {
+pub const pml2_t = pml3_t;
+pub const huge_page_t = packed struct {
 	p: u1 = 1,
 	rw: u1 = 1,
 	us: u1 = 0,
@@ -60,7 +60,7 @@ const huge_page_t = packed struct {
 	pk: u4 = 0,
 	xd: u1 = 0,
 };
-const large_page_t = packed struct {
+pub const large_page_t = packed struct {
 	p: u1 = 1,
 	rw: u1 = 1,
 	us: u1 = 0,
@@ -78,7 +78,7 @@ const large_page_t = packed struct {
 	pk: u4 = 0,
 	xd: u1 = 0,
 };
-const page_t = packed struct {
+pub const page_t = packed struct {
 	p: u1 = 1,
 	rw: u1 = 1,
 	us: u1 = 0,

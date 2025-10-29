@@ -31,6 +31,7 @@ const fpu = @import("scheduler/fpu_buffer_alloc.zig");
 const nm = @import("interrupts/illegal_instruction.zig");
 const ioa = @import("memory/io_bufferalloc.zig");
 const tasadd = @import("scheduler/task_adder.zig");
+const pta = @import("memory/pagetablealloc.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -304,6 +305,7 @@ fn main() !void {
 	try sa.KernelStackAllocator.init(1000, mp_cores, &km);
 	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
 	try ioa.IOBufferAllocator.init(6, mp_cores, &km);
+	try pta.PageTableAllocator.init(1000, mp_cores, &km);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
