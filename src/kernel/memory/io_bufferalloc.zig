@@ -25,7 +25,10 @@ pub const IOBufferAllocator = struct {
 
 	pub fn alloc() ?*tss.io_bitmap_t {
 		const myid = main.mycpuid();
-		return allocators[myid].alloc();
+		const buf = allocators[myid].alloc();
+		if(buf == null) return null;
+		@memset(buf.?, 0);
+		return buf;
 	}
 
 	pub fn free(ts: *tss.io_bitmap_t) !void {

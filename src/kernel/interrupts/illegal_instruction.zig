@@ -76,7 +76,6 @@ pub fn ill_instr(frame: *handlers.IdtFrame) callconv(.Interrupt) void {
 		task.fpu_buffer = bufalloc.FPUBufferAllocator.alloc();
 		if(task.fpu_buffer != null) {
 			task.cpu_fpu_buffer_created_on = mycpuid;
-			@memset(task.fpu_buffer.?, 0);
 		}
 	}
 	if(task.fpu_buffer != null) {

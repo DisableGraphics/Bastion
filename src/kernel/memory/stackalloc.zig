@@ -26,7 +26,10 @@ pub const KernelStackAllocator = struct {
 
 	pub fn alloc() ?*KernelStack {
 		const myid = main.mycpuid();
-		return allocators[myid].alloc();
+		const buf = allocators[myid].alloc();
+		if(buf == null) return null;
+		@memset(buf.?, 0);
+		return buf;
 	}
 
 	pub fn free(ts: *KernelStack) !void {

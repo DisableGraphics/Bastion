@@ -34,7 +34,10 @@ pub const FPUBufferAllocator = struct {
 
 	pub fn alloc() ?*fpu_buffer {
 		const myid = main.mycpuid();
-		return allocators[myid].alloc();
+		const buf = allocators[myid].alloc();
+		if(buf == null) return null;
+		@memset(buf.?, 0);
+		return buf;
 	}
 
 	pub fn free(ts: *fpu_buffer) !void {
