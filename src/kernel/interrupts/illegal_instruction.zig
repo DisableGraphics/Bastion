@@ -26,7 +26,8 @@ pub fn ill_instr(frame: *handlers.IdtFrame) callconv(.Interrupt) void {
 	// has a buffer to load from. If it doesn't, we have to allocate a buffer for the task and load from it.
 	// If it has a buffer, then just loading it is enough.
 	// and also of course to clear cr0.
-	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
+	const mycpuid = main.mycpuid();
+	const sch = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid);
 	sch.lock();
 	defer sch.unlock();
 	var task = sch.current_process.?;
@@ -34,7 +35,7 @@ pub fn ill_instr(frame: *handlers.IdtFrame) callconv(.Interrupt) void {
 	if(!has_buffer) {
 		task.fpu_buffer = bufalloc.FPUBufferAllocator.alloc();
 		if(task.fpu_buffer != null) {
-			task.cpu_fpu_buffer_created_on = main.mycpuid();
+			task.cpu_fpu_buffer_created_on = mycpuid;
 			@memset(task.fpu_buffer.?, 0);
 		}
 	}
