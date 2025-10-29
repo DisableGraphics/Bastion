@@ -132,21 +132,6 @@ pub const Task = extern struct {
 
 	fn deinit_kernel_task(self: *Task, _: ?*anyopaque) void {
 		const mycpu = main.mycpuid();
-		if(self.cpu_created_on == mycpu) {
-			std.log.info("Destroying kernel task {}", .{self});
-			sa.KernelStackAllocator.free(self.kernel_stack) catch |err| {
-				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
-				std.log.err("Error: {}", .{err});
-			};
-		} else {
-			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_created_on), ipi.IPIProtocolPayload.init_with_data(
-				ipi.IPIProtocolMessageType.FREE_TASK,
-				@intFromPtr(self),
-				0,
-				0
-			));
-		}
-
 		if(self.fpu_buffer != null and self.cpu_fpu_buffer_created_on == mycpu) {
 			std.log.info("Destroying FPU buffer for task task {}", .{self});
 			buffer.FPUBufferAllocator.free(self.fpu_buffer.?) catch |err| {
@@ -156,14 +141,26 @@ pub const Task = extern struct {
 		} else if(self.fpu_buffer != null) {
 			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_fpu_buffer_created_on), ipi.IPIProtocolPayload.init_with_data(
 				ipi.IPIProtocolMessageType.FREE_FPU_BUFFER,
-				@intFromPtr(self),
+				@intFromPtr(self.fpu_buffer.?),
 				0,
 				0
 			));
 		}
 
 		if(self.cpu_created_on == mycpu) {
+			std.log.info("Destroying kernel task {}", .{self});
+			sa.KernelStackAllocator.free(self.kernel_stack) catch |err| {
+				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
+				std.log.err("Error: {}", .{err});
+			};
 			ta.TaskAllocator.free(self) catch |err| std.log.err("Error while freeing task: {}", .{err});
+		} else {
+			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_created_on), ipi.IPIProtocolPayload.init_with_data(
+				ipi.IPIProtocolMessageType.FREE_TASK,
+				@intFromPtr(self),
+				0,
+				0
+			));
 		}
 	}
 };
