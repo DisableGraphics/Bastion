@@ -13,6 +13,8 @@ const idt = @import("../interrupts/idt.zig");
 const assm = @import("../arch/x86_64/asm.zig");
 const q = @import("../datastr/ring_buffer_queue.zig");
 const ba = @import("../scheduler/fpu_buffer_alloc.zig");
+const ioa = @import("../memory/io_bufferalloc.zig");
+const tss = @import("../memory/tss.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -25,6 +27,7 @@ pub const IPIProtocolMessageType = enum(u64) {
 
 	FREE_TASK,
 	FREE_FPU_BUFFER,
+	FREE_IO_BITMAP
 };
 
 pub const IPIProtocolPayload = struct {
@@ -131,6 +134,10 @@ pub const IPIProtocolHandler = struct {
 				IPIProtocolMessageType.FREE_FPU_BUFFER => {
 					const buffer: *ba.fpu_buffer = @ptrFromInt(p0);
 					ba.FPUBufferAllocator.free(buffer) catch |err| std.log.err("Error while freeing FPU buffer: {}", .{err});
+				},
+				IPIProtocolMessageType.FREE_IO_BITMAP => {
+					const buffer: *tss.io_bitmap_t = @ptrFromInt(p0);
+					ioa.IOBufferAllocator.free(buffer) catch |err| std.log.err("Error while freeing IO bitmap: {}", .{err});
 				},
 				else => {
 					std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});

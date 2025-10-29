@@ -8,6 +8,7 @@ const ipi = @import("../interrupts/ipi_protocol.zig");
 const sch = @import("scheduler.zig");
 const buffer = @import("fpu_buffer_alloc.zig");
 const ta = @import("taskalloc.zig");
+const ioa = @import("../memory/io_bufferalloc.zig");
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -31,6 +32,7 @@ pub const Task = extern struct {
 	extra_arg: ?*anyopaque = null,
 	current_queue: ?*sch.scheduler_queue = null,
 	iopb_bitmap: ?*tss.io_bitmap_t = null,
+	iopb_bitmap_created_on: u64 = 0,
 	cpu_created_on: u64,
 	fpu_buffer: ?*buffer.fpu_buffer = null,
 	cpu_fpu_buffer_created_on: u64 = 0,
@@ -130,18 +132,38 @@ pub const Task = extern struct {
 		};
 	}
 
+	pub fn add_io_buffer(self: *@This()) !void {
+		self.iopb_bitmap = ioa.IOBufferAllocator.alloc() orelse return error.OUT_OF_IO_BUFFER_SPACE;
+		self.iopb_bitmap_created_on = main.mycpuid();
+	}
+
 	fn deinit_kernel_task(self: *Task, _: ?*anyopaque) void {
 		const mycpu = main.mycpuid();
 		if(self.fpu_buffer != null and self.cpu_fpu_buffer_created_on == mycpu) {
 			std.log.info("Destroying FPU buffer for task task {}", .{self});
 			buffer.FPUBufferAllocator.free(self.fpu_buffer.?) catch |err| {
-				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
+				std.log.err("Could not free FPU buffer for kernel task: {}", .{self});
 				std.log.err("Error: {}", .{err});
 			};
 		} else if(self.fpu_buffer != null) {
 			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_fpu_buffer_created_on), ipi.IPIProtocolPayload.init_with_data(
 				ipi.IPIProtocolMessageType.FREE_FPU_BUFFER,
 				@intFromPtr(self.fpu_buffer.?),
+				0,
+				0
+			));
+		}
+
+		if(self.iopb_bitmap != null and self.iopb_bitmap_created_on == mycpu) {
+			std.log.info("Destroying IO buffer for task task {}", .{self});
+			ioa.IOBufferAllocator.free(self.iopb_bitmap.?) catch |err| {
+				std.log.err("Could not free IO bitmap for kernel task: {}", .{self});
+				std.log.err("Error: {}", .{err});
+			};
+		} else if(self.iopb_bitmap != null) {
+			ipi.IPIProtocolHandler.send_ipi(@truncate(self.iopb_bitmap_created_on), ipi.IPIProtocolPayload.init_with_data(
+				ipi.IPIProtocolMessageType.FREE_IO_BITMAP,
+				@intFromPtr(self.iopb_bitmap.?),
 				0,
 				0
 			));

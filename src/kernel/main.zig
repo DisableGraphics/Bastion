@@ -29,6 +29,8 @@ const talloc = @import("scheduler/taskalloc.zig");
 const sa = @import("memory/stackalloc.zig");
 const fpu = @import("scheduler/fpu_buffer_alloc.zig");
 const nm = @import("interrupts/illegal_instruction.zig");
+const ioa = @import("memory/io_bufferalloc.zig");
+const tasadd = @import("scheduler/task_adder.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -158,20 +160,9 @@ pub fn mycpuid() u64 {
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	const a: [8]i32 = [8]i32{1,2,3,4,5,6,7,8};
-    const b: [8]i32 = [8]i32{8,7,6,5,4,3,2,1};
-	var result: [8]i32 = undefined;
-
-    asm volatile (
-        \\ vmovdqu (%[a]), %%ymm0
-        \\ vmovdqu (%[b]), %%ymm1
-        \\ vpaddd %%ymm1, %%ymm0, %%ymm2
-        \\ vmovdqu %%ymm2, (%[res])
-        :
-        : [a] "r" (&a), [b] "r" (&b), [res] "r" (&result)
-        : "ymm0", "ymm1", "ymm2", "memory"
-    );
-	std.log.info("{any}", .{result});
+	sched.current_process.?.add_io_buffer() catch std.log.err("Could not allocate io buffer", .{});
+	std.log.info("{}", .{mycpuid()});
+    sched.sleep(1000, sched.current_process.?);
 	sched.exit(sched.current_process.?);
 }
 
@@ -308,6 +299,12 @@ fn main() !void {
 	}
 	_ = try setup_local_apic_timer(&picc, offset, 0, true);
 
+	try ta.TimerAllocator.init();
+	try talloc.TaskAllocator.init(1000, mp_cores, &km);
+	try sa.KernelStackAllocator.init(1000, mp_cores, &km);
+	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
+	try ioa.IOBufferAllocator.init(6, mp_cores, &km);
+
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
 		std.log.info("BSP: {}", .{mp_response.bsp_lapic_id});
@@ -332,11 +329,6 @@ fn main() !void {
 		assm.read_cr3(),
 	);
 
-	try ta.TimerAllocator.init();
-	try talloc.TaskAllocator.init(1000, mp_cores, &km);
-	try sa.KernelStackAllocator.init(1000, mp_cores, &km);
-	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
-
 	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
 	var priority_boost = tsk.Task.init_kernel_task(
 		on_priority_boost,
@@ -360,17 +352,17 @@ fn main() !void {
 	
 	sched.add_cleanup(&cleanup_task);
 	sched.add_priority_boost(&priority_boost);
-	for(0..1) |_| {
+	for(0..10) |_| {
 		const kernel_stack = sa.KernelStackAllocator.alloc().?;
-		var test_task = talloc.TaskAllocator.alloc().?;
+		const test_task = talloc.TaskAllocator.alloc().?;
 		test_task.* = tsk.Task.init_kernel_task(
 			test1,
 			kernel_stack,
 			@ptrFromInt(assm.read_cr3()),
 			&km
 		);
-		test_task.is_pinned = false;
-		sched.add_task(test_task);
+		tasadd.TaskAdder.add_task(test_task);
+		//sched.add_task(test_task);
 	}
 	
 	sched.schedule(false);

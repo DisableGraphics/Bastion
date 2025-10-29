@@ -4,7 +4,7 @@ const page = @import("pagemanager.zig");
 const std = @import("std");
 
 const IO_BITMAP_SIZE = 8192;
-pub const io_bitmap_t = [IO_BITMAP_SIZE+1]u8;
+pub const io_bitmap_t = [IO_BITMAP_SIZE]u8;
 pub const tss_t = extern struct { 
 	reserved_1: u32, 
 	rsp0: u64 align(4), 
@@ -21,7 +21,8 @@ pub const tss_t = extern struct {
 	reserved_3: u64 align(4), 
 	reserved_4: u16, 
 	iopb: u16,
-	io_bitmap: io_bitmap_t
+	io_bitmap: io_bitmap_t,
+	end_of_bitmap: u8
 };
 var tss_s: []tss_t = undefined;
 pub fn init(core_id: u32) void {
@@ -41,7 +42,8 @@ pub fn init(core_id: u32) void {
 		.reserved_3 = 0,
 		.reserved_4 = 0,
 		.iopb = 65535,
-		.io_bitmap = [_]u8{0xFF} ** (IO_BITMAP_SIZE+1),
+		.io_bitmap = [_]u8{0xFF} ** (IO_BITMAP_SIZE),
+		.end_of_bitmap = 0xff
 	};
 }
 
