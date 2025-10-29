@@ -28,6 +28,7 @@ const ipi = @import("interrupts/ipi_protocol.zig");
 const talloc = @import("scheduler/taskalloc.zig");
 const sa = @import("memory/stackalloc.zig");
 const fpu = @import("scheduler/fpu_buffer_alloc.zig");
+const nm = @import("interrupts/illegal_instruction.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -346,6 +347,8 @@ fn main() !void {
 		&km
 	);
 
+	nm.enable_vector();
+
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);	
 	sched.add_idle(&idle_task);
 	
@@ -398,6 +401,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		rsp,
 		assm.read_cr3(),
 	);
+	nm.enable_vector();
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
 	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;

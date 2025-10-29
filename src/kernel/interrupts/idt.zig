@@ -49,11 +49,10 @@ var idt_is_setup = std.atomic.Value(bool).init(false);
 
 fn setup_idt(idt: *[256]idt_entry_t) void {
 	idt_is_setup.store(true, .release);
-	for(0..6) |i| {
+	for(0..7) |i| {
 		idt[i] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
 	}
-	idt[6] = to_idt_entry(@ptrCast(&iihandler.ill_instr), 0x8E);
-	idt[7] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
+	idt[7] = to_idt_entry(@ptrCast(&iihandler.ill_instr), 0x8E);
 	idt[8] = to_idt_entry(@ptrCast(&handlers.double_fault), 0x8E);
 
 	idt[9] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);

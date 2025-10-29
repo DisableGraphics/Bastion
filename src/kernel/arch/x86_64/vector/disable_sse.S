@@ -1,9 +1,8 @@
-#1) clear the CR4.OSFXSR bit (bit 9) [ CR4 |= (1 << 9) ]
-#2) clear the CR4.OSXMMEXCPT bit (bit 10) [ CR4 |= (1 << 10) ]
+#1) set the ts bit in cr0
 
 .global disable_sse
 disable_sse:
-	mov %cr4, %rax
-	and $~(3 << 9), %rax
-	mov %rax, %cr4
+	mov %cr0, %rax
+	or $(1 << 3),%rax
+	mov %rax, %cr0
 	ret
