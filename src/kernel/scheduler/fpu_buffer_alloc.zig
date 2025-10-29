@@ -4,6 +4,7 @@ const main = @import("../main.zig");
 const kmm = @import("../memory/kmm.zig");
 const page = @import("../memory/pagemanager.zig");
 const std = @import("std");
+const ii = @import("../interrupts/illegal_instruction.zig");
 
 pub const FPU_SUPPORTED = enum {
 	SSE,
@@ -42,12 +43,10 @@ pub const FPUBufferAllocator = struct {
 	}
 };
 
-extern fn save_sse(ptr: *u8) callconv(.C) void;
-extern fn disable_sse() callconv(.C) void;
 
 pub fn save_fpu_buffer(task: *tsk.Task) void {
-	save_sse(&task.fpu_buffer.?.*[0]);
+	ii.save_vector(&task.fpu_buffer.?[0]);
 	// So that it traps next time and we just load the SSE context
-	disable_sse();
+	ii.disable_vector();
 	task.has_used_vector = false;
 }

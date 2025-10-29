@@ -158,12 +158,20 @@ pub fn mycpuid() u64 {
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	const val: u32 = @truncate(mycpuid());
-	asm volatile("movd %[v], %xmm0" : : [v] "r" (val) : "xmm0");
+	const val: u32 = @truncate(mycpuid()+1);
+	asm volatile("vmovd %[v], %xmm1" : : [v] "r" (val) : "xmm1");
+	asm volatile("vpxor %ymm0, %ymm0, %ymm0" : : : "ymm0");
+	asm volatile("vinsertf128 $0, %xmm1, %ymm0, %ymm0" : : : "ymm0");
 	
 	for(0..5) |_| {
 		var read: u32 = 0;
-		asm volatile("movd %xmm0, %[v]": [v] "=r"(read) : : "memory");
+		asm volatile(
+			\\vextracti128 $0, %%ymm0, %%xmm1
+			\\vmovd %%xmm1, %[r]
+			: [r]"=r"(read)
+			:
+			: "xmm1", "memory"
+		);
 		std.log.info("#{} {}", .{mycpuid(), read});
 		sched.sleep(1000, sched.current_process.?);
 	}
@@ -347,6 +355,7 @@ fn main() !void {
 		&km
 	);
 
+	nm.setup_supports_avx();
 	nm.enable_vector();
 
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);	
@@ -401,6 +410,8 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		rsp,
 		assm.read_cr3(),
 	);
+
+	nm.setup_supports_avx();
 	nm.enable_vector();
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	

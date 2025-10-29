@@ -49,35 +49,39 @@ var idt_is_setup = std.atomic.Value(bool).init(false);
 
 fn setup_idt(idt: *[256]idt_entry_t) void {
 	idt_is_setup.store(true, .release);
-	for(0..7) |i| {
-		idt[i] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
-	}
+
+	idt[0] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(0)), 0x8E);
+	idt[1] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(1)), 0x8E);
+	idt[2] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(2)), 0x8E);
+	idt[3] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(3)), 0x8E);
+	idt[4] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(4)), 0x8E);
+	idt[5] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(5)), 0x8E);
+	idt[6] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(6)), 0x8E);
 	idt[7] = to_idt_entry(@ptrCast(&iihandler.ill_instr), 0x8E);
 	idt[8] = to_idt_entry(@ptrCast(&handlers.double_fault), 0x8E);
-
-	idt[9] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
-	for(10..15) |i| {
-		if(i != 13 and i != 14) {
-			idt[i] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
-		}
-	}
-
+	idt[9] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(9)), 0x8E);
+	idt[10] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
+	idt[11] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
+	idt[12] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
 	idt[13] = to_idt_entry(@ptrCast(&handlers.general_protection_fault), 0x8E);
 	idt[14] = to_idt_entry(@ptrCast(&handlers.page_fault), 0x8E);
-
-	idt[15] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
-	idt[16] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
+	idt[15] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(15)), 0x8E);
+	idt[16] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(16)), 0x8E);
 	idt[17] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
-	idt[18] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
-	idt[19] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
-	idt[20] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
+	idt[18] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(18)), 0x8E);
+	idt[19] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(19)), 0x8E);
+	idt[20] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(20)), 0x8E);
 	idt[21] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
-	for(20..29) |i| {
-		idt[i] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
-	}
+	idt[22] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(22)), 0x8E);
+	idt[23] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(23)), 0x8E);
+	idt[24] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(24)), 0x8E);
+	idt[25] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(25)), 0x8E);
+	idt[26] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(26)), 0x8E);
+	idt[27] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(27)), 0x8E);
+	idt[28] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(28)), 0x8E);
 	idt[29] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
 	idt[30] = to_idt_entry(@ptrCast(&handlers.generic_error_code), 0x8E);
-	idt[31] = to_idt_entry(@ptrCast(&handlers.generic_error), 0x8E);
+	idt[31] = to_idt_entry(@ptrCast(&handlers.generic_error_generate(31)), 0x8E);
 }
 
 pub fn enable_interrupts() void {

@@ -39,6 +39,9 @@ pub fn build(b: *std.Build) void {
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/disable_sse.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/fxsave.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/fxrstor.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/enable_avx.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/xsave.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/xrstor.S"));
 
 	const limine_zig = b.dependency("limine_zig", .{
 		// The API revision of the Limine Boot Protocol to use, if not provided

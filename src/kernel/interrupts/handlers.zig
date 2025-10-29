@@ -73,9 +73,13 @@ pub fn generic_error_code(frame: *IdtFrame, error_code: u64) callconv(.Interrupt
 	main.hcf();
 }
 
-pub fn generic_error(frame: *IdtFrame) callconv(.Interrupt) void {
-	var writer = serial.Serial.writer();
-	_ = writer.print("Unknown exception: {}", .{frame}) 
-		catch @panic("Could not write in generic_error_code handler");
-	main.hcf();
+pub fn generic_error_generate(n: u32) fn(*IdtFrame) callconv(.Interrupt) void {
+    return struct {
+        fn handler(frame: *IdtFrame) callconv(.Interrupt) void {
+            var writer = serial.Serial.writer();
+            _ = writer.print("Unknown exception #{}: {}\n", .{ n, frame })
+                catch @panic("Could not write in generic_error_generate handler");
+            main.hcf();
+        }
+    }.handler;
 }
