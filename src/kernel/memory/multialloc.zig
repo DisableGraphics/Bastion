@@ -3,7 +3,7 @@ const kmm = @import("kmm.zig");
 const main = @import("../main.zig");
 const page = @import("pagemanager.zig");
 
-pub fn MultiAlloc(inner: type, needs_zeroed: bool, minimum_expected: u64, comptime cast_types: []const type) type {
+pub fn MultiAlloc(comptime inner: type, comptime needs_zeroed: bool, comptime minimum_expected_per_core: u64, comptime cast_types: []const type) type {
 	return struct {
 		var allocators: []slab.SlabAllocator(inner) = undefined;
 		pub fn init(expected_ports: u64, mp_cores: u64, km: *kmm.KernelMemoryManager) !void {
@@ -11,7 +11,7 @@ pub fn MultiAlloc(inner: type, needs_zeroed: bool, minimum_expected: u64, compti
 			allocators = @as([*]slab.SlabAllocator(inner), @ptrFromInt((try km.alloc_virt(allocators_pages)).?))[0..mp_cores];
 
 			// Force at least 128 ports available per core
-			const expected_elements_per_core = @max(minimum_expected, (expected_ports + mp_cores - 1) / mp_cores);
+			const expected_elements_per_core = @max(minimum_expected_per_core, (expected_ports + mp_cores - 1) / mp_cores);
 			for(0..mp_cores) |i| {
 				const expected_elements_pages = ((expected_elements_per_core * @sizeOf(inner)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
 				const expected_elements_bytes = expected_elements_pages * page.PAGE_SIZE;
