@@ -1,6 +1,6 @@
 const tsk = @import("../scheduler/task.zig");
 
-const Rights = struct {
+pub const Rights = struct {
 	const SEND = 1;
 	const RECV = (1 << 1);
 	const TRANSF = (1 << 2);
@@ -8,7 +8,7 @@ const Rights = struct {
 	const MODIF_RIGHTS = (1 << 4);
 };
 
-const Port = struct {
+pub const Port = struct {
 	owner: *tsk.Task,
 	rights_mask: u5,
 };

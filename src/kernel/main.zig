@@ -306,6 +306,10 @@ fn main() !void {
 	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
 	try ioa.IOBufferAllocator.init(6, mp_cores, &km);
 	try pta.PageTableAllocator.init(1000, mp_cores, &km);
+	const p = pta.PageTableAllocator.alloc_as(pagemanager.page_t);
+	std.debug.assert(p != null);
+	const r = pta.PageTableAllocator.free_as(pagemanager.page_t, p.?);
+	std.debug.assert(if(r) |_| true else |_| false);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
