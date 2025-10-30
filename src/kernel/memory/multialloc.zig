@@ -10,7 +10,7 @@ pub fn MultiAlloc(comptime inner: type, comptime needs_zeroed: bool, comptime mi
 			const allocators_pages = ((mp_cores * @sizeOf(slab.SlabAllocator(inner))) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
 			allocators = @as([*]slab.SlabAllocator(inner), @ptrFromInt((try km.alloc_virt(allocators_pages)).?))[0..mp_cores];
 
-			// Force at least 128 ports available per core
+			// Force at least minimum_expected_per_core elements available per core
 			const expected_elements_per_core = @max(minimum_expected_per_core, (expected_ports + mp_cores - 1) / mp_cores);
 			for(0..mp_cores) |i| {
 				const expected_elements_pages = ((expected_elements_per_core * @sizeOf(inner)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;
