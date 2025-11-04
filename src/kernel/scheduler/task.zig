@@ -25,18 +25,18 @@ pub const Task = extern struct {
 	kernel_stack: *sa.KernelStack,
 	next: ?*Task = null,
 	prev: ?*Task = null,
-	state: TaskStatus,
-	is_pinned: bool,
 	kernel_stack_top: *anyopaque,
 	deinitfn: ?*const fn(*Task, ?*anyopaque) void = null,
 	extra_arg: ?*anyopaque = null,
 	current_queue: ?*sch.scheduler_queue = null,
 	iopb_bitmap: ?*tss.io_bitmap_t = null,
-	iopb_bitmap_created_on: u64 = 0,
-	cpu_created_on: u64,
 	fpu_buffer: ?*buffer.fpu_buffer = null,
-	cpu_fpu_buffer_created_on: u64 = 0,
+	state: TaskStatus,
+	iopb_bitmap_created_on: u32 = 0,
+	cpu_created_on: u32 = 0,
+	cpu_fpu_buffer_created_on: u32 = 0,
 	has_used_vector: bool = false,
+	is_pinned: bool,
 
 	pub fn format(
             self: @This(),
@@ -90,7 +90,7 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = main.mycpuid(),
+			.cpu_created_on = @truncate(main.mycpuid()),
 		};
 	}
 
@@ -110,7 +110,7 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = main.mycpuid(),
+			.cpu_created_on = @truncate(main.mycpuid()),
 		};
 	}
 
@@ -128,17 +128,17 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = main.mycpuid(),
+			.cpu_created_on = @truncate(main.mycpuid()),
 		};
 	}
 
 	pub fn add_io_buffer(self: *@This()) !void {
 		self.iopb_bitmap = ioa.IOBufferAllocator.alloc() orelse return error.OUT_OF_IO_BUFFER_SPACE;
-		self.iopb_bitmap_created_on = main.mycpuid();
+		self.iopb_bitmap_created_on = @truncate(main.mycpuid());
 	}
 
 	fn deinit_kernel_task(self: *Task, _: ?*anyopaque) void {
-		const mycpu = main.mycpuid();
+		const mycpu: u32 = @truncate(main.mycpuid());
 		if(self.fpu_buffer != null and self.cpu_fpu_buffer_created_on == mycpu) {
 			std.log.info("Destroying FPU buffer for task task {}", .{self});
 			buffer.FPUBufferAllocator.free(self.fpu_buffer.?) catch |err| {
