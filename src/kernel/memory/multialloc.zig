@@ -26,7 +26,13 @@ pub fn MultiAlloc(comptime inner: type, comptime needs_zeroed: bool, comptime mi
 			if(needs_zeroed) {
 				const buf = allocators[myid].alloc();
 				if(buf == null) return null;
-				@memset(buf.?, 0);
+				const inner_buf_type = @typeInfo(@TypeOf(buf.?.*)).array.child;
+				const memset_with_zero = if(@typeInfo(inner_buf_type) == .optional) false else true;
+				if(memset_with_zero) {
+					@memset(buf.?, 0);
+				} else {
+					@memset(buf.?, null);
+				}
 				return buf;
 			} else {
 				return allocators[myid].alloc();

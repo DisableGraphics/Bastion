@@ -9,6 +9,7 @@ const sch = @import("scheduler.zig");
 const buffer = @import("fpu_buffer_alloc.zig");
 const ta = @import("taskalloc.zig");
 const ioa = @import("../memory/io_bufferalloc.zig");
+const port = @import("../ipc/port.zig");
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -37,6 +38,7 @@ pub const Task = extern struct {
 	cpu_fpu_buffer_created_on: u32 = 0,
 	has_used_vector: bool = false,
 	is_pinned: bool,
+
 
 	pub fn format(
             self: @This(),

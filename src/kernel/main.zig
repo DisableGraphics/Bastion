@@ -32,6 +32,8 @@ const nm = @import("interrupts/illegal_instruction.zig");
 const ioa = @import("memory/io_bufferalloc.zig");
 const tasadd = @import("scheduler/task_adder.zig");
 const pta = @import("memory/pagetablealloc.zig");
+const pa = @import("ipc/portalloc.zig");
+const pca = @import("ipc/portchunkalloc.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -306,6 +308,12 @@ fn main() !void {
 	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
 	try ioa.IOBufferAllocator.init(6, mp_cores, &km);
 	try pta.PageTableAllocator.init(1000, mp_cores, &km);
+	try pa.PortAllocator.init(2000, mp_cores, &km);
+	try pca.PortChunkAllocator.init(6, mp_cores, &km);
+
+	const p = pca.PortChunkAllocator.alloc();
+	std.debug.assert(p != null);
+	try pca.PortChunkAllocator.free(p.?);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
