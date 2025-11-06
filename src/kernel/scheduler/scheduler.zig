@@ -215,6 +215,10 @@ pub const Scheduler = struct {
 		if(self.current_process != null) {
 			const t = self.next_task();
 			if(on_interrupt) self.move_task_down(self.current_process.?);
+			if(self.current_process == t) {
+				self.unlock();
+				return;
+			}
 			self.copy_iobitmap(t);
 			if(self.current_process.?.has_used_vector) fpu.save_fpu_buffer(self.current_process.?);
 			switch_task(
