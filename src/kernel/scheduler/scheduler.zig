@@ -59,9 +59,6 @@ pub const Scheduler = struct {
 		};
 	}
 
-	pub fn load_iter(_: *Scheduler) void {
-		
-	}
 
 	pub fn get_load(self: *Scheduler) u32 {
 		var ret: u32 = 0;
@@ -202,7 +199,6 @@ pub const Scheduler = struct {
 		self.lock();
 		self.ntick = (self.ntick + 1) % CONTEXT_SWITCH_TICKS;
 		self.tick += 1;
-		self.load_iter();
 		const should_schedule = self.ntick == 0;
 		self.unlock();
 		if(should_schedule) self.schedule(true);
