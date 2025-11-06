@@ -10,6 +10,7 @@ const buffer = @import("fpu_buffer_alloc.zig");
 const ta = @import("taskalloc.zig");
 const ioa = @import("../memory/io_bufferalloc.zig");
 const port = @import("../ipc/port.zig");
+const portchunk = @import("../ipc/portchunkalloc.zig");
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -19,6 +20,8 @@ pub const TaskStatus = enum(u64) {
 };
 
 pub const KERNEL_STACK_SIZE = 16*1024;
+const N_PORTS = 4;
+const N_PORT_CHUNKS = 8;
 
 pub const Task = extern struct {
 	stack: *anyopaque,
@@ -38,7 +41,8 @@ pub const Task = extern struct {
 	cpu_fpu_buffer_created_on: u32 = 0,
 	has_used_vector: bool = false,
 	is_pinned: bool,
-
+	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
+	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS, 
 
 	pub fn format(
             self: @This(),
