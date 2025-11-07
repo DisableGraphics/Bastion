@@ -1,5 +1,5 @@
 #!/bin/sh
-COMMMON_OPTS="-boot d -cdrom image.iso -m 5120 -serial file:bastion.serial -smp 6 -no-reboot -d int,mmu -D qemu.log  -cpu max,+avx,+avx2,+xsave,+xsaveopt"
+COMMMON_OPTS="-boot d -cdrom image.iso -m 5120 -serial file:bastion.serial -machine accel=kvm -smp 6 -no-reboot -d int,mmu -D qemu.log  -cpu max,+avx,+avx2,+xsave,+xsaveopt"
 if [ "$1" == "debug" ]; then
 	qemu-system-x86_64 $COMMMON_OPTS -s -S -daemonize
 else

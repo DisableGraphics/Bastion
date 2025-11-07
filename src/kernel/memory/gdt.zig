@@ -18,7 +18,7 @@ const gdtr = packed struct {
 	base: u64,
 };
 
-var gdts: []gdt_type = undefined;
+pub var gdts: []gdt_type = undefined;
 
 fn load_gdt(gdtreg: *const gdtr) void {
 	asm volatile ("lgdt (%[gdtreg])"

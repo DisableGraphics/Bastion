@@ -42,6 +42,7 @@ pub fn build(b: *std.Build) void {
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/enable_avx.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/xsave.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/xrstor.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/syscalls/syscall.S"));
 
 	const limine_zig = b.dependency("limine_zig", .{
 		// The API revision of the Limine Boot Protocol to use, if not provided
@@ -60,7 +61,7 @@ pub fn build(b: *std.Build) void {
 
 	// Import the Limine module into the kernel
 	kernel.root_module.addImport("limine", limine_module);
-
+	kernel.addIncludePath(b.path("include"));
     kernel.setLinkerScript(b.path("src/kernel/arch/x86_64/linker.ld"));
     b.installArtifact(kernel);
 

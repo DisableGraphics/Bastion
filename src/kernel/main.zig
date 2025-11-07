@@ -34,6 +34,9 @@ const tasadd = @import("scheduler/task_adder.zig");
 const pta = @import("memory/pagetablealloc.zig");
 const pa = @import("ipc/portalloc.zig");
 const pca = @import("ipc/portchunkalloc.zig");
+const sysc = @import("syscalls/syscall_setup.zig");
+const ips = @import("ipc/ipcfn.zig");
+const port = @import("ipc/port.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -160,43 +163,47 @@ pub fn mycpuid() u64 {
 	return lapic.LAPIC.get_cpuid(lapic_virt);
 }
 
+var pe = port.Port{};
+var pe2 = port.Port{};
 
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	sched.current_process.?.add_io_buffer() catch std.log.err("Could not allocate io buffer", .{});
-	std.log.info("{}", .{mycpuid()});
-    sched.sleep(1000, sched.current_process.?);
+	pe.owner.store(sched.current_process.?, .release);
+	sched.current_process.?.add_port(&pe) catch {};
+	sched.current_process.?.add_port(&pe2) catch {};
+	var i: u64 = 0;
+	while(true) {
+		const msg = ips.ipc_msg.ipc_message_t{
+			.source = 0,
+			.dest = 1,
+			.flags = 0,
+			.npages = 0,
+			.page = 0,
+			.value = i
+		};
+		const r = ips.ipc_send(&msg);
+		std.log.info("{}", .{r});
+		i += 1;
+	}
 	sched.exit(sched.current_process.?);
 }
 
 fn test2() void {
-	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	var p = true;
-	for(0..20000) |_| {
-		std.log.info("tururu! (CPU #{}) (priority {})", .{mycpuid(), sched.get_priority(sched.current_process.?)});
-		if(sched.blocked_tasks != null) { 
-			std.log.info("Yes task :)", .{});
-			sched.unblock(sched.blocked_tasks.?);
-			std.log.info("Unblocked task", .{});
-		} else {
-			std.log.info("no task :(", .{});
-			if(p) {
-				colorpoint();
-				p = false;
-			}
-		}
+	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	pe2.owner.store(sched.current_process.?, .release);
+	sched.current_process.?.add_port(&pe) catch {};
+	sched.current_process.?.add_port(&pe2) catch {};
+	while(true) {
+		const p1 = assm.rdtsc();
+		var msg = ips.ipc_msg.ipc_message_t{
+			.dest = 1,
+			.source = 0
+		};
+		const r = ips.ipc_recv(&msg);
+		const p2 = assm.rdtsc();
+		std.log.info("{} {} cycles: {}", .{msg, r, p2 - p1});
 	}
-	colorpoint();
-	if(sched.current_process != null) {
-		std.log.info("Priority: {}", .{sched.get_priority(sched.current_process.?)});
-		colorpoint();
-		if(sched.blocked_tasks != null) { 
-			sched.exit(sched.blocked_tasks.?);
-		} else {
-			sched.exit(sched.current_process.?.next.?);
-		}
-		sched.exit(sched.current_process.?);
-	}
+	sched.exit(sched.current_process.?);
 }
 
 fn on_priority_boost() void {
@@ -310,6 +317,7 @@ fn main() !void {
 	try pta.PageTableAllocator.init(1000, mp_cores, &km);
 	try pa.PortAllocator.init(2000, mp_cores, &km);
 	try pca.PortChunkAllocator.init(6, mp_cores, &km);
+	sysc.setup_syscalls();
 
 	const p = pca.PortChunkAllocator.alloc();
 	std.debug.assert(p != null);
@@ -361,19 +369,26 @@ fn main() !void {
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
+	const kernel_stack = sa.KernelStackAllocator.alloc().?;
+	const test_task = talloc.TaskAllocator.alloc().?;
+	test_task.* = tsk.Task.init_kernel_task(
+		test1,
+		kernel_stack,
+		@ptrFromInt(assm.read_cr3()),
+		&km
+	);
+	
+	const kernel_stack2 = sa.KernelStackAllocator.alloc().?;
+	const test_task2 = talloc.TaskAllocator.alloc().?;
+	test_task2.* = tsk.Task.init_kernel_task(
+		test2,
+		kernel_stack2,
+		@ptrFromInt(assm.read_cr3()),
+		&km
+	);
+	tasadd.TaskAdder.add_task(test_task);
+	tasadd.TaskAdder.add_task(test_task2);
 	sched.add_priority_boost(&priority_boost);
-	for(0..10) |_| {
-		const kernel_stack = sa.KernelStackAllocator.alloc().?;
-		const test_task = talloc.TaskAllocator.alloc().?;
-		test_task.* = tsk.Task.init_kernel_task(
-			test1,
-			kernel_stack,
-			@ptrFromInt(assm.read_cr3()),
-			&km
-		);
-		tasadd.TaskAdder.add_task(test_task);
-		//sched.add_task(test_task);
-	}
 	
 	sched.schedule(false);
 
@@ -409,6 +424,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		rsp,
 		assm.read_cr3(),
 	);
+	sysc.setup_syscalls();
 
 	nm.setup_supports_avx();
 	nm.enable_vector();

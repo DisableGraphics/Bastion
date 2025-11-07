@@ -11,6 +11,9 @@ const ta = @import("taskalloc.zig");
 const ioa = @import("../memory/io_bufferalloc.zig");
 const port = @import("../ipc/port.zig");
 const portchunk = @import("../ipc/portchunkalloc.zig");
+const ipc_msg = @cImport(
+	@cInclude("ipc.h")	
+);
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -41,8 +44,10 @@ pub const Task = extern struct {
 	cpu_fpu_buffer_created_on: u32 = 0,
 	has_used_vector: bool = false,
 	is_pinned: bool,
+	receive_msg: ?*ipc_msg.ipc_message_t = null,
+	send_msg: ?*const ipc_msg.ipc_message_t = null,
 	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
-	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS, 
+	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
 
 	pub fn format(
             self: @This(),
@@ -190,5 +195,39 @@ pub const Task = extern struct {
 				0
 			));
 		}
+	}
+
+	pub fn add_port(self: *Task, prt: *port.Port) !void {
+		_ = prt.count.fetchAdd(1, .acq_rel);
+		for(0..self.ports.len) |i| {
+			if(self.ports[i] == null) {
+				self.ports[i] = prt;
+				return;
+			}
+		}
+		for(0..self.port_chunks.len) |n| {
+			if(self.port_chunks[n] == null) continue;
+			for(0..self.port_chunks[n].?.len) |i| {
+				if(self.port_chunks[n].?[i] == null) {
+					self.port_chunks[n].?[i] = prt;
+					return;
+				}
+			}
+		}
+		return error.OUT_OF_PORT_SPACE;
+	}
+
+	pub fn get_port(self: *Task, pn: i16) ?*port.Port {
+		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
+		if(pn < 0 or pn > (N_PORTS + len)) return null;
+		if(pn < N_PORTS) {
+			const pn2: usize = @intCast(pn);
+			return self.ports[pn2];
+		}
+		const pnr = pn - N_PORTS;
+		const port_zone: usize = @intCast(@divTrunc(pnr, len));
+		const port_no: usize = @intCast(@rem(pnr, len));
+		if(self.port_chunks[port_zone] == null) return null;
+		return self.port_chunks[port_zone].?[port_no];
 	}
 };
