@@ -37,7 +37,10 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 	const q = dstport.?.dequeueReceiver();
 	if(q) |wr| {
 		dstport.?.lock.unlock();
-		wr.receive_msg.?.* = m.*;
+		wr.receive_msg.?.flags = m.flags;
+		wr.receive_msg.?.value = m.value;
+		wr.receive_msg.?.npages = m.npages;
+		wr.receive_msg.?.page = m.page;
 		sch.add_task_to_list(wr, &sch.queues[0]);
 		sch.unlock();
 		return ipc_msg.EOK;
