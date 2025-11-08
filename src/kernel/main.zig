@@ -101,26 +101,31 @@ var fb_ptr: [*]volatile u32 = undefined;
 var lock = spin.SpinLock.init();
 var mp_cores: u64 = undefined;
 var ifd = std.atomic.Value(u32).init(0);
+var barrier1 = std.atomic.Value(bool).init(false);
+var barrier2 = std.atomic.Value(bool).init(false);
 
 fn stage_0_sync(arg: ?*anyopaque) void {
 	_ = arg;
-	const n_cores = ifd.load(.acquire);
+	const n_cores = ifd.load(.seq_cst);
 	if(n_cores == mp_cores - 1) {
 		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_1,0,0,0));
-		var lpic = lpicmn.LAPICManager.get_lapic(mycpuid());
+		var lpic = lpicmn.LAPICManager.get_lapic(0);
+		std.log.info("Unlocking1", .{});
+		ifd.store(0, .seq_cst);
 		lpic.set_on_timer(stage_1_sync, null);
-		ifd.store(0, .release);
+		barrier1.store(true, .seq_cst);
 	}
 }
 
 fn stage_1_sync(arg: ?*anyopaque) void {
 	_ = arg;
-	const n_cores = ifd.load(.acquire);
+	const n_cores = ifd.load(.seq_cst);
 	if(n_cores == mp_cores - 1) {
 		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_2,0,0,0));
-		ifd.store(0, .release);
-		var lpic = lpicmn.LAPICManager.get_lapic(mycpuid());
+		var lpic = lpicmn.LAPICManager.get_lapic(0);
+		std.log.info("Unlocking2", .{});
 		lpic.set_on_timer(&schman.SchedulerManager.on_irq, null);
+		barrier2.store(true, .seq_cst);
 	}
 }
 
@@ -147,12 +152,18 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq);
 		pi.set_irq_handler(0x11, null, &ipi.IPIProtocolHandler.handle_ipi);
 	} else {
-		_ = ifd.fetchAdd(1, .acq_rel);
+		_ = ifd.fetchAdd(1, .seq_cst);
 		idt.enable_interrupts();
-		asm volatile("hlt");
+		//asm volatile("hlt");
+		while (!barrier1.load(.seq_cst)) {
+			asm volatile("pause");
+		}
 		lapicc.init_timer_ap_stage_1();
-		_ = ifd.fetchAdd(1, .acq_rel);
-		asm volatile("hlt");
+		_ = ifd.fetchAdd(1, .seq_cst);
+		//asm volatile("hlt");
+		while (!barrier2.load(.seq_cst)) {
+			asm volatile("pause");
+		}
 		idt.disable_interrupts();
 		lapicc.init_timer_ap_stage_2();
 	}
@@ -192,12 +203,12 @@ pub fn mycpuid() u64 {
 inline fn mycpuid_rdtscp() u32 {
 	return asm volatile (
 		\\rdtscp
+		\\lfence
 		: [aux]"={ecx}"(->u32)
 		:
 		: "rax", "rdx", "ecx", "memory"
 	);
 }
-
 
 pub fn mycpuid_lapic() u64 {
 	const lapic_base = lapic.lapic_physaddr();
@@ -223,8 +234,7 @@ fn test1() void {
 	pe.owner.store(sched.current_process.?, .release);
 	sched.current_process.?.add_port(&pe) catch {};
 	sched.current_process.?.add_port(&pe2) catch {};
-	var i: u64 = 0;
-	while(true) {
+	for(0..1000) |i| {
 		const msg = ips.ipc_msg.ipc_message_t{
 			.source = 0,
 			.dest = 1,
@@ -233,9 +243,7 @@ fn test1() void {
 			.page = 0,
 			.value = i
 		};
-		const r = ips.ipc_send(&msg);
-		std.log.info("{}", .{r});
-		i += 1;
+		_ = ips.ipc_send(&msg);
 	}
 	sched.exit(sched.current_process.?);
 }
@@ -245,16 +253,17 @@ fn test2() void {
 	pe2.owner.store(sched.current_process.?, .release);
 	sched.current_process.?.add_port(&pe) catch {};
 	sched.current_process.?.add_port(&pe2) catch {};
-	while(true) {
-		const p1 = assm.rdtsc();
+	const p1 = assm.rdtsc();
+	for(0..1000) |_| {
 		var msg = ips.ipc_msg.ipc_message_t{
 			.dest = 1,
 			.source = 0
 		};
-		const r = ips.ipc_recv(&msg);
-		const p2 = assm.rdtsc();
-		std.log.info("{} {} cycles: {}", .{msg, r, p2 - p1});
+		_ = ips.ipc_recv(&msg);
 	}
+	const p2 = assm.rdtsc();
+	const diff = p2 - p1;
+	std.log.info("1000 iterations in {} cycles ({} cycles average)", .{diff, diff/1000});
 	sched.exit(sched.current_process.?);
 }
 
@@ -419,7 +428,7 @@ fn main() !void {
 
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);	
 	sched.add_idle(&idle_task);
-	
+	sched.add_priority_boost(&priority_boost);
 	sched.add_cleanup(&cleanup_task);
 	const kernel_stack = sa.KernelStackAllocator.alloc().?;
 	const test_task = talloc.TaskAllocator.alloc().?;
@@ -440,8 +449,7 @@ fn main() !void {
 	);
 	tasadd.TaskAdder.add_task(test_task);
 	tasadd.TaskAdder.add_task(test_task2);
-	sched.add_priority_boost(&priority_boost);
-	
+	idt.enable_interrupts();
 	sched.schedule(false);
 
 	idle();

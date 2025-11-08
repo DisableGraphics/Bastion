@@ -1,21 +1,23 @@
 const assm = @import("../asm.zig");
+const std = @import("std");
 const PIT_FREQUENCY = 1193182;
 const PIT_CHANNEL0 = 0x40;
 const PIT_COMMAND = 0x43;
 
 pub const PIT = struct {
-	millis_per_tick: i32,
-	countdown: i32,
+	micros_per_tick: i32,
+	countdown: std.atomic.Value(i32),
 	pub fn init() PIT {
-		const result = (1193182 * 1_000)/1000000;
+		const micros = 1000;
+		const result = (1_193_182 * micros)/1_000_000;
 		const command = 0x34;
 		const div: u16 = @truncate(result);
 		assm.outb(PIT_COMMAND, command);
 		assm.outb(PIT_CHANNEL0, @as(u8,(div & 0xFF)));
 		assm.outb(PIT_CHANNEL0, @as(u8, ((div >> 8) & 0xFF)));
 		return .{
-			.millis_per_tick = 1,
-			.countdown = 0
+			.micros_per_tick = micros,
+			.countdown = std.atomic.Value(i32).init(0)
 		};
 	}
 	pub fn read_counter() u16 {
@@ -26,9 +28,9 @@ pub const PIT = struct {
 	}
 
 	pub fn sleep(self: *volatile PIT, ms: i32) void {
-		self.countdown = ms;
-		@atomicStore(i32, &self.countdown, ms, .seq_cst);
-		while(@atomicLoad(i32, &self.countdown, .seq_cst) > 0) {
+		const countdown: *std.atomic.Value(i32) = @volatileCast(&self.countdown);
+		countdown.store(ms * 1000, .release);
+		while(countdown.load(.acquire) > 0) {
 			asm volatile("hlt");
 		}
 	}
@@ -43,6 +45,7 @@ pub const PIT = struct {
 
 	pub fn on_irq(s: ?*volatile anyopaque) void {
 		var self: *volatile PIT = @ptrCast(@alignCast(s.?));
-		@atomicStore(i32, &self.countdown, self.countdown - self.millis_per_tick, .seq_cst);
+		var countdown: *std.atomic.Value(i32) = @volatileCast(&self.countdown);
+		_ = countdown.fetchSub(self.micros_per_tick, .acq_rel);
 	}
 };
