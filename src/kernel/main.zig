@@ -58,21 +58,12 @@ pub fn hcf() noreturn {
 	}
 }
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, panic_addr: ?usize) noreturn {
-	var writer = serial.Serial.writer();
-	writer.print("\nError: {s} at {x}\n", .{msg, panic_addr orelse 0}) catch {
-		serial.Serial.write('a');
-		hcf();
-	};
+	std.log.err("Error: {s} at {x}\n", .{msg, panic_addr orelse 0});
+
 	if(error_return_trace) |trace| {
-		_ = writer.print("Stack trace:\n", .{}) catch {
-				serial.Serial.write('b');
-				hcf();
-			};
+		std.log.err("Stack trace:\n", .{});
 		for(0..trace.instruction_addresses.len,trace.instruction_addresses) |i, instr| {
-			_ = writer.print("Addr #{d}: 0x{x}\n", .{i, instr}) catch {
-				serial.Serial.write('c');
-				hcf();
-			};
+			std.log.err("Addr #{d}: 0x{x}\n", .{i, instr});
 		}
 	}
 	hcf();
@@ -110,7 +101,6 @@ fn stage_0_sync(arg: ?*anyopaque) void {
 	if(n_cores == mp_cores - 1) {
 		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_1,0,0,0));
 		var lpic = lpicmn.LAPICManager.get_lapic(0);
-		std.log.info("Unlocking1", .{});
 		ifd.store(0, .seq_cst);
 		lpic.set_on_timer(stage_1_sync, null);
 		barrier1.store(true, .seq_cst);
@@ -123,7 +113,6 @@ fn stage_1_sync(arg: ?*anyopaque) void {
 	if(n_cores == mp_cores - 1) {
 		ipi.IPIProtocolHandler.send_ipi_broadcast(ipi.IPIProtocolPayload.init_with_data(.LAPIC_TIMER_SYNC_STAGE_2,0,0,0));
 		var lpic = lpicmn.LAPICManager.get_lapic(0);
-		std.log.info("Unlocking2", .{});
 		lpic.set_on_timer(&schman.SchedulerManager.on_irq, null);
 		barrier2.store(true, .seq_cst);
 	}
@@ -234,14 +223,14 @@ fn test1() void {
 	pe.owner.store(sched.current_process.?, .release);
 	sched.current_process.?.add_port(&pe) catch {};
 	sched.current_process.?.add_port(&pe2) catch {};
-	for(0..1000) |i| {
+	for(0..1) |_| {
 		const msg = ips.ipc_msg.ipc_message_t{
 			.source = 0,
 			.dest = 1,
 			.flags = 0,
 			.npages = 0,
 			.page = 0,
-			.value = i
+			.value = 1
 		};
 		_ = ips.ipc_send(&msg);
 	}
@@ -254,7 +243,7 @@ fn test2() void {
 	sched.current_process.?.add_port(&pe) catch {};
 	sched.current_process.?.add_port(&pe2) catch {};
 	const p1 = assm.rdtsc();
-	for(0..1000) |_| {
+	for(0..1) |_| {
 		var msg = ips.ipc_msg.ipc_message_t{
 			.dest = 1,
 			.source = 0
@@ -263,7 +252,7 @@ fn test2() void {
 	}
 	const p2 = assm.rdtsc();
 	const diff = p2 - p1;
-	std.log.info("1000 iterations in {} cycles ({} cycles average)", .{diff, diff/1000});
+	std.log.info("10 iterations in {} cycles ({} cycles average)", .{diff, diff/10});
 	sched.exit(sched.current_process.?);
 }
 

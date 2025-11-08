@@ -33,18 +33,19 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 
 	const can_send = (this == src_owner) or ((dst_rights & port.Rights.SEND) != 0);
 	if(!can_send) {
+		dstport.?.lock.unlock();
 		sch.unlock();
 		return ipc_msg.ENOPERM;
 	}
 	
 	const q = dstport.?.dequeueReceiver();
 	if(q) |wr| {
-		dstport.?.lock.unlock();
 		wr.receive_msg.?.flags = m.flags;
 		wr.receive_msg.?.value = m.value;
 		wr.receive_msg.?.npages = m.npages;
 		wr.receive_msg.?.page = m.page;
 		sch.add_task_to_list(wr, &sch.queues[0]);
+		dstport.?.lock.unlock();
 		sch.unlock();
 		return ipc_msg.EOK;
 	} else {
@@ -82,15 +83,16 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
     const rights = recv_port.?.rights_mask.load(.acquire);
     const can_recv = (this == owner) or ((rights & port.Rights.RECV) != 0);
     if (!can_recv) {
+		recv_port.?.lock.unlock();
         sch.unlock();
         return ipc_msg.ENOPERM;
     }
 	
 	const q = recv_port.?.dequeueSender();
     if (q) |sender| {
-		recv_port.?.lock.unlock();
         m.* = sender.send_msg.?.*;
         sch.add_task_to_list(sender, &sch.queues[0]);
+		recv_port.?.lock.unlock();
         sch.unlock();
 		
         return ipc_msg.EOK;

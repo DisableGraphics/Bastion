@@ -134,7 +134,7 @@ pub const Scheduler = struct {
 	// Assumes tasks is a circular linked list (which should be with how processes are allocated)
 	fn search_available_task(self: *Scheduler, start_at: ?*task.Task) ?*task.Task {
 		if(start_at) |t| {
-			const queue_level: i64 = self.get_queue_level(t.current_queue.?);
+			const queue_level: i64 = if(t.current_queue != null) self.get_queue_level(t.current_queue.?) else -1;
 			const level: usize = switch (queue_level == -1) {
 				true => self.queues.len,
 				false => @intCast(queue_level),
@@ -312,6 +312,31 @@ pub const Scheduler = struct {
 		tas.current_queue = list;
 	}
 
+	pub fn add_task_to_front(self: *Scheduler, tas: *task.Task, list: *scheduler_queue) void {
+		_ = self;
+		// Two cases: there is a node and no node
+		if(list.head != null) {
+			// Add at the front of the list
+			var head = list.head.?;
+			var last = head.prev.?;
+			var data = tas;
+			data.next = head;
+			data.prev = last;
+			head.prev = data;
+			last.next = data;
+			//head = data;
+		} else {
+			// Basically:
+			// - add the node
+			// - make the node point to itself
+			list.head = tas;
+			list.head.?.next = list.head;
+			list.head.?.prev = list.head;
+		}
+		_ = list.count.fetchAdd(1, .acq_rel);
+		tas.current_queue = list;
+	}
+
 	pub fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *scheduler_queue) void {
 		_ = self;
 		if(list.head) |proc| {
@@ -328,6 +353,9 @@ pub const Scheduler = struct {
 					next.prev = tsk.prev;
 				}
 			}
+			tsk.next = null;
+			tsk.prev = null;
+			tsk.current_queue = null;
 			_ = list.count.fetchSub(1, .acq_rel);
 		}
 	}
