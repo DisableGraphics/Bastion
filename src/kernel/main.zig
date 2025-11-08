@@ -37,6 +37,8 @@ const pca = @import("ipc/portchunkalloc.zig");
 const sysc = @import("syscalls/syscall_setup.zig");
 const ips = @import("ipc/ipcfn.zig");
 const port = @import("ipc/port.zig");
+const cid = @import("memory/cpuid_cache.zig");
+const cpui = @import("arch/x86_64/cpuid.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -129,7 +131,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	if(is_bsp) {
 		try km.pm.map_4k_alloc(km.pm.root_table.?, lapic_base, lapic_virt, km.pfa,.{.pcd = 1});
 	}
-	
+	try setup_mycpuid();
 	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
 	if(is_bsp) {
 		pi.enable_irq(0);
@@ -157,10 +159,60 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	return lapicc;
 }
 
+var supports_rdtscp: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+var setup_complete: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+var nsetups: std.atomic.Value(u32) = std.atomic.Value(u32).init(0);
+
+pub fn setup_mycpuid() !void {
+	const id = mycpuid_lapic();
+	if(id == 0) {
+		const has_rdtscp = cpui.cpuid(0x80000001, 0);
+		supports_rdtscp.store((has_rdtscp.edx & (1 << 27)) != 0, .release);
+	}
+	if(supports_rdtscp.load(.acquire)) {
+		assm.write_msr(0xC0000103, id);
+	} else {
+		if(id == 0) {
+			try cid.LapicCPUIDCache.init(mp_cores, &km);
+		}
+		const base = cid.LapicCPUIDCache.get_gs(id);
+		assm.write_msr(0xC0000101, base);
+	}
+	const prev = nsetups.fetchAdd(1, .acq_rel);
+	if(prev == mp_cores - 1) {
+		setup_complete.store(true, .release);
+	}
+}
+
 pub fn mycpuid() u64 {
+	if(!setup_complete.load(.acquire)) return mycpuid_lapic();
+	return if(supports_rdtscp.load(.acquire)) mycpuid_rdtscp() else mycpuid_gs();
+}
+
+inline fn mycpuid_rdtscp() u32 {
+	return asm volatile (
+		\\rdtscp
+		: [aux]"={ecx}"(->u32)
+		:
+		: "rax", "rdx", "ecx", "memory"
+	);
+}
+
+
+pub fn mycpuid_lapic() u64 {
 	const lapic_base = lapic.lapic_physaddr();
 	const lapic_virt = lapic_base + km.hhdm_offset;
 	return lapic.LAPIC.get_cpuid(lapic_virt);
+}
+
+inline fn mycpuid_gs() u32 {
+	return asm volatile(
+		\\movl %%gs:0, %[id]
+		\\lfence
+		: [id]"=r"(->u32)
+		:
+		: 
+	);
 }
 
 var pe = port.Port{};

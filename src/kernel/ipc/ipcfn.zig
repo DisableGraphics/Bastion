@@ -4,6 +4,8 @@ pub const ipc_msg = @cImport(
 const schman = @import("../scheduler/manager.zig");
 const main = @import("../main.zig");
 const port = @import("port.zig");
+const assm = @import("../arch/x86_64/asm.zig");
+const std = @import("std");
 
 pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 	if (msg == null) {
@@ -13,7 +15,8 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 	
 	const dest_port = m.dest;
 	const src_port = m.source;
-	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
+	const mycpu = main.mycpuid();
+	const sch = schman.SchedulerManager.get_scheduler_for_cpu(mycpu);
 	sch.lock();
 	const this = sch.current_process.?;
 	const srcport = this.get_port(src_port);
@@ -61,7 +64,7 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
     }
 
     const m = msg.?;
-    const recv_port_id = m.dest; // Usually, the port you're receiving *from*
+    const recv_port_id = m.dest;
     const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
     sch.lock();
 
@@ -74,7 +77,7 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 
 	recv_port.?.lock.lock();
 
-    // Permission check — must own the port or have RECV rights
+    // Permission check
     const owner = recv_port.?.owner.load(.acquire);
     const rights = recv_port.?.rights_mask.load(.acquire);
     const can_recv = (this == owner) or ((rights & port.Rights.RECV) != 0);
@@ -83,19 +86,16 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
         return ipc_msg.ENOPERM;
     }
 	
-    // Try to find a waiting sender
 	const q = recv_port.?.dequeueSender();
     if (q) |sender| {
 		recv_port.?.lock.unlock();
-        // Sender is waiting — deliver message directly
         m.* = sender.send_msg.?.*;
-        sch.add_task_to_list(sender, &sch.queues[0]); // wake sender
+        sch.add_task_to_list(sender, &sch.queues[0]);
         sch.unlock();
 		
         return ipc_msg.EOK;
     } else {
-        // No sender waiting — block receiver
-        this.receive_msg = msg; // store where the message should go
+        this.receive_msg = msg;
         sch.remove_task_from_list(this, this.current_queue.?);
         recv_port.?.enqueueReceiver(this);
 		recv_port.?.lock.unlock();
