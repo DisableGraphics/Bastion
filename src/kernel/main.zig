@@ -223,7 +223,7 @@ fn test1() void {
 	pe.owner.store(sched.current_process.?, .release);
 	sched.current_process.?.add_port(&pe) catch {};
 	sched.current_process.?.add_port(&pe2) catch {};
-	for(0..1) |_| {
+	for(0..10) |_| {
 		const msg = ips.ipc_msg.ipc_message_t{
 			.source = 0,
 			.dest = 1,
@@ -243,7 +243,7 @@ fn test2() void {
 	sched.current_process.?.add_port(&pe) catch {};
 	sched.current_process.?.add_port(&pe2) catch {};
 	const p1 = assm.rdtsc();
-	for(0..1) |_| {
+	for(0..10) |_| {
 		var msg = ips.ipc_msg.ipc_message_t{
 			.dest = 1,
 			.source = 0
