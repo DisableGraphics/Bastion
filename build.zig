@@ -28,7 +28,7 @@ pub fn build(b: *std.Build) void {
         	.target = b.resolveTargetQuery(target_query),
         	.optimize = optimize,
         	.code_model = .kernel
-		})
+		}),
     });
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/boot/boot.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/reloadSegments.S"));
@@ -43,6 +43,10 @@ pub fn build(b: *std.Build) void {
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/xsave.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/xrstor.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/syscalls/syscall.S"));
+
+	const installAssembly = b.addInstallBinFile(kernel.getEmittedAsm(), "kernel.s");
+    b.getInstallStep().dependOn(&installAssembly.step);
+
 
 	const limine_zig = b.dependency("limine_zig", .{
 		// The API revision of the Limine Boot Protocol to use, if not provided

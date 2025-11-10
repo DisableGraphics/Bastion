@@ -42,6 +42,10 @@ pub fn port_create(task: *tsk.Task) ?*port.Port {
 }
 
 pub fn port_close(task: *tsk.Task, prt: u16) !void {
+	const rsp = asm volatile("mov %rsp,%[ret]" : [ret]"=r"(->u64));
+	std.log.debug("Rsp: {} vs stack top: {} (difference: {})",     
+		 .{rsp, @intFromPtr(task.kernel_stack_top), rsp - @intFromPtr(task.kernel_stack_top)});
+	std.debug.assert(rsp - @intFromPtr(task.kernel_stack_top) <= 16384);
 	const ptr = task.close_port(prt) orelse return error.NOT_FOUND;
 	ptr.lock.lock();
 	const mycpuid = main.mycpuid();
