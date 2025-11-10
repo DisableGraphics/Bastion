@@ -109,7 +109,6 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		m.value = sender.send_msg.?.value;
 		m.npages = sender.send_msg.?.npages;
 		m.page = sender.send_msg.?.page;
-		//sch.add_task_to_list(sender, &sch.queues[0]);
 		wake_task(sender, sch, @truncate(mycpu));
 		recv_port.?.lock.unlock();
 		sch.unlock();
