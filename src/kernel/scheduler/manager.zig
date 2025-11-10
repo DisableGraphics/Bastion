@@ -3,6 +3,7 @@ const page = @import("../memory/pagemanager.zig");
 const frame = @import("../memory/kmm.zig");
 const ts = @import("../memory/tss.zig");
 const main = @import("../main.zig");
+const stackalloc = @import("../memory/stackalloc.zig");
 
 pub const SchedulerManager = struct {
 	pub var schedulers: []sch.Scheduler = undefined;
@@ -29,5 +30,8 @@ const std = @import("std");
 pub export fn unlock_scheduler_from_context_switch() callconv(.C) void {
 	var sceh = SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	sceh.has_transferred_ok.store(true, .seq_cst);
+	const rsp = asm volatile("mov %rsp,%[ret]" : [ret]"=r"(->u64));
+	const task = sceh.current_process.?;
+	std.debug.assert(@intFromPtr(task.kernel_stack_top) == 16 or (rsp - @intFromPtr(task.kernel_stack_top) <= @sizeOf(stackalloc.KernelStack)));
 	sceh.unlock();
 }
