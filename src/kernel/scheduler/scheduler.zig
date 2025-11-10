@@ -41,6 +41,7 @@ pub const Scheduler = struct {
 	ntick: u32,
 	timerman: tm.TimerManager,
 	tick: u64,
+	has_transferred_ok: std.atomic.Value(bool),
 
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
@@ -56,6 +57,7 @@ pub const Scheduler = struct {
 			.ntick = 0,
 			.timerman = tm.TimerManager.init(),
 			.tick = 0,
+			.has_transferred_ok = std.atomic.Value(bool).init(true)
 		};
 	}
 
@@ -112,12 +114,12 @@ pub const Scheduler = struct {
 
 	fn tasks_queued_for_execution(self: *Scheduler) bool {
 		for(self.queues) |queue| {
-			if(queue != null) return true;
+			if(queue.head != null) return true;
 		} else return false;
 	}
 
 	fn first_task_with_higher_priority(self: *Scheduler, priority: i8) ?*task.Task {
-		const prior = if(priority < 0) 4 else priority;
+		const prior = if(priority < 0) queue_len else priority;
 		for(0..@intCast(prior)) |i| {
 			if(self.queues[i].head != null) return self.queues[i].head;
 		} else return null;
@@ -141,7 +143,15 @@ pub const Scheduler = struct {
 			};
 			const task_with_higher_priority = self.first_task_with_higher_priority(@intCast(level));
 			const next = t.next;
-			if(task_with_higher_priority != null) {return task_with_higher_priority.?;} else return next;
+			if(task_with_higher_priority != null) {
+				return task_with_higher_priority.?;
+			} else {
+				if(queue_level == -1) {
+					return null;
+				} else {
+					return next;
+				}
+			}
 		} else {
 			const task_with_higher_priority = self.first_task_with_higher_priority(@intCast(self.queues.len));
 			if(task_with_higher_priority != null) {return task_with_higher_priority.?;} else return null;
@@ -200,12 +210,10 @@ pub const Scheduler = struct {
 		self.ntick = (self.ntick + 1) % CONTEXT_SWITCH_TICKS;
 		self.tick += 1;
 		const should_schedule = self.ntick == 0;
-		self.unlock();
-		if(should_schedule) self.schedule(true);
+		if(should_schedule) self.schedule_with_lock_held(true) else self.unlock();
 	}
 
-	pub fn schedule(self: *Scheduler, on_interrupt: bool) void {
-		self.lock();
+	pub fn schedule_with_lock_held(self: *Scheduler, on_interrupt: bool) void {
 		// If current process has been assigned (by setting up an idle task)
 		// then we just search for the next one.
 		if(self.current_process != null) {
@@ -228,6 +236,11 @@ pub const Scheduler = struct {
 		}
 	}
 
+	pub fn schedule(self: *Scheduler, on_interrupt: bool) void {
+		self.lock();
+		self.schedule_with_lock_held(on_interrupt);
+	}
+
 	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
 		self.lock();
 		// If it was unlocked, we need to move it to the correct list.
@@ -242,10 +255,7 @@ pub const Scheduler = struct {
 			self.add_task_to_list(tsk, list);
 		}
 		const should_schedule = tsk == self.current_process.?;
-		self.unlock();
-		if(should_schedule) {
-			self.schedule(false);
-		}
+		if(should_schedule) self.schedule_with_lock_held(false) else self.unlock();
 	}
 
 	pub fn unblock_without_scheduling(self: *Scheduler, tsk: *task.Task) void {
@@ -265,11 +275,7 @@ pub const Scheduler = struct {
 		self.unblock_without_scheduling(tsk);
 		self.lock();
 		const schedule_next = self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null;
-		self.unlock();
-		if(schedule_next) {
-			// Preempt the lower priority tasks if a higher priority task is running
-			self.schedule(false);
-		}
+		if(schedule_next) self.schedule_with_lock_held(false) else self.unlock();
 	}
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {
 		// Unblock the cleanup task to free the deleted task's resources
@@ -324,7 +330,7 @@ pub const Scheduler = struct {
 			data.prev = last;
 			head.prev = data;
 			last.next = data;
-			//head = data;
+			head = data;
 		} else {
 			// Basically:
 			// - add the node

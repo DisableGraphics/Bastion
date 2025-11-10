@@ -58,12 +58,12 @@ pub fn hcf() noreturn {
 	}
 }
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, panic_addr: ?usize) noreturn {
-	std.log.err("Error: {s} at {x}\n", .{msg, panic_addr orelse 0});
+	std.log.err("Error: {s} at {x}", .{msg, panic_addr orelse 0});
 
 	if(error_return_trace) |trace| {
-		std.log.err("Stack trace:\n", .{});
+		std.log.err("Stack trace:", .{});
 		for(0..trace.instruction_addresses.len,trace.instruction_addresses) |i, instr| {
-			std.log.err("Addr #{d}: 0x{x}\n", .{i, instr});
+			std.log.err("Addr #{d}: 0x{x}", .{i, instr});
 		}
 	}
 	hcf();
@@ -275,7 +275,9 @@ fn on_priority_boost() void {
 }
 
 fn idle() void {
+	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	while(true) {
+		std.debug.assert(sched.current_process == sched.idle_task);
 		lb.LoadBalancer.steal_task_async();
 		asm volatile("hlt");
 	}

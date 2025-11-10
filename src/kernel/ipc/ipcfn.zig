@@ -6,6 +6,21 @@ const main = @import("../main.zig");
 const port = @import("port.zig");
 const assm = @import("../arch/x86_64/asm.zig");
 const std = @import("std");
+const tsk = @import("../scheduler/task.zig");
+const sched = @import("../scheduler/scheduler.zig");
+const ipi = @import("../interrupts/ipi_protocol.zig");
+
+fn wake_task(task: *tsk.Task, sch: *sched.Scheduler, cpuid: u32) void {
+	if(task.cpu_owner == cpuid) {
+		sch.add_task_to_list(task, &sch.queues[0]);
+	} else {
+		ipi.IPIProtocolHandler.send_ipi(task.cpu_owner, 
+			ipi.IPIProtocolPayload.init_with_data(
+			ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
+			@intFromPtr(task), 0, 0)
+		);
+	}
+}
 
 pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 	if (msg == null) {
@@ -44,7 +59,7 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 		wr.receive_msg.?.value = m.value;
 		wr.receive_msg.?.npages = m.npages;
 		wr.receive_msg.?.page = m.page;
-		sch.add_task_to_list(wr, &sch.queues[0]);
+		wake_task(wr, sch, @truncate(mycpu));
 		dstport.?.lock.unlock();
 		sch.unlock();
 		return ipc_msg.EOK;
@@ -53,56 +68,59 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 		sch.remove_task_from_list(this, this.current_queue.?);
 		dstport.?.enqueueSender(this);
 		dstport.?.lock.unlock();
-		sch.unlock();
-		sch.schedule(false);
+		sch.schedule_with_lock_held(false);
 		return ipc_msg.EOK;
 	}
 }
 
 pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
-    if (msg == null) {
-        return ipc_msg.EINVALMSG;
-    }
+	if (msg == null) {
+		return ipc_msg.EINVALMSG;
+	}
 
-    const m = msg.?;
-    const recv_port_id = m.dest;
-    const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
-    sch.lock();
+	const m = msg.?;
+	const recv_port_id = m.dest;
+	const mycpu = main.mycpuid();
+	const sch = schman.SchedulerManager.get_scheduler_for_cpu(mycpu);
+	sch.lock();
 
-    const this = sch.current_process.?;
-    const recv_port = this.get_port(recv_port_id);
-    if (recv_port == null) {
-        sch.unlock();
-        return ipc_msg.ENODEST;
-    }
+	const this = sch.current_process.?;
+	const recv_port = this.get_port(recv_port_id);
+	if (recv_port == null) {
+		sch.unlock();
+		return ipc_msg.ENODEST;
+	}
 
 	recv_port.?.lock.lock();
 
-    // Permission check
-    const owner = recv_port.?.owner.load(.acquire);
-    const rights = recv_port.?.rights_mask.load(.acquire);
-    const can_recv = (this == owner) or ((rights & port.Rights.RECV) != 0);
-    if (!can_recv) {
+	// Permission check
+	const owner = recv_port.?.owner.load(.acquire);
+	const rights = recv_port.?.rights_mask.load(.acquire);
+	const can_recv = (this == owner) or ((rights & port.Rights.RECV) != 0);
+	if (!can_recv) {
 		recv_port.?.lock.unlock();
-        sch.unlock();
-        return ipc_msg.ENOPERM;
-    }
+		sch.unlock();
+		return ipc_msg.ENOPERM;
+	}
 	
 	const q = recv_port.?.dequeueSender();
-    if (q) |sender| {
-        m.* = sender.send_msg.?.*;
-        sch.add_task_to_list(sender, &sch.queues[0]);
+	if (q) |sender| {
+		m.flags = sender.send_msg.?.flags;
+		m.value = sender.send_msg.?.value;
+		m.npages = sender.send_msg.?.npages;
+		m.page = sender.send_msg.?.page;
+		//sch.add_task_to_list(sender, &sch.queues[0]);
+		wake_task(sender, sch, @truncate(mycpu));
 		recv_port.?.lock.unlock();
-        sch.unlock();
+		sch.unlock();
 		
-        return ipc_msg.EOK;
-    } else {
-        this.receive_msg = msg;
-        sch.remove_task_from_list(this, this.current_queue.?);
-        recv_port.?.enqueueReceiver(this);
+		return ipc_msg.EOK;
+	} else {
+		this.receive_msg = msg;
+		sch.remove_task_from_list(this, this.current_queue.?);
+		recv_port.?.enqueueReceiver(this);
 		recv_port.?.lock.unlock();
-        sch.unlock();
-        sch.schedule(false);
-        return ipc_msg.EOK;
-    }
+		sch.schedule_with_lock_held(false);
+		return ipc_msg.EOK;
+	}
 }

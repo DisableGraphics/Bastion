@@ -17,6 +17,7 @@ const ipc_msg = @cImport(
 
 pub const TaskStatus = enum(u64) {
 	READY,
+	IPC,
 	BLOCKED,
 	SLEEPING,
 	FINISHED
@@ -32,6 +33,7 @@ pub const Task = extern struct {
 	kernel_stack: *sa.KernelStack,
 	next: ?*Task = null,
 	prev: ?*Task = null,
+	transfer_ok: ?*std.atomic.Value(bool) = null,
 	kernel_stack_top: *anyopaque,
 	deinitfn: ?*const fn(*Task, ?*anyopaque) void = null,
 	extra_arg: ?*anyopaque = null,
@@ -41,6 +43,7 @@ pub const Task = extern struct {
 	state: TaskStatus,
 	iopb_bitmap_created_on: u32 = 0,
 	cpu_created_on: u32 = 0,
+	cpu_owner: u32 = 0,
 	cpu_fpu_buffer_created_on: u32 = 0,
 	has_used_vector: bool = false,
 	is_pinned: bool,
@@ -102,6 +105,7 @@ pub const Task = extern struct {
 			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
+			.cpu_owner = @truncate(main.mycpuid())
 		};
 	}
 
@@ -122,6 +126,7 @@ pub const Task = extern struct {
 			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
+			.cpu_owner = @truncate(main.mycpuid())
 		};
 	}
 
@@ -140,6 +145,7 @@ pub const Task = extern struct {
 			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
+			.cpu_owner = @truncate(main.mycpuid())
 		};
 	}
 

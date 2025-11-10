@@ -3,6 +3,7 @@ const all = @import("timeralloc.zig");
 const sch = @import("scheduler.zig");
 const spin = @import("../sync/spinlock.zig");
 const std = @import("std");
+const main = @import("../main.zig");
 
 pub const Timer = struct {
 	expires: u64,

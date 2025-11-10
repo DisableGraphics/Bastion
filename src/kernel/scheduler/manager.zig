@@ -27,5 +27,7 @@ pub const SchedulerManager = struct {
 const std = @import("std");
 // Note: this function is called on every context switch. DO NOT DELETE.
 pub export fn unlock_scheduler_from_context_switch() callconv(.C) void {
-	SchedulerManager.get_scheduler_for_cpu(main.mycpuid()).unlock();
+	var sceh = SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
+	sceh.has_transferred_ok.store(true, .seq_cst);
+	sceh.unlock();
 }

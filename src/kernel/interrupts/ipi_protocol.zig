@@ -116,6 +116,7 @@ pub const IPIProtocolHandler = struct {
 					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
 					if(p0 >= main.km.hhdm_offset) {
 						const task: *tsk.Task = @ptrFromInt(p0);
+						task.cpu_owner = @truncate(mycpu);
 						sch.add_task(task);
 					}
 				},
