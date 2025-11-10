@@ -15,6 +15,8 @@ const q = @import("../datastr/ring_buffer_queue.zig");
 const ba = @import("../scheduler/fpu_buffer_alloc.zig");
 const ioa = @import("../memory/io_bufferalloc.zig");
 const tss = @import("../memory/tss.zig");
+const port = @import("../ipc/port.zig");
+const portalloc = @import("../ipc/portalloc.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -27,7 +29,8 @@ pub const IPIProtocolMessageType = enum(u64) {
 
 	FREE_TASK,
 	FREE_FPU_BUFFER,
-	FREE_IO_BITMAP
+	FREE_IO_BITMAP,
+	FREE_PORT
 };
 
 pub const IPIProtocolPayload = struct {
@@ -139,6 +142,10 @@ pub const IPIProtocolHandler = struct {
 				IPIProtocolMessageType.FREE_IO_BITMAP => {
 					const buffer: *tss.io_bitmap_t = @ptrFromInt(p0);
 					ioa.IOBufferAllocator.free(buffer) catch |err| std.log.err("Error while freeing IO bitmap: {}", .{err});
+				},
+				IPIProtocolMessageType.FREE_PORT => {
+					const p: *port.Port = @ptrFromInt(p0);
+					portalloc.PortAllocator.free(p) catch |err| std.log.err("Error while freeing port: {}", .{err});
 				},
 				else => {
 					std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});

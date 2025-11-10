@@ -215,44 +215,15 @@ inline fn mycpuid_gs() u32 {
 	);
 }
 
-var pe = port.Port{};
-var pe2 = port.Port{};
-
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	pe.owner.store(sched.current_process.?, .release);
-	sched.current_process.?.add_port(&pe) catch {};
-	sched.current_process.?.add_port(&pe2) catch {};
-	for(0..10) |_| {
-		const msg = ips.ipc_msg.ipc_message_t{
-			.source = 0,
-			.dest = 1,
-			.flags = 0,
-			.npages = 0,
-			.page = 0,
-			.value = 1
-		};
-		_ = ips.ipc_send(&msg);
-	}
+	const pe = ips.port_create(sched.current_process.?) orelse return;
+	_ = sched.current_process.?.add_port(pe) catch -1;
 	sched.exit(sched.current_process.?);
 }
 
 fn test2() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	pe2.owner.store(sched.current_process.?, .release);
-	sched.current_process.?.add_port(&pe) catch {};
-	sched.current_process.?.add_port(&pe2) catch {};
-	const p1 = assm.rdtsc();
-	for(0..10) |_| {
-		var msg = ips.ipc_msg.ipc_message_t{
-			.dest = 1,
-			.source = 0
-		};
-		_ = ips.ipc_recv(&msg);
-	}
-	const p2 = assm.rdtsc();
-	const diff = p2 - p1;
-	std.log.info("10 iterations in {} cycles ({} cycles average)", .{diff, diff/10});
 	sched.exit(sched.current_process.?);
 }
 

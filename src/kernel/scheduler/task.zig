@@ -11,9 +11,7 @@ const ta = @import("taskalloc.zig");
 const ioa = @import("../memory/io_bufferalloc.zig");
 const port = @import("../ipc/port.zig");
 const portchunk = @import("../ipc/portchunkalloc.zig");
-const ipc_msg = @cImport(
-	@cInclude("ipc.h")	
-);
+const ips = @import("../ipc/ipcfn.zig");
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -47,8 +45,8 @@ pub const Task = extern struct {
 	cpu_fpu_buffer_created_on: u32 = 0,
 	has_used_vector: bool = false,
 	is_pinned: bool,
-	receive_msg: ?*ipc_msg.ipc_message_t = null,
-	send_msg: ?*const ipc_msg.ipc_message_t = null,
+	receive_msg: ?*ips.ipc_msg.ipc_message_t = null,
+	send_msg: ?*const ips.ipc_msg.ipc_message_t = null,
 	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
 	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
 
@@ -156,6 +154,7 @@ pub const Task = extern struct {
 
 	fn deinit_kernel_task(self: *Task, _: ?*anyopaque) void {
 		const mycpu: u32 = @truncate(main.mycpuid());
+		// First free FPU buffer
 		if(self.fpu_buffer != null and self.cpu_fpu_buffer_created_on == mycpu) {
 			std.log.info("Destroying FPU buffer for task task {}", .{self});
 			buffer.FPUBufferAllocator.free(self.fpu_buffer.?) catch |err| {
@@ -170,7 +169,7 @@ pub const Task = extern struct {
 				0
 			));
 		}
-
+		// Free IO Bitmap
 		if(self.iopb_bitmap != null and self.iopb_bitmap_created_on == mycpu) {
 			std.log.info("Destroying IO buffer for task task {}", .{self});
 			ioa.IOBufferAllocator.free(self.iopb_bitmap.?) catch |err| {
@@ -185,7 +184,12 @@ pub const Task = extern struct {
 				0
 			));
 		}
+		// Free all ports
+		self.clear_all_ports() catch |err| {
+			std.log.err("Error while freeing ports: {}", .{err});
+		};
 
+		// Free task
 		if(self.cpu_created_on == mycpu) {
 			std.log.info("Destroying kernel task {}", .{self});
 			sa.KernelStackAllocator.free(self.kernel_stack) catch |err| {
@@ -203,20 +207,48 @@ pub const Task = extern struct {
 		}
 	}
 
-	pub fn add_port(self: *Task, prt: *port.Port) !void {
+	pub fn close_port(self: *Task, pn: u16) ?*port.Port {
+		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
+		if(pn < 0 or pn > (N_PORTS + len)) return null;
+		if(pn < N_PORTS) {
+			const pn2: usize = @intCast(pn);
+			var prt = self.ports[pn2];
+			if(prt == null) return null;
+			self.ports[pn2] = null;
+			_ = prt.?.count.fetchSub(1, .seq_cst);
+			return prt.?;
+		}
+
+		const pnr = pn - N_PORTS;
+		const port_zone: usize = @intCast(@divTrunc(pnr, len));
+		const port_no: usize = @intCast(@rem(pnr, len));
+		if(self.port_chunks[port_zone] == null) return null;
+		
+		var ptr = self.port_chunks[port_zone].?[port_no];
+		if(ptr == null) return null;
+		self.port_chunks[port_zone].?[port_no] = null;
+		_ = ptr.?.count.fetchSub(1, .seq_cst);
+		return ptr.?;
+	}
+
+	pub fn add_port(self: *Task, prt: *port.Port) !i16 {
 		_ = prt.count.fetchAdd(1, .acq_rel);
 		for(0..self.ports.len) |i| {
 			if(self.ports[i] == null) {
 				self.ports[i] = prt;
-				return;
+				return @intCast(@as(u16, @truncate(i)));
 			}
 		}
 		for(0..self.port_chunks.len) |n| {
-			if(self.port_chunks[n] == null) continue;
+			if(self.port_chunks[n] == null) {
+				self.port_chunks[n] = portchunk.PortChunkAllocator.alloc();
+				if(self.port_chunks[n] == null) return error.OUT_OF_PORT_CHUNKS;
+			}
 			for(0..self.port_chunks[n].?.len) |i| {
 				if(self.port_chunks[n].?[i] == null) {
 					self.port_chunks[n].?[i] = prt;
-					return;
+					const res = self.ports.len + (n - 1) * self.port_chunks.len + i;
+					return @intCast(@as(u16, @truncate(res)));
 				}
 			}
 		}
@@ -235,5 +267,12 @@ pub const Task = extern struct {
 		const port_no: usize = @intCast(@rem(pnr, len));
 		if(self.port_chunks[port_zone] == null) return null;
 		return self.port_chunks[port_zone].?[port_no];
+	}
+
+	fn clear_all_ports(self: *Task) !void {
+		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
+		for(0..(self.ports.len + len)) |i| {
+			ips.port_close(self, @truncate(i)) catch continue;
+		}
 	}
 };

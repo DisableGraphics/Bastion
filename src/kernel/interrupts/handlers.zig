@@ -1,6 +1,7 @@
 const serial = @import("../serial/serial.zig");
 const main = @import("../main.zig");
 const std = @import("std");
+const spin = @import("../sync/spinlock.zig");
 
 pub const IdtFrame = extern struct {
     ip: u64,
@@ -58,17 +59,19 @@ pub fn double_fault(frame: *IdtFrame, error_code: u64) callconv(.Interrupt) void
 	_ = writer.print("Double fault: {} {}", .{error_code, frame}) catch @panic("Could not write in double_fault handler");
 	main.hcf();
 }
-
+var spinlock = spin.SpinLock.init();
 pub fn general_protection_fault(frame: *IdtFrame, error_code: u64) callconv(.Interrupt) void {
+	spinlock.lock();
 	var writer = serial.Serial.writer();
-	_ = writer.print("General protection fault: {} {}", .{error_code, frame}) 
+	_ = writer.print("General protection fault: {} {}\n", .{error_code, frame}) 
 		catch @panic("Could not write in general_protection_fault handler");
+	spinlock.unlock();
 	main.hcf();
 }
 
 pub fn generic_error_code(frame: *IdtFrame, error_code: u64) callconv(.Interrupt) void {
 	var writer = serial.Serial.writer();
-	_ = writer.print("Unknown exception: {} {}", .{error_code, frame}) 
+	_ = writer.print("Unknown exception: {} {}\n", .{error_code, frame}) 
 		catch @panic("Could not write in generic_error_code handler");
 	main.hcf();
 }

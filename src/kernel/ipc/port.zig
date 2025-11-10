@@ -14,6 +14,7 @@ pub const Port = struct {
 	owner: std.atomic.Value(?*tsk.Task) = std.atomic.Value(?*tsk.Task).init(null),
 	rights_mask: std.atomic.Value(u8) = std.atomic.Value(u8).init(1),
 	count: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
+	cpu_owner: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
 	lock: spin.SpinLock = spin.SpinLock.init(),
 
 	send_head: ?*tsk.Task = null,

@@ -9,6 +9,7 @@ const std = @import("std");
 const tsk = @import("../scheduler/task.zig");
 const sched = @import("../scheduler/scheduler.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
+const porta = @import("portalloc.zig");
 
 fn wake_task(task: *tsk.Task, sch: *sched.Scheduler, cpuid: u32) void {
 	if(task.cpu_owner == cpuid) {
@@ -20,6 +21,54 @@ fn wake_task(task: *tsk.Task, sch: *sched.Scheduler, cpuid: u32) void {
 			@intFromPtr(task), 0, 0)
 		);
 	}
+}
+
+fn transfer_message(
+    src: *const ipc_msg.ipc_message_t,
+    dst: *ipc_msg.ipc_message_t,
+) void {
+    dst.flags = src.flags;
+    dst.value = src.value;
+    dst.npages = src.npages;
+    dst.page = src.page;
+}
+
+pub fn port_create(task: *tsk.Task) ?*port.Port {
+	const p = porta.PortAllocator.alloc() orelse return null;
+	p.rights_mask.store(port.Rights.SEND, .seq_cst);
+	p.owner.store(task, .seq_cst);
+	p.cpu_owner.store(@truncate(main.mycpuid()), .release);
+	return p;
+}
+
+pub fn port_close(task: *tsk.Task, prt: u16) !void {
+	const ptr = task.close_port(prt) orelse return error.NOT_FOUND;
+	ptr.lock.lock();
+	const mycpuid = main.mycpuid();
+	defer ptr.lock.unlock();
+	if(ptr.owner.load(.acquire) == task) {
+		ptr.owner.store(null, .release);
+	}
+	if(ptr.count.load(.seq_cst) == 0) {
+		const owner = ptr.cpu_owner.load(.acquire);
+		if(owner == mycpuid) {
+			try porta.PortAllocator.free(ptr);
+		} else {
+			ipi.IPIProtocolHandler.send_ipi(owner,
+				ipi.IPIProtocolPayload.init_with_data(
+					ipi.IPIProtocolMessageType.FREE_PORT,
+					@intFromPtr(ptr), 0, 0
+				)
+			);
+		}
+	}
+}
+
+fn port_copy(prt: *port.Port, src_task: *tsk.Task, dst_task: *tsk.Task) !i16 {
+	if(prt.owner.load(.acquire) == src_task or prt.rights_mask.load(.acquire) & port.Rights.TRANSF != 0) {
+		return try dst_task.add_port(prt);
+	}
+	return error.NO_PERMISSIONS;
 }
 
 pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
@@ -54,22 +103,28 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 	}
 	
 	const q = dstport.?.dequeueReceiver();
+	var retvalue = ipc_msg.EOK;
 	if(q) |wr| {
-		wr.receive_msg.?.flags = m.flags;
-		wr.receive_msg.?.value = m.value;
-		wr.receive_msg.?.npages = m.npages;
-		wr.receive_msg.?.page = m.page;
+		if(m.flags & ipc_msg.IPC_FLAG_TRANSFER_PORT != 0) {
+			const v = port_copy(srcport.?, this, wr);
+			if(v) |portval| {
+				wr.receive_msg.?.source = portval;
+			} else |_| {
+				retvalue = ipc_msg.ENOPERM;
+			}
+		}
+		transfer_message(m, wr.receive_msg.?);
 		wake_task(wr, sch, @truncate(mycpu));
 		dstport.?.lock.unlock();
 		sch.unlock();
-		return ipc_msg.EOK;
+		return retvalue;
 	} else {
 		this.send_msg = m;
 		sch.remove_task_from_list(this, this.current_queue.?);
 		dstport.?.enqueueSender(this);
 		dstport.?.lock.unlock();
 		sch.schedule_with_lock_held(false);
-		return ipc_msg.EOK;
+		return retvalue;
 	}
 }
 
@@ -104,22 +159,33 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 	}
 	
 	const q = recv_port.?.dequeueSender();
+	var retvalue = ipc_msg.EOK;
 	if (q) |sender| {
-		m.flags = sender.send_msg.?.flags;
-		m.value = sender.send_msg.?.value;
-		m.npages = sender.send_msg.?.npages;
-		m.page = sender.send_msg.?.page;
+		if(sender.send_msg.?.flags & ipc_msg.IPC_FLAG_TRANSFER_PORT != 0) {
+			const po = sender.get_port(sender.send_msg.?.source);
+			if(po != null) {
+				const v = port_copy(po.?, sender, this);
+				if(v) |portval| {
+					m.source = portval;
+				} else |_| {
+					retvalue = ipc_msg.ENOPERM;
+				}
+			} else {
+				retvalue = ipc_msg.ENODEST;
+			}
+		}
+		transfer_message(sender.send_msg.?, m);
 		wake_task(sender, sch, @truncate(mycpu));
 		recv_port.?.lock.unlock();
 		sch.unlock();
 		
-		return ipc_msg.EOK;
+		return retvalue;
 	} else {
 		this.receive_msg = msg;
 		sch.remove_task_from_list(this, this.current_queue.?);
 		recv_port.?.enqueueReceiver(this);
 		recv_port.?.lock.unlock();
 		sch.schedule_with_lock_held(false);
-		return ipc_msg.EOK;
+		return retvalue;
 	}
 }
