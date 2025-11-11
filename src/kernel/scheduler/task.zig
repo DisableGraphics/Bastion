@@ -207,7 +207,7 @@ pub const Task = extern struct {
 		}
 	}
 
-	pub fn close_port(self: *Task, pn: u16) ?*port.Port {
+	pub fn close_port(self: *Task, pn: i16) ?*port.Port {
 		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
 		if(pn < 0 or pn > (N_PORTS + len)) return null;
 		if(pn < N_PORTS) {
@@ -272,7 +272,10 @@ pub const Task = extern struct {
 	fn clear_all_ports(self: *Task) !void {
 		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
 		for(0..(self.ports.len + len)) |i| {
-			ips.port_close(self, @truncate(i)) catch continue;
+			const casted: i16 = @intCast(i);
+			if(self.get_port(casted) != null) {
+				try ips.port_close(self, casted);
+			}
 		}
 	}
 };

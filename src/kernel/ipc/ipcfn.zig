@@ -41,7 +41,7 @@ pub fn port_create(task: *tsk.Task) ?*port.Port {
 	return p;
 }
 
-pub fn port_close(task: *tsk.Task, prt: u16) !void {
+pub fn port_close(task: *tsk.Task, prt: i16) !void {
 	const ptr = task.close_port(prt) orelse return error.NOT_FOUND;
 	ptr.lock.lock();
 	const mycpuid = main.mycpuid();
