@@ -41,6 +41,17 @@ pub fn port_create(task: *tsk.Task) ?*port.Port {
 	return p;
 }
 
+fn wake_all(prt: *port.Port, sch: *sched.Scheduler, cpuid: u32) void {
+	// Wake up all receivers
+	while(prt.dequeueReceiver()) |recv| {
+		wake_task(recv, sch, cpuid);
+	}
+	// Wake up all receivers
+	while(prt.dequeueSender()) |send| {
+		wake_task(send, sch, cpuid);
+	}
+}
+
 pub fn port_close(task: *tsk.Task, prt: i16) !void {
 	const ptr = task.close_port(prt) orelse return error.NOT_FOUND;
 	ptr.lock.lock();
@@ -48,8 +59,10 @@ pub fn port_close(task: *tsk.Task, prt: i16) !void {
 	defer ptr.lock.unlock();
 	if(ptr.owner.load(.acquire) == task) {
 		ptr.owner.store(null, .release);
+		wake_all(ptr, schman.SchedulerManager.get_scheduler_for_cpu(mycpuid), @truncate(mycpuid));
 	}
-	if(ptr.count.load(.seq_cst) == 0) {
+	const count = ptr.count.load(.seq_cst);
+	if(count == 0) {
 		const owner = ptr.cpu_owner.load(.acquire);
 		if(owner == mycpuid) {
 			try porta.PortAllocator.free(ptr);
@@ -124,6 +137,9 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 		dstport.?.enqueueSender(this);
 		dstport.?.lock.unlock();
 		sch.schedule_with_lock_held(false);
+		if(dstport.?.owner.load(.acquire) == null) {
+			retvalue = ipc_msg.ENOOWN;
+		}
 		return retvalue;
 	}
 }
@@ -186,6 +202,9 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		recv_port.?.enqueueReceiver(this);
 		recv_port.?.lock.unlock();
 		sch.schedule_with_lock_held(false);
+		if(recv_port.?.owner.load(.acquire) == null) {
+			retvalue = ipc_msg.ENOOWN;
+		}
 		return retvalue;
 	}
 }

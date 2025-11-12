@@ -17,6 +17,8 @@ extern "C" {
 #define EINVALMSG 3
 /// No permissions
 #define ENOPERM 4
+/// Port has been closed by the owner
+#define ENOOWN
 
 // Flags
 /// Paging flags
