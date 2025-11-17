@@ -215,15 +215,36 @@ inline fn mycpuid_gs() u32 {
 	);
 }
 
+var shared = port.Port{};
+
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	const pe = ips.port_create(sched.current_process.?) orelse return;
-	_ = sched.current_process.?.add_port(pe) catch -1;
+	shared.owner.store(sched.current_process.?, .release);
+	const ps = sched.current_process.?.add_port(&shared) catch -1;
+	const pn = sched.current_process.?.add_port(pe) catch -1;
+	var msgrecv = ips.ipc_msg.ipc_message_t{.source = pn, .dest = ps, .flags = ips.ipc_msg.IPC_FLAG_NONBLOCKING};
+	while(true) {
+		const ret = ips.ipc_recv(&msgrecv);
+		if(ret != ips.ipc_msg.ENODEST) {
+			break;
+		}
+	}
+	std.log.info("Receiver: {}", .{msgrecv});
+
 	sched.exit(sched.current_process.?);
 }
 
 fn test2() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	const pe = ips.port_create(sched.current_process.?) orelse return;
+	const ps = sched.current_process.?.add_port(&shared) catch -1;
+	const pn = sched.current_process.?.add_port(pe) catch -1;
+	sched.sleep(256, sched.current_process.?);
+	const msgsend = ips.ipc_msg.ipc_message_t{.source = pn, .dest = ps, .value = 10101010101};
+	const ret = ips.ipc_send(&msgsend);
+	std.log.info("Sender: {} {}", .{msgsend, ret});
+
 	sched.exit(sched.current_process.?);
 }
 

@@ -132,14 +132,20 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 		sch.unlock();
 		return retvalue;
 	} else {
-		this.send_msg = m;
-		sch.remove_task_from_list(this, this.current_queue.?);
-		dstport.?.enqueueSender(this);
-		dstport.?.lock.unlock();
-		sch.schedule_with_lock_held(false);
-		if(dstport.?.owner.load(.acquire) == null) {
-			retvalue = ipc_msg.ENOOWN;
+		if(msg.?.flags & ipc_msg.IPC_FLAG_NONBLOCKING == 0) {
+			this.send_msg = m;
+			sch.remove_task_from_list(this, this.current_queue.?);
+			dstport.?.enqueueSender(this);
+			dstport.?.lock.unlock();
+			sch.schedule_with_lock_held(false);
+			if(dstport.?.owner.load(.acquire) == null) {
+				retvalue = ipc_msg.ENOOWN;
+			}
+		} else {
+			dstport.?.lock.unlock();
+			retvalue = ipc_msg.ENODEST;
 		}
+		
 		return retvalue;
 	}
 }
@@ -197,13 +203,18 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		
 		return retvalue;
 	} else {
-		this.receive_msg = msg;
-		sch.remove_task_from_list(this, this.current_queue.?);
-		recv_port.?.enqueueReceiver(this);
-		recv_port.?.lock.unlock();
-		sch.schedule_with_lock_held(false);
-		if(recv_port.?.owner.load(.acquire) == null) {
-			retvalue = ipc_msg.ENOOWN;
+		if(msg.?.flags & ipc_msg.IPC_FLAG_NONBLOCKING == 0) {
+			this.receive_msg = msg;
+			sch.remove_task_from_list(this, this.current_queue.?);
+			recv_port.?.enqueueReceiver(this);
+			recv_port.?.lock.unlock();
+			sch.schedule_with_lock_held(false);
+			if(recv_port.?.owner.load(.acquire) == null) {
+				retvalue = ipc_msg.ENOOWN;
+			}
+		} else {
+			recv_port.?.lock.unlock();
+			retvalue = ipc_msg.ENODEST;
 		}
 		return retvalue;
 	}
