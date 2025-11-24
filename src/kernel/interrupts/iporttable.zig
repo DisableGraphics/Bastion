@@ -14,6 +14,7 @@ pub const InterruptPortTable = struct {
 		// Basically if there is a port registered do not register another
 		if(ttable[irqn].get_port(0) == null) {
 			_ = try ttable[irqn].add_port(prt);
+			acknowledge_interrupt(irqn);
 		}
 	}
 	pub fn unregister_irq(irqn: u8) void {

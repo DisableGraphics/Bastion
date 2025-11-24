@@ -220,7 +220,7 @@ fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	const pe = ips.port_create(sched.current_process.?) orelse return;
 	const pn = sched.current_process.?.add_port(pe) catch -1;
-	iport.InterruptPortTable.register_irq(pe, 5) catch {};
+	sched.current_process.?.register_for_irq(pn, 5) catch {};
 	var msg = ips.ipc_msg.ipc_message_t{
 		.source = 0,
 		.dest = pn,

@@ -12,6 +12,8 @@ const ioa = @import("../memory/io_bufferalloc.zig");
 const port = @import("../ipc/port.zig");
 const portchunk = @import("../ipc/portchunkalloc.zig");
 const ips = @import("../ipc/ipcfn.zig");
+const iport = @import("../interrupts/iporttable.zig");
+
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -151,6 +153,13 @@ pub const Task = extern struct {
 	pub fn add_io_buffer(self: *@This()) !void {
 		self.iopb_bitmap = ioa.IOBufferAllocator.alloc() orelse return error.OUT_OF_IO_BUFFER_SPACE;
 		self.iopb_bitmap_created_on = @truncate(main.mycpuid());
+	}
+
+	pub fn register_for_irq(self: *@This(), pn: i16, irqn: u8) !void {
+		self.irq_registered = irqn;
+		const c = self.get_port(pn);
+		if(c == null) return error.NO_PORT;
+		try iport.InterruptPortTable.register_irq(c.?, irqn);
 	}
 
 	fn deinit_kernel_task(self: *Task, _: ?*anyopaque) void {

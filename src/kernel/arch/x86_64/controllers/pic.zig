@@ -133,7 +133,6 @@ pub const PIC = struct {
 
 	pub fn disable_irq(irqno: u4) void {
 		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
-		std.log.info("Port: {x}", .{port});
 		const irqline: u3 = @truncate(irqno);
 		const value = assm.inb(port) | (@as(u8, 1) << irqline);
 		assm.outb(port, value);
@@ -141,7 +140,6 @@ pub const PIC = struct {
 
 	pub fn enable_irq(irqno: u4) void {
 		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
-		std.log.info("Port: {x}", .{port});
 		const irqline: u3 = @truncate(irqno);
 		const value = assm.inb(port) & ~(@as(u8, 1) << irqline);
 		assm.outb(port, value);
