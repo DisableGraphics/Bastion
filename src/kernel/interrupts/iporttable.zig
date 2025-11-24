@@ -4,6 +4,7 @@ const schman = @import("../scheduler/manager.zig");
 const main = @import("../main.zig");
 const tsk = @import("../scheduler/task.zig");
 const portall = @import("../ipc/portalloc.zig");
+const pic = @import("../arch/x86_64/controllers/pic.zig");
 
 const n_ports = 256-32;
 
@@ -37,3 +38,7 @@ pub const InterruptPortTable = struct {
 		}
 	}
 };
+
+pub fn acknowledge_interrupt(irqn: u8) void {
+	if(irqn < 16) pic.PIC.enable_irq(@truncate(irqn));
+}

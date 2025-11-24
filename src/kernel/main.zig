@@ -231,6 +231,7 @@ fn test1() void {
 	};
 	for(0..5) |_| {
 		const r = ips.ipc_recv(&msg);
+		iport.acknowledge_interrupt(5);
 		std.log.info("{} {}", .{r, msg});
 	}
 
