@@ -2,6 +2,7 @@ const assm = @import("../asm.zig");
 const std = @import("std");
 const idt = @import("../../../interrupts/idt.zig");
 const handlers = @import("../../../interrupts/handlers.zig");
+const porttable = @import("../../../interrupts/iporttable.zig");
 
 const PIC1_PORT = 0x20;
 const PIC2_PORT = 0xA0;
@@ -46,7 +47,12 @@ fn makeIRQ(comptime n: usize) type {
 				}
 			}
 			PIC.fn_table[n](PIC.arg_table[n]);
-			if(n < 16) PIC.eoi(n);		
+			if(n != 16)
+				porttable.InterruptPortTable.notify_interrupt(n);
+			if(n < 16) {
+				PIC.disable_irq(@truncate(n));
+				PIC.eoi(n);
+			}
         }
 		
     };
@@ -125,8 +131,7 @@ pub const PIC = struct {
 		assm.outb(PIC2_DATA, 0xFF);
 	}
 
-	pub fn disable_irq(self: *PIC, irqno: u4) void {
-		_ = self;
+	pub fn disable_irq(irqno: u4) void {
 		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
 		std.log.info("Port: {x}", .{port});
 		const irqline: u3 = @truncate(irqno);
@@ -134,8 +139,7 @@ pub const PIC = struct {
 		assm.outb(port, value);
 	}
 
-	pub fn enable_irq(self: *PIC, irqno: u4) void {
-		_ = self;
+	pub fn enable_irq(irqno: u4) void {
 		const port: u16 = if(irqno < 8) PIC1_DATA else PIC2_DATA;
 		std.log.info("Port: {x}", .{port});
 		const irqline: u3 = @truncate(irqno);

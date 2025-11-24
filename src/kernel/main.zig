@@ -39,6 +39,7 @@ const ips = @import("ipc/ipcfn.zig");
 const port = @import("ipc/port.zig");
 const cid = @import("memory/cpuid_cache.zig");
 const cpui = @import("arch/x86_64/cpuid.zig");
+const iport = @import("interrupts/iporttable.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -128,7 +129,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	try setup_mycpuid();
 	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
 	if(is_bsp) {
-		pi.enable_irq(0);
+		pic.PIC.enable_irq(0);
 		pitt = pit.PIT.init();
 		pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
 		idt.enable_interrupts();
@@ -136,7 +137,7 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 		lapicc.init_timer_bsp(1, &pitt);
 		lapicc.set_on_timer(stage_0_sync, null);
 		pitt.disable();
-		pi.disable_irq(0);
+		pic.PIC.disable_irq(0);
 		idt.disable_interrupts();
 		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq);
 		pi.set_irq_handler(0x11, null, &ipi.IPIProtocolHandler.handle_ipi);
@@ -215,36 +216,33 @@ inline fn mycpuid_gs() u32 {
 	);
 }
 
-var shared = port.Port{};
-
 fn test1() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	const pe = ips.port_create(sched.current_process.?) orelse return;
-	shared.owner.store(sched.current_process.?, .release);
-	const ps = sched.current_process.?.add_port(&shared) catch -1;
 	const pn = sched.current_process.?.add_port(pe) catch -1;
-	var msgrecv = ips.ipc_msg.ipc_message_t{.source = pn, .dest = ps, .flags = ips.ipc_msg.IPC_FLAG_NONBLOCKING};
-	while(true) {
-		const ret = ips.ipc_recv(&msgrecv);
-		if(ret != ips.ipc_msg.ENODEST) {
-			break;
-		}
+	iport.InterruptPortTable.register_irq(pe, 5) catch {};
+	var msg = ips.ipc_msg.ipc_message_t{
+		.source = 0,
+		.dest = pn,
+		.flags = 0,
+		.npages = 0,
+		.page = 0,
+		.value = 0
+	};
+	for(0..5) |_| {
+		const r = ips.ipc_recv(&msg);
+		std.log.info("{} {}", .{r, msg});
 	}
-	std.log.info("Receiver: {}", .{msgrecv});
 
 	sched.exit(sched.current_process.?);
 }
 
 fn test2() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
-	const pe = ips.port_create(sched.current_process.?) orelse return;
-	const ps = sched.current_process.?.add_port(&shared) catch -1;
-	const pn = sched.current_process.?.add_port(pe) catch -1;
-	sched.sleep(256, sched.current_process.?);
-	const msgsend = ips.ipc_msg.ipc_message_t{.source = pn, .dest = ps, .value = 10101010101};
-	const ret = ips.ipc_send(&msgsend);
-	std.log.info("Sender: {} {}", .{msgsend, ret});
-
+	for(0..5) |_| {
+		sched.sleep(1024, sched.current_process.?);
+		asm volatile("int $0x25");
+	}
 	sched.exit(sched.current_process.?);
 }
 

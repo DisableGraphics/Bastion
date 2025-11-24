@@ -15,7 +15,7 @@ const spin = @import("../sync/spinlock.zig");
 fn wake_task(task: *tsk.Task, sch: ?*sched.Scheduler, cpuid: u32) void {
 	if(task.cpu_owner == cpuid) {
 		if(sch != null) {
-			sch.?.add_task_to_list(task, &sch.queues[0]);
+			sch.?.add_task_to_list(task, &sch.?.queues[0]);
 		} else {
 			var s = schman.SchedulerManager.get_scheduler_for_cpu(cpuid);
 			s.add_task_to_list(task, &s.queues[0]);
