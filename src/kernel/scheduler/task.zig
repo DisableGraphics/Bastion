@@ -49,6 +49,7 @@ pub const Task = extern struct {
 	send_msg: ?*const ips.ipc_msg.ipc_message_t = null,
 	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
 	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
+	irq_registered: u8 = std.math.maxInt(u8),
 
 	pub fn format(
             self: @This(),
@@ -142,8 +143,8 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,
-			.cpu_created_on = @truncate(main.mycpuid()),
-			.cpu_owner = @truncate(main.mycpuid())
+			.cpu_created_on = std.math.maxInt(u32),
+			.cpu_owner = std.math.maxInt(u32)
 		};
 	}
 

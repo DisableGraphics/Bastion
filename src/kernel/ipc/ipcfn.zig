@@ -10,11 +10,23 @@ const tsk = @import("../scheduler/task.zig");
 const sched = @import("../scheduler/scheduler.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
 const porta = @import("portalloc.zig");
+const spin = @import("../sync/spinlock.zig");
 
-fn wake_task(task: *tsk.Task, sch: *sched.Scheduler, cpuid: u32) void {
+fn wake_task(task: *tsk.Task, sch: ?*sched.Scheduler, cpuid: u32) void {
 	if(task.cpu_owner == cpuid) {
-		sch.add_task_to_list(task, &sch.queues[0]);
+		if(sch != null) {
+			sch.?.add_task_to_list(task, &sch.queues[0]);
+		} else {
+			var s = schman.SchedulerManager.get_scheduler_for_cpu(cpuid);
+			s.add_task_to_list(task, &s.queues[0]);
+		}
 	} else {
+		// Interrupt thread task -> can't be scheduled
+		if(task.cpu_owner == std.math.maxInt(u32)) {
+			task.next = null;
+			task.prev = null;
+			return;
+		}
 		ipi.IPIProtocolHandler.send_ipi(task.cpu_owner, 
 			ipi.IPIProtocolPayload.init_with_data(
 			ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
@@ -143,6 +155,7 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 			}
 		} else {
 			dstport.?.lock.unlock();
+			sch.unlock();
 			retvalue = ipc_msg.ENODEST;
 		}
 		
@@ -167,15 +180,16 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		sch.unlock();
 		return ipc_msg.ENODEST;
 	}
+	var flags: usize = undefined;
 
-	recv_port.?.lock.lock();
+	irq_lock(&recv_port.?.lock, &flags);
 
 	// Permission check
 	const owner = recv_port.?.owner.load(.acquire);
 	const rights = recv_port.?.rights_mask.load(.acquire);
 	const can_recv = (this == owner) or ((rights & port.Rights.RECV) != 0);
 	if (!can_recv) {
-		recv_port.?.lock.unlock();
+		irq_unlock(&recv_port.?.lock, flags);
 		sch.unlock();
 		return ipc_msg.ENOPERM;
 	}
@@ -198,7 +212,7 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		}
 		transfer_message(sender.send_msg.?, m);
 		wake_task(sender, sch, @truncate(mycpu));
-		recv_port.?.lock.unlock();
+		irq_unlock(&recv_port.?.lock, flags);
 		sch.unlock();
 		
 		return retvalue;
@@ -207,15 +221,56 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 			this.receive_msg = msg;
 			sch.remove_task_from_list(this, this.current_queue.?);
 			recv_port.?.enqueueReceiver(this);
-			recv_port.?.lock.unlock();
+			irq_unlock(&recv_port.?.lock, flags);
 			sch.schedule_with_lock_held(false);
 			if(recv_port.?.owner.load(.acquire) == null) {
 				retvalue = ipc_msg.ENOOWN;
 			}
 		} else {
-			recv_port.?.lock.unlock();
+			irq_unlock(&recv_port.?.lock, flags);
+			sch.unlock();
 			retvalue = ipc_msg.ENODEST;
 		}
+		return retvalue;
+	}
+}
+
+fn irq_lock(lock: *spin.SpinLock, flags: *usize) void {
+	flags.* = assm.irqdisable();
+	lock.lock();
+}
+
+fn irq_unlock(lock: *spin.SpinLock, flags: usize) void {
+	lock.unlock();
+	assm.irqrestore(flags);
+}
+
+pub fn ipc_send_from_irq(msg: ?*const ipc_msg.ipc_message_t, this: *tsk.Task) i32 {
+	if (msg == null) {
+		return ipc_msg.EINVALMSG;
+	}
+	const m = msg.?;
+	
+	const dest_port = m.dest;
+	const dstport = this.get_port(dest_port);
+	var flags: usize = undefined;
+
+	irq_lock(&dstport.?.lock, &flags);
+	if(dstport == null) {
+		return ipc_msg.ENODEST;
+	}
+	// As I'm an interrupt thread I don't need permission checks and most fluff 
+	const q = dstport.?.dequeueReceiver();
+	const retvalue = ipc_msg.EOK;
+	if(q) |wr| {
+		transfer_message(m, wr.receive_msg.?);
+		wake_task(wr, null, @truncate(main.mycpuid()));
+		irq_unlock(&dstport.?.lock, flags);
+		return retvalue;
+	} else {
+		this.send_msg = m;
+		dstport.?.enqueueSender(this);
+		irq_unlock(&dstport.?.lock, flags);
 		return retvalue;
 	}
 }

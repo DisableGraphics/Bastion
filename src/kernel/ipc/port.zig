@@ -8,11 +8,13 @@ pub const Rights = struct {
 	pub const TRANSF = (1 << 2);
 	pub const KILL = (1 << 3);
 	pub const MODIF_RIGHTS = (1 << 4);
+
+	pub const INTERRUPT_PENDING = (1 << 63); // Yes I'm using the rights mask to mark interrupts don't judge me
 };
 
 pub const Port = struct {
 	owner: std.atomic.Value(?*tsk.Task) = std.atomic.Value(?*tsk.Task).init(null),
-	rights_mask: std.atomic.Value(u8) = std.atomic.Value(u8).init(1),
+	rights_mask: std.atomic.Value(u64) = std.atomic.Value(u64).init(1),
 	count: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
 	cpu_owner: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
 	lock: spin.SpinLock = spin.SpinLock.init(),
