@@ -180,9 +180,7 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		sch.unlock();
 		return ipc_msg.ENODEST;
 	}
-	var flags: usize = undefined;
-
-	irq_lock(&recv_port.?.lock, &flags);
+	const flags = irq_lock(&recv_port.?.lock);
 
 	// Permission check
 	const owner = recv_port.?.owner.load(.acquire);
@@ -235,9 +233,10 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 	}
 }
 
-fn irq_lock(lock: *spin.SpinLock, flags: *usize) void {
-	flags.* = assm.irqdisable();
+fn irq_lock(lock: *spin.SpinLock) usize {
+	const flags = assm.irqdisable();
 	lock.lock();
+	return flags;
 }
 
 fn irq_unlock(lock: *spin.SpinLock, flags: usize) void {
@@ -253,9 +252,7 @@ pub fn ipc_send_from_irq(msg: ?*const ipc_msg.ipc_message_t, this: *tsk.Task) i3
 	
 	const dest_port = m.dest;
 	const dstport = this.get_port(dest_port);
-	var flags: usize = undefined;
-
-	irq_lock(&dstport.?.lock, &flags);
+	const flags = irq_lock(&dstport.?.lock);
 	if(dstport == null) {
 		return ipc_msg.ENODEST;
 	}
