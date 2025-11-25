@@ -244,13 +244,8 @@ fn irq_unlock(lock: *spin.SpinLock, flags: usize) void {
 	assm.irqrestore(flags);
 }
 
-pub fn ipc_send_from_irq(msg: ?*const ipc_msg.ipc_message_t, this: *tsk.Task) i32 {
-	if (msg == null) {
-		return ipc_msg.EINVALMSG;
-	}
-	const m = msg.?;
-	
-	const dest_port = m.dest;
+pub fn ipc_send_from_irq(msg: ipc_msg.ipc_message_t, this: *tsk.Task) i32 {
+	const dest_port = msg.dest;
 	const dstport = this.get_port(dest_port);
 	const flags = irq_lock(&dstport.?.lock);
 	if(dstport == null) {
@@ -260,12 +255,12 @@ pub fn ipc_send_from_irq(msg: ?*const ipc_msg.ipc_message_t, this: *tsk.Task) i3
 	const q = dstport.?.dequeueReceiver();
 	const retvalue = ipc_msg.EOK;
 	if(q) |wr| {
-		transfer_message(m, wr.receive_msg.?);
+		transfer_message(&msg, wr.receive_msg.?);
 		wake_task(wr, null, @truncate(main.mycpuid()));
 		irq_unlock(&dstport.?.lock, flags);
 		return retvalue;
 	} else {
-		this.send_msg = m;
+		this.send_msg = &msg;
 		dstport.?.enqueueSender(this);
 		irq_unlock(&dstport.?.lock, flags);
 		return retvalue;

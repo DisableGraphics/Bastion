@@ -5,6 +5,7 @@ const main = @import("../main.zig");
 const tsk = @import("../scheduler/task.zig");
 const portall = @import("../ipc/portalloc.zig");
 const pic = @import("../arch/x86_64/controllers/pic.zig");
+const ipi = @import("ipi_protocol.zig");
 
 const n_ports = 256-32;
 
@@ -24,17 +25,12 @@ pub const InterruptPortTable = struct {
 	}
 	pub fn notify_interrupt(irqn: u8) void {
 		if(ttable[irqn].get_port(0)) |_| {
-			const msg = ipcfn.ipc_msg.ipc_message_t{
-				.source = 0,
-				.dest = 0,
-				.flags = 0,
-				.value = irqn,
-				.npages = 0,
-				.page = 0
-			};
 			// If it's not already pending, try to send the msg
 			if(ttable[irqn].next == null and ttable[irqn].prev == null) {
-				_ = ipcfn.ipc_send_from_irq(&msg, &ttable[irqn]);
+				const cpu = ttable[irqn].get_port(0).?.owner.load(.acquire).?.cpu_owner;
+				ipi.IPIProtocolHandler.send_ipi(cpu, ipi.IPIProtocolPayload.init_with_data(
+					ipi.IPIProtocolMessageType.SEND_IRQ_MSG, irqn, @intFromPtr(&ttable[irqn]), 0));
+				//_ = ipcfn.ipc_send_from_irq(&msg, &ttable[irqn]);
 			}
 		}
 	}

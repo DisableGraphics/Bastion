@@ -17,6 +17,8 @@ const ioa = @import("../memory/io_bufferalloc.zig");
 const tss = @import("../memory/tss.zig");
 const port = @import("../ipc/port.zig");
 const portalloc = @import("../ipc/portalloc.zig");
+const iportable = @import("iporttable.zig");
+const ips = @import("../ipc/ipcfn.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -30,7 +32,8 @@ pub const IPIProtocolMessageType = enum(u64) {
 	FREE_TASK,
 	FREE_FPU_BUFFER,
 	FREE_IO_BITMAP,
-	FREE_PORT
+	FREE_PORT,
+	SEND_IRQ_MSG
 };
 
 pub const IPIProtocolPayload = struct {
@@ -99,7 +102,7 @@ pub const IPIProtocolHandler = struct {
 			const ms = ask.?;
 			const msgt = ms.t;
 			const p0 = ms.p0;
-			_ = ms.p1;
+			const p1 = ms.p1;
 			_ = ms.p2;
 			switch(msgt) {
 				IPIProtocolMessageType.SCHEDULE => {
@@ -146,6 +149,13 @@ pub const IPIProtocolHandler = struct {
 				IPIProtocolMessageType.FREE_PORT => {
 					const p: *port.Port = @ptrFromInt(p0);
 					portalloc.PortAllocator.free(p) catch |err| std.log.err("Error while freeing port: {}", .{err});
+				},
+				IPIProtocolMessageType.SEND_IRQ_MSG => {
+					const pseudotask: *tsk.Task = @ptrFromInt(p1);
+					const irqn = p0;
+					_ = ips.ipc_send_from_irq(
+						ips.ipc_msg.ipc_message_t{.dest = 0,.source = 0,.flags = 0,.npages = 0,.page = 0,.value = irqn},
+					pseudotask);
 				},
 				else => {
 					std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});
