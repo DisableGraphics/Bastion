@@ -18,6 +18,7 @@ pub export fn syscall_handler_stage_1(
 	arg2: u64,
 	arg3: u64,
 	arg4: u64,
+	arg5: u64,
 ) callconv(.C) void {
-	std.log.info("sys: {} {} {} {} {} {}", .{syscall_no, arg0, arg1, arg2, arg3, arg4});
+	std.log.info("sys: {} {} {} {} {} {} {}", .{syscall_no, arg0, arg1, arg2, arg3, arg4, arg5});
 }

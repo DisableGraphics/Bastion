@@ -154,7 +154,7 @@ pub const IPIProtocolHandler = struct {
 					const pseudotask: *tsk.Task = @ptrFromInt(p1);
 					const irqn = p0;
 					_ = ips.ipc_send_from_irq(
-						ips.ipc_msg.ipc_message_t{.dest = 0,.source = 0,.flags = 0,.npages = 0,.page = 0,.value = irqn},
+						ips.ipc_msg.ipc_message_t{.dest = 0,.source = 0,.flags = 0,.npages = 0,.page = 0,.value0 = irqn},
 					pseudotask);
 				},
 				else => {

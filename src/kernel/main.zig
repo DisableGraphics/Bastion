@@ -227,7 +227,7 @@ fn test1() void {
 		.flags = 0,
 		.npages = 0,
 		.page = 0,
-		.value = 0
+		.value0 = 0
 	};
 	for(0..5) |_| {
 		const r = ips.ipc_recv(&msg);

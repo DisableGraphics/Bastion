@@ -27,6 +27,8 @@ extern "C" {
 #define IPC_FLAG_SHARE_PAGE (1 << 0)
 //// Transfer page to destination
 #define IPC_FLAG_GRANT_PAGE (1 << 1)
+//// The message to be sent is a syscall message. Particularly: last two 
+#define IPC_FLAG_SYSCALL_MSG (1 << 2)
 /// Synchronisation flags
 //// Make the IPC call non blocking (by default IPC calls are blocking). Returns ENODEST if there is no receiver or sender.
 #define IPC_FLAG_NONBLOCKING (1 << 8)
@@ -67,8 +69,12 @@ typedef struct {
 	
 	/* Flags for the transfer (Defined in this file in the flags section) */
 	flags_t flags;
-	/* Small value to be sent via this message (Up to pointer width on the machine) */
-	value_t value;
+	/* Values to be sent via this message (Each up to pointer width on the machine) */
+	value_t value0;
+	value_t value1;
+	value_t value2;
+	value_t value3;
+	value_t value4;
 
 	/* Virtual address of the first page to send */
 	page_addr_t page;

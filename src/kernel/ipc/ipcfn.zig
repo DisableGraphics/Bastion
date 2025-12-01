@@ -40,7 +40,11 @@ fn transfer_message(
     dst: *ipc_msg.ipc_message_t,
 ) void {
     dst.flags = src.flags;
-    dst.value = src.value;
+    dst.value0 = src.value0;
+	dst.value1 = src.value1;
+	dst.value2 = src.value2;
+	dst.value3 = src.value3;
+	dst.value4 = src.value4;
     dst.npages = src.npages;
     dst.page = src.page;
 }
