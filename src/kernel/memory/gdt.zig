@@ -36,8 +36,8 @@ pub fn gdt_init(local_gdt: *gdt_type, core_id: u32) void {
 	local_gdt[0] = encodeGdtEntry(0, 0, 0, 0); // Null entry
 	local_gdt[1] = encodeGdtEntry(0xFFFFF, 0, 0x9A, 0xA);
 	local_gdt[2] = encodeGdtEntry(0xFFFFF, 0, 0x92, 0xC);
-	local_gdt[3] = encodeGdtEntry(0xFFFFF, 0, 0xFA, 0xA);
-	local_gdt[4] = encodeGdtEntry(0xFFFFF, 0, 0xF2, 0xC);
+	local_gdt[3] = encodeGdtEntry(0xFFFFF, 0, 0xF2, 0xC);
+	local_gdt[4] = encodeGdtEntry(0xFFFFF, 0, 0xFA, 0xA);
 	local_gdt[5] = encodeGdtEntry(@sizeOf(tss.tss_t) - 1, @truncate(@intFromPtr(tss.get_tss(core_id))), 0x89, 0);
 	load_gdt(&gdtreg);
 }

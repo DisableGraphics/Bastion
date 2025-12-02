@@ -242,7 +242,8 @@ fn test2() void {
 	const sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	for(0..5) |_| {
 		sched.sleep(1024, sched.current_process.?);
-		asm volatile("int $0x25");
+		//asm volatile("int $0x25");
+		asm volatile("syscall");
 	}
 	sched.exit(sched.current_process.?);
 }
