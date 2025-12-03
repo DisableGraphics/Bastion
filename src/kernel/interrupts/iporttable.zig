@@ -24,7 +24,7 @@ pub const InterruptPortTable = struct {
 		}
 	}
 	pub fn notify_interrupt(irqn: u8) void {
-		if(ttable[irqn].get_port(0)) |_| {
+		if(ttable[irqn].get_port(0) != null) {
 			// If it's not already pending, try to send the msg
 			if(ttable[irqn].next == null and ttable[irqn].prev == null) {
 				const cpu = ttable[irqn].get_port(0).?.owner.load(.acquire).?.cpu_owner;
