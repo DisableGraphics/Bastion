@@ -47,10 +47,10 @@ fn makeIRQ(comptime n: usize) type {
 				}
 			}
 			PIC.fn_table[n](PIC.arg_table[n]);
-			if(n != 16)
+			if(n != 16) {
 				porttable.InterruptPortTable.notify_interrupt(n);
+			}
 			if(n < 16) {
-				PIC.disable_irq(@truncate(n));
 				PIC.eoi(n);
 			}
         }

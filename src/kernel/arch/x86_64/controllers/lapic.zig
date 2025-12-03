@@ -38,11 +38,11 @@ pub const LAPIC = struct {
 		return self;
 	}
 
-	pub fn init_timer_bsp(self: *LAPIC, freqms: i32, pit: *pitt.PIT) void {
+	pub fn init_timer_bsp(self: *LAPIC, freqms: i32) void {
 		self.write_reg(0x3E0, 0x3);
 		self.write_reg(0x380, 0xFFFFFFFF);
 	
-		pit.sleep(freqms);
+		pitt.PIT.sleep(freqms);
 	
 		self.write_reg(0x320, (1 << 16));
 		const ticks: u32 = 0xFFFFFFFF - self.read_reg(0x390);

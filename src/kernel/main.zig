@@ -130,13 +130,13 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	var lapicc = lpicmn.LAPICManager.init_lapic(cpuid, lapic_virt, lapic_base, is_bsp);
 	if(is_bsp) {
 		pic.PIC.enable_irq(0);
-		pitt = pit.PIT.init();
+		pit.PIT.init();
 		pi.set_irq_handler(0, @ptrCast(&pitt), pit.PIT.on_irq);
 		idt.enable_interrupts();
 
-		lapicc.init_timer_bsp(1, &pitt);
+		lapicc.init_timer_bsp(1);
 		lapicc.set_on_timer(stage_0_sync, null);
-		pitt.disable();
+		pit.PIT.disable();
 		pic.PIC.disable_irq(0);
 		idt.disable_interrupts();
 		pi.set_irq_handler(0x10, null, &lpicmn.LAPICManager.on_irq);

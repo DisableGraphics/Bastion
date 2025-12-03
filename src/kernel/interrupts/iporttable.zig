@@ -32,6 +32,8 @@ pub const InterruptPortTable = struct {
 					ipi.IPIProtocolMessageType.SEND_IRQ_MSG, irqn, @intFromPtr(&ttable[irqn]), 0));
 				//_ = ipcfn.ipc_send_from_irq(&msg, &ttable[irqn]);
 			}
+			if(irqn < 16)
+				pic.PIC.disable_irq(@truncate(irqn));
 		}
 	}
 };
