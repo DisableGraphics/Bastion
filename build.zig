@@ -34,6 +34,7 @@ pub fn build(b: *std.Build) void {
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/reloadSegments.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/gdt/setCr3.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/scheduler/switch_to_task.S"));
+	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/scheduler/ring3.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/enable_sse.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/clear_sse.S"));
 	kernel.addAssemblyFile(b.path("src/kernel/arch/x86_64/vector/disable_sse.S"));

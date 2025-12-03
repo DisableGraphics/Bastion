@@ -14,6 +14,7 @@ const portchunk = @import("../ipc/portchunkalloc.zig");
 const ips = @import("../ipc/ipcfn.zig");
 const iport = @import("../interrupts/iporttable.zig");
 
+extern fn jump_to_ring3() callconv(.C) void;
 
 pub const TaskStatus = enum(u64) {
 	READY,
@@ -84,7 +85,6 @@ pub const Task = extern struct {
 		func: *const fn() void,
 		kernel_stack: *sa.KernelStack,
 		root_page_table: *page.page_table_type,
-		allocator: *kmm.KernelMemoryManager
 		) Task {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
@@ -101,7 +101,37 @@ pub const Task = extern struct {
 			.state = TaskStatus.READY,
 			.kernel_stack_top = @ptrCast(kernel_stack),
 			.deinitfn = deinit_kernel_task,
-			.extra_arg = @ptrCast(allocator),
+			.current_queue = null,
+			.iopb_bitmap = null,
+			.is_pinned = true,
+			.cpu_created_on = @truncate(main.mycpuid()),
+			.cpu_owner = @truncate(main.mycpuid())
+		};
+	}
+
+	pub fn init_user_task(
+		func: *const fn() void,
+		kernel_stack: *sa.KernelStack,
+		user_stack: *anyopaque,
+		root_page_table: *page.page_table_type,
+		) Task {
+
+		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
+		stack_p = stack_p - 9;
+		stack_p[8] = @intFromPtr(&jump_to_ring3);
+		stack_p[3] = @intFromPtr(user_stack);
+		stack_p[2] = @intFromPtr(func);
+		stack_p[0] = 0x202;
+
+		return .{
+			.stack = @ptrCast(stack_p),
+			.kernel_stack = @ptrCast(stack_p),
+			.root_page_table = root_page_table,
+			.next = null,
+			.prev = null,
+			.state = TaskStatus.READY,
+			.kernel_stack_top = @ptrCast(kernel_stack),
+			.deinitfn = deinit_kernel_task,
 			.current_queue = null,
 			.iopb_bitmap = null,
 			.is_pinned = true,

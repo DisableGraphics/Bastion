@@ -9,4 +9,4 @@ syscall_handler:
 	call syscall_handler_stage_1
 	# Move return address to RCX so that we can go back
 	mov %r12,%rcx
-	sysret
+	sysretq

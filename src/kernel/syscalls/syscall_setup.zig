@@ -10,10 +10,10 @@ const IA32_SFMASK = 0xC0000084;
 extern fn syscall_handler() callconv(.C) void;
 
 pub fn setup_syscalls() void {
-	const star: u64 = (16 << 48);
+	const star: u64 = (0x13 << 48) | (0x8 << 32);
 	
-	assm.write_msr(IA32_LSTAR, 0x200); // Disable interrupts while syscall is handled
-	assm.write_msr(IA32_SFMASK, @intFromPtr(&syscall_handler));
+	assm.write_msr(IA32_SFMASK, 0x200); // Disable interrupts while syscall is handled
+	assm.write_msr(IA32_LSTAR, @intFromPtr(&syscall_handler));
 	assm.write_msr(IA32_STAR, star); // Save code segments
 	assm.write_msr(IA32_EFER, assm.read_msr(IA32_EFER) | 1); // enable syscall
 }

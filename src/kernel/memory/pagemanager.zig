@@ -12,34 +12,34 @@ const frame = @import("physicalalloc.zig");
 const std = @import("std");
 
 pub const pml5_t = packed struct {
-	p: u1,
-	rw: u1,
-	us: u1,
-	pwt: u1,
-	pcd: u1,
-	a: u1,
-	avl1: u1,
-	rsvd: u1,
-	avl2: u4,
-	addr: u40,
-	avl3: u11,
-	xd: u1,
+	p: u1 = 1,
+	rw: u1 = 1,
+	us: u1 = 0,
+	pwt: u1 = 0,
+	pcd: u1 = 0,
+	a: u1 = 0,
+	avl1: u1 = 0,
+	rsvd: u1 = 0,
+	avl2: u4 = 0,
+	addr: u40 = 0,
+	avl3: u11 = 0,
+	xd: u1 = 0,
 };
 
 pub const pml4_t = pml5_t;
 pub const pml3_t = packed struct {
-	p: u1,
-	rw: u1,
-	us: u1,
-	pwt: u1,
-	pcd: u1,
-	a: u1,
-	avl1: u1,
-	ps: u1,
-	avl2: u4,
-	addr: u40,
-	avl3: u11,
-	xd: u1,
+	p: u1 = 1,
+	rw: u1 = 1,
+	us: u1 = 0,
+	pwt: u1 = 0,
+	pcd: u1 = 0,
+	a: u1 = 0,
+	avl1: u1 = 0,
+	ps: u1 = 0,
+	avl2: u4 = 0,
+	addr: u40 = 0,
+	avl3: u11 = 0,
+	xd: u1 = 0,
 };
 pub const pml2_t = pml3_t;
 pub const huge_page_t = packed struct {
@@ -124,6 +124,15 @@ pub const PageManager = struct {
 			\\invlpg  [virtaddr]
 			:
 			: [virtaddr] "m"(virtaddr)
+		);
+	}
+	fn flush() void {
+		asm volatile(
+			\\mov %cr3,%rax
+			\\mov %rax,%cr3
+			:
+			:
+			: "rax"
 		);
 	}
 
@@ -217,6 +226,7 @@ pub const PageManager = struct {
 		opts.addr = @truncate(physaddr >> 12);
 
 		pml1[virtaddr_pml1] = @bitCast(opts);
+		flush();
 	}
 
 	pub fn map_2m(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: large_page_t) !void {
@@ -240,6 +250,7 @@ pub const PageManager = struct {
 		opts.ps = 1;
 
 		pml2[virtaddr_pml2] = @bitCast(opts);
+		flush();
 	}
 
 	pub fn map_1g(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: huge_page_t) !void {
@@ -258,6 +269,7 @@ pub const PageManager = struct {
 		opts.ps = 1;
 
 		pml3[virtaddr_pml3] = @bitCast(opts);
+		flush();
 	}
 
 	/// Add pml4 table to handle a region of 256 TiB
@@ -383,6 +395,7 @@ pub const PageManager = struct {
 
 		const ptl1: *page_table_type = @ptrFromInt((try get_addr_from_entry(ptl2_entry)) + self.hhdm_offset);
 		ptl1[virtaddr_pml1] = 0;
+		flush();
 	}
 
 	pub fn is_mapped(self: *PageManager, root_table: *page_table_type, virtaddr: usize) bool {
@@ -421,6 +434,7 @@ pub const PageManager = struct {
 	pub fn delete_entry(self: *PageManager, table: *page_table_type, entry: u9) void {
 		_ = self;
 		table[entry] = 0;
+		flush();
 	}
 
 	pub fn map_4k_alloc(self: *PageManager, 
@@ -504,5 +518,43 @@ pub const PageManager = struct {
 		var opts = options;
 		opts.addr = @truncate(physaddr >> 12);
 		pml1[virtaddr_pml1] = @bitCast(opts);
+		flush();
+	}
+
+	pub fn map_4k_cascade(self: *PageManager, root_table: *page_table_type, virtaddr: usize, 
+		options1: page_t, options2: pml2_t, options3: pml3_t, options4: pml4_t) !void {
+		if(virtaddr & 0xFFF != 0) return error.BAD_ALIGN;
+		// Entries in each table level
+		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
+		const virtaddr_pml3 = (virtaddr >> 30) & 0x1ff;
+		const virtaddr_pml2 = (virtaddr >> 21) & 0x1ff;
+		const virtaddr_pml1 = (virtaddr >> 12) & 0x1ff;
+		// Look at level 4 page table
+		const pml4_entry: pml4_t = @bitCast((try self.get_ptl4(root_table, virtaddr))[virtaddr_pml4]);
+		var opts4 = options4;
+		opts4.addr = pml4_entry.addr;
+		if(pml4_entry.p == 0) return error.PATH_TO_TABLE_DOES_NOT_EXIST;
+		(try self.get_ptl4(root_table, virtaddr))[virtaddr_pml4] = @bitCast(opts4);
+		// Look at level 3 page table 
+		const pml3: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml4_entry) + self.hhdm_offset);
+		const pml3_entry: pml3_t = @bitCast(pml3[virtaddr_pml3]);
+		var opts3 = options3;
+		opts3.addr = pml3_entry.addr;
+		if(pml3_entry.p == 0 or pml3_entry.ps == 1) return error.PATH_TO_TABLE_DOES_NOT_EXIST;
+		pml3[virtaddr_pml3] = @bitCast(opts3);
+		// Look at level 2 page table
+		const pml2: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml3_entry) + self.hhdm_offset);
+		const pml2_entry: pml2_t = @bitCast(pml2[virtaddr_pml2]);
+		var opts2 = options2;
+		opts2.addr = pml2_entry.addr;
+		if(pml2_entry.p == 0 or pml2_entry.ps == 1) return error.PATH_TO_TABLE_DOES_NOT_EXIST;
+		pml2[virtaddr_pml2] = @bitCast(opts2);
+		// Finally map at level 1 page table
+		const pml1: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml2_entry) + self.hhdm_offset);
+		const pml1_entry: page_t = @bitCast(pml1[virtaddr_pml1]);
+		var opts1 = options1;
+		opts1.addr = pml1_entry.addr;
+		pml1[virtaddr_pml1] = @bitCast(opts1);
+		flush();
 	}
 };
