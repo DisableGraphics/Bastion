@@ -19,13 +19,27 @@ pub fn setup_syscalls() void {
 }
 
 pub export fn syscall_handler_stage_1(
-	syscall_no: u64,
-	arg0: u64,
-	arg1: u64,
-	arg2: u64,
-	arg3: u64,
-	arg4: u64,
-	arg5: u64,
+	rdi: u64,
+	rsi: u64,
+	rdx: u64,
+	r10: u64,
+	r8: u64,
+	r9: u64,
+	rax: u64,
 ) callconv(.C) void {
-	std.log.info("sys: {} {} {} {} {} {} {}", .{syscall_no, arg0, arg1, arg2, arg3, arg4, arg5});
+	std.log.info("sys: {} {} {} {} {} {} {}", .{rax, rdi, rsi, rdx, r10, r8, r9});
+	switch(rax) {
+		// ipc_send
+		std.math.maxInt(u64) => {
+
+		},
+		// ipc_recv
+		std.math.maxInt(u64) - 1 => {
+
+		},
+		// any other: send msg
+		else => {
+			
+		}
+	}
 }

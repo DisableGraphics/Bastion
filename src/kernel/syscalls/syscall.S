@@ -1,12 +1,25 @@
 .extern syscall_handler_stage_1
 .global syscall_handler
 syscall_handler:
-	# I'm being a smarty pants: r12 is a callee-saved register 
-	# which means that syscall_handler_stage_1 is the one that manages it.
-	mov %rcx,%r12
-	# Move original RCX to where it was
-	mov %rax,%rcx
+	# Switch to kernel stack
+	swapgs
+	mov %rcx,%gs:24
+	mov %rsp,%rcx
+	mov %gs:8,%rsp
+	push %rcx
+	mov %gs:24,%rcx
+	push %rcx
+	push %r11
+	swapgs
+	# Prepare syscall
+	mov %r10,%rcx
+	push %rax
 	call syscall_handler_stage_1
-	# Move return address to RCX so that we can go back
-	mov %r12,%rcx
+	add $8,%rsp
+	# Switch from the kernel stack to user stack
+	pop %r11
+	pop %rcx
+	pop %rdi
+	mov %rdi,%rsp
+	
 	sysretq

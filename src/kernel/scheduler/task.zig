@@ -88,8 +88,8 @@ pub const Task = extern struct {
 		) Task {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
-		stack_p = stack_p - 9;
-		stack_p[8] = @intFromPtr(func);
+		stack_p = stack_p - 10;
+		stack_p[9] = @intFromPtr(func);
 		stack_p[0] = 0x202;
 
 		return .{
@@ -117,10 +117,10 @@ pub const Task = extern struct {
 		) Task {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
-		stack_p = stack_p - 9;
-		stack_p[8] = @intFromPtr(&jump_to_ring3);
-		stack_p[3] = @intFromPtr(user_stack);
-		stack_p[2] = @intFromPtr(func);
+		stack_p = stack_p - 10;
+		stack_p[9] = @intFromPtr(&jump_to_ring3);
+		stack_p[4] = @intFromPtr(user_stack);
+		stack_p[3] = @intFromPtr(func);
 		stack_p[0] = 0x202;
 
 		return .{

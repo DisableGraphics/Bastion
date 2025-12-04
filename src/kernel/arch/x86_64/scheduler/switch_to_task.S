@@ -5,6 +5,7 @@
 #	rsi = next_thread
 #	rdx = tss
 #	rcx = current_thread_deleted
+#	r8 = per_process_table
 
 switch_task:
 	# rdi = current_thread
@@ -18,6 +19,7 @@ switch_task:
 	push %r13
 	push %r14
 	push %r15
+	push %gs
 	push %fs
 	pushfq
 	mov %rsp, (%r10)        # Save kernel stack pointer (RSP) into TCB (If current_task isn't deleted of course)
@@ -31,7 +33,7 @@ switch_task:
 
 	# Update TSS->rsp0
 	mov %rbx, 4(%rdx)       # adjust rsp0 field in TSS
-	mov $0x28, %bx			# Save TSS GDT descriptor
+	mov $40, %bx			# Save TSS GDT descriptor
 	ltr %bx					# Reload tss so that transitions to kernel work properly
 
 	# Switch address space if needed
@@ -44,13 +46,19 @@ switch_task:
 	# Restore callee-saved regs
 	popfq
 	pop %fs
+	pop %gs
 	pop %r15
 	pop %r14
 	pop %r13
 	pop %r12
 	pop %rbp
 	pop %rbx
-	
+
+	push %r8
 	call unlock_scheduler_from_context_switch
+	pop %r8
+
+	# Save RSP0 into per-process data structure
+	mov %rsp,8(%r8)
 
 	ret

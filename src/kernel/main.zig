@@ -37,9 +37,9 @@ const pca = @import("ipc/portchunkalloc.zig");
 const sysc = @import("syscalls/syscall_setup.zig");
 const ips = @import("ipc/ipcfn.zig");
 const port = @import("ipc/port.zig");
-const cid = @import("memory/cpuid_cache.zig");
 const cpui = @import("arch/x86_64/cpuid.zig");
 const iport = @import("interrupts/iporttable.zig");
+const ppt = @import("memory/per_process_table.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -173,11 +173,7 @@ pub fn setup_mycpuid() !void {
 	if(supports_rdtscp.load(.acquire)) {
 		assm.write_msr(0xC0000103, id);
 	} else {
-		if(id == 0) {
-			try cid.LapicCPUIDCache.init(mp_cores, &km);
-		}
-		const base = cid.LapicCPUIDCache.get_gs(id);
-		assm.write_msr(0xC0000101, base);
+		ppt.PerProcessTable.get_my_table().mycpuid = mycpuid();
 	}
 	const prev = nsetups.fetchAdd(1, .acq_rel);
 	if(prev == mp_cores - 1) {
@@ -207,19 +203,12 @@ pub fn mycpuid_lapic() u64 {
 }
 
 inline fn mycpuid_gs() u32 {
-	return asm volatile(
-		\\movl %%gs:0, %[id]
-		\\lfence
-		: [id]"=r"(->u32)
-		:
-		: 
-	);
+	return @truncate(ppt.PerProcessTable.get_my_table().mycpuid);
 }
 
 fn test2() void {
 	while(true) {
 		asm volatile("syscall");
-		asm volatile("cli");
 	}
 }
 
@@ -325,6 +314,7 @@ fn main() !void {
 		try lpicmn.LAPICManager.ginit(mp_cores, &km);
 		try schman.SchedulerManager.ginit(mp_cores, &km);
 		try ipi.IPIProtocolHandler.ginit(mp_cores, &km);
+		try ppt.PerProcessTable.ginit(mp_cores, &km);
 	}
 	_ = try setup_local_apic_timer(&picc, offset, 0, true);
 
@@ -337,6 +327,7 @@ fn main() !void {
 	try pa.PortAllocator.init(2000, mp_cores, &km);
 	try pca.PortChunkAllocator.init(6, mp_cores, &km);
 	sysc.setup_syscalls();
+	ppt.PerProcessTable.setup_on_cpu(mycpuid());
 
 	const p = pca.PortChunkAllocator.alloc();
 	std.debug.assert(p != null);
@@ -442,6 +433,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
 	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});
 	sysc.setup_syscalls();
+	ppt.PerProcessTable.setup_on_cpu(mycpuid());
 
 	var rsp: u64 = undefined;
 	asm volatile(

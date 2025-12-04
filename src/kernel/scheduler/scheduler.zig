@@ -7,6 +7,7 @@ const tm = @import("timerman.zig");
 const lb = @import("loadbalancer.zig");
 const main = @import("../main.zig");
 const fpu = @import("fpu_buffer_alloc.zig");
+const ppt = @import("../memory/per_process_table.zig");
 
 pub const queue_len = 4;
 pub const LOAD_AVG_TICK_SIZE = 256.0;
@@ -17,6 +18,7 @@ extern fn switch_task(
 	next_task: *task.Task,
 	tss: *ts.tss_t,
 	current_task_deleted: u64,
+	ppt_t: *ppt.PerProcessData,
 	) callconv(.C) void;
 
 pub const scheduler_queue = struct {
@@ -225,11 +227,13 @@ pub const Scheduler = struct {
 			}
 			self.copy_iobitmap(t);
 			if(self.current_process.?.has_used_vector) fpu.save_fpu_buffer(self.current_process.?);
+			const mytable = ppt.PerProcessTable.get_my_table();
 			switch_task(
 				&self.current_process.?,
 				t,
 				self.cpu_tss,
-				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED));
+				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED),
+				mytable);
 		} else {
 			// switch_task unlocks the scheduler at the end
 			self.unlock();
