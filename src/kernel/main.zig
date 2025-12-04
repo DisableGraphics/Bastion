@@ -208,7 +208,10 @@ inline fn mycpuid_gs() u32 {
 
 fn test2() void {
 	while(true) {
-		asm volatile("syscall");
+		asm volatile(
+			\\mov $13,%rax
+			\\syscall
+		);
 	}
 }
 
@@ -402,7 +405,7 @@ fn main() !void {
 	
 	const kernel_stack2 = sa.KernelStackAllocator.alloc().?;
 	const test_task2 = talloc.TaskAllocator.alloc().?;
-	test_task2.* = tsk.Task.init_user_task(
+	test_task2.* = try tsk.Task.init_user_task(
 		@ptrCast(addr),
 		kernel_stack2,
 		@ptrFromInt(user_stack + shittyoffset + 4*pagemanager.PAGE_SIZE),

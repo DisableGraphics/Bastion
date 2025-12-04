@@ -13,6 +13,7 @@ const port = @import("../ipc/port.zig");
 const portchunk = @import("../ipc/portchunkalloc.zig");
 const ips = @import("../ipc/ipcfn.zig");
 const iport = @import("../interrupts/iporttable.zig");
+const pa = @import("../ipc/portalloc.zig");
 
 extern fn jump_to_ring3() callconv(.C) void;
 
@@ -91,7 +92,6 @@ pub const Task = extern struct {
 		stack_p = stack_p - 10;
 		stack_p[9] = @intFromPtr(func);
 		stack_p[0] = 0x202;
-
 		return .{
 			.stack = @ptrCast(stack_p),
 			.kernel_stack = @ptrCast(stack_p),
@@ -105,7 +105,7 @@ pub const Task = extern struct {
 			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
-			.cpu_owner = @truncate(main.mycpuid())
+			.cpu_owner = @truncate(main.mycpuid()),
 		};
 	}
 
@@ -114,7 +114,7 @@ pub const Task = extern struct {
 		kernel_stack: *sa.KernelStack,
 		user_stack: *anyopaque,
 		root_page_table: *page.page_table_type,
-		) Task {
+		) !Task {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
 		stack_p = stack_p - 10;
@@ -122,6 +122,9 @@ pub const Task = extern struct {
 		stack_p[4] = @intFromPtr(user_stack);
 		stack_p[3] = @intFromPtr(func);
 		stack_p[0] = 0x202;
+
+		const prt = pa.PortAllocator.alloc();
+		if(prt == null) return error.NO_PORTS_AVAILABLE;
 
 		return .{
 			.stack = @ptrCast(stack_p),
@@ -136,7 +139,9 @@ pub const Task = extern struct {
 			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
-			.cpu_owner = @truncate(main.mycpuid())
+			.cpu_owner = @truncate(main.mycpuid()),
+			.ports = [_]?*port.Port{prt} ++ ([_]?*port.Port{null} ** (N_PORTS - 1))
+
 		};
 	}
 
