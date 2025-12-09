@@ -50,7 +50,6 @@ pub export fn syscall_handler_stage_1(
 		std.math.maxInt(u64) - 1 => {
 			if(rdi == 0 or rdi > main.km.hhdm_offset or rdi + @sizeOf(ipcfn.ipc_msg.ipc_message_t) > main.km.hhdm_offset) return ipcfn.ipc_msg.EINVALMSG;
 			const ptr: *ipcfn.ipc_msg.ipc_message_t = @ptrFromInt(rdi);
-			if(!recv_only_flags(ptr.flags)) return ipcfn.ipc_msg.EINVALOP;
 			return @intCast(ipcfn.ipc_recv(ptr));
 		},
 		// any other: send msg to configured syscall server (TODO)
