@@ -21,7 +21,7 @@ extern "C" {
 #define ENOOWN 5
 
 // Flags
-/// Paging flags
+/// Paging flags. All operations can only be used on sys_ipc_send() unless otherwise noted.
 #define IPC_FLAG_NONE 0
 //// Share a page with destination. Destination and source can both access the page.
 #define IPC_FLAG_SHARE_PAGE (1 << 0)
@@ -33,6 +33,7 @@ extern "C" {
 /// Process management flags. All operations can only be used on sys_ipc_send() unless otherwise noted.
 //// Creates a new process and returns the port of the process into source.
 //// The new process will share the same address space as the process that created it, so it is effectively a thread of the parent.
+//// Can only be used in sys_ipc_recv()
 #define IPC_FLAG_CREATE_PROCESS (1 << 4)
 //// Destroys the process behind the dest port. Source process has to have permissions to kill the destination process.
 //// Also note that this message is mandatory when finishing a process.
@@ -43,7 +44,7 @@ extern "C" {
 //// Can only be used in sys_ipc_recv()
 #define IPC_FLAG_WAIT_PROCESS (1 << 7)
 
-/// Synchronisation flags
+/// Synchronisation flags. Can be used with both sys_ipc_send() and sys_ipc_recv()
 //// Make the IPC call non blocking (by default IPC calls are blocking). Returns ENODEST if there is no receiver or sender.
 #define IPC_FLAG_NONBLOCKING (1 << 8)
 
