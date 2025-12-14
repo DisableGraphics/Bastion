@@ -29,6 +29,8 @@ extern "C" {
 #define IPC_FLAG_GRANT_PAGE (1 << 1)
 //// Take page from destination. Destination will not be allowed to use that page anymore. Effectively source steals from destination.
 #define IPC_FLAG_REVOKE_PAGE (1 << 2)
+//// Maps page in value0 with the options put in value1. Process that maps the page must be the owner.
+#define IPC_FLAG_MAP_PAGE (1 << 3)
 
 /// Process management flags. All operations can only be used on sys_ipc_send() unless otherwise noted.
 //// Creates a new process and returns the port of the process into source.
@@ -68,6 +70,10 @@ extern "C" {
 #define IPC_FLAG_REVOKE_RIGHTS (1 << 17)
 //// Copies port descriptor and sends it to a destination port.
 #define IPC_FLAG_TRANSFER_PORT (1 << 18)
+//// Creates new port and puts it in the source parameter
+#define IPC_FLAG_CREATE_PORT (1 << 19)
+//// Destroys port.
+#define IPC_FLAG_DESTROY_PORT (1 << 20)
 
 // Rights
 // Rights are granted/revoked using the "value0" field of the message.
