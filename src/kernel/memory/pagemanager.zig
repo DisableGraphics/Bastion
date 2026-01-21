@@ -104,7 +104,108 @@ pub const PagingError = error {
 };
 pub const PAGE_SIZE = 4096;
 
-pub extern fn set_cr3(physaddr_root_table: usize) callconv(.C) void; 
+pub extern fn set_cr3(physaddr_root_table: usize) callconv(.C) void;
+
+pub fn get_cr3() u64 {
+	return asm volatile(
+		"mov %cr3, %[out]"
+		: [out] "=r"(-> u64)
+	);
+}
+
+pub const it_page_type = union(enum) {
+	page: page_t,
+	med_page: large_page_t,
+	large_page: huge_page_t
+};
+
+pub const PageTableIterator = struct {
+    pml4: *page_table_type,
+    hhdm_offset: usize,
+	pm: *PageManager,
+
+    i4: usize = 0,
+    i3: usize = 0,
+    i2: usize = 0,
+    i1: usize = 0,
+
+    pub fn init(pml4: *page_table_type, pm: *PageManager, hhdm_offset: usize) PageTableIterator {
+        return .{
+            .pml4 = pml4,
+            .hhdm_offset = hhdm_offset,
+			.pm = pm
+        };
+    }
+
+    pub fn next(self: *@This()) ?*it_page_type {
+		const max_i4: usize = self.hhdm_offset >> 39;
+        while (self.i4 < max_i4) {
+            const e4: pml4_t = @bitCast(self.pml4[self.i4]);
+            if (!e4.p) {
+                self.i4 += 1;
+                self.i3 = 0;
+                continue;
+            }
+
+            const pml3: *page_table_type =
+                @ptrFromInt((self.pm.get_addr_from_entry(e4) catch unreachable) + self.hhdm_offset);
+
+            while (self.i3 < 512) {
+                const e3: pml3_t = @bitCast(pml3[self.i3]);
+                if (!e3.p) {
+                    self.i3 += 1;
+                    self.i2 = 0;
+                    continue;
+                }
+
+                // 1GiB page
+                if (e3.ps) {
+                    defer self.i3 += 1;
+                    return &pml3[self.i3];
+                }
+
+                const pml2: *page_table_type =
+                    @ptrFromInt((self.pm.get_addr_from_entry(e3) catch unreachable) + self.hhdm_offset);
+
+                while (self.i2 < 512) {
+                    const e2: pml2_t = @bitCast(pml2[self.i2]);
+                    if (!e2.p) {
+                        self.i2 += 1;
+                        self.i1 = 0;
+                        continue;
+                    }
+
+                    // 2MiB page
+                    if (e2.ps) {
+                        defer self.i2 += 1;
+                        return &pml2[self.i2];
+                    }
+
+                    const pml1: *page_table_type =
+                        @ptrFromInt((self.pm.get_addr_from_entry(e2) catch unreachable) + self.hhdm_offset);
+
+                    if (self.i1 < 512) {
+                        const ret = &pml1[self.i1];
+                        self.i1 += 1;
+                        return ret;
+                    }
+
+                    self.i1 = 0;
+                    self.i2 += 1;
+                }
+
+                self.i2 = 0;
+                self.i3 += 1;
+            }
+
+            self.i3 = 0;
+            self.i4 += 1;
+        }
+
+        return null;
+    }
+};
+
 
 pub const PageManager = struct {
 	root_table: ?*page_table_type,
@@ -121,7 +222,7 @@ pub const PageManager = struct {
 
 	fn flush_virtaddr(virtaddr: usize) void {
 		asm volatile(
-			\\invlpg  [virtaddr]
+			\\invlpg  %[virtaddr]
 			:
 			: [virtaddr] "m"(virtaddr)
 		);
@@ -136,15 +237,13 @@ pub const PageManager = struct {
 		);
 	}
 
-	pub fn get_physaddr(self: *PageManager, virtaddr: usize) !usize {
-		const root_table_addr: *page_table_type = @ptrFromInt(assembly.read_cr3() + self.hhdm_offset);
-
+	pub fn get_physaddr(self: *PageManager, root_table: *page_table_type, virtaddr: usize) !usize {
 		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
 		const virtaddr_pml3 = (virtaddr >> 30) & 0x1ff;
 		const virtaddr_pml2 = (virtaddr >> 21) & 0x1ff;
 		const virtaddr_pml1 = (virtaddr >> 12) & 0x1ff;
 
-		const pml4 = try self.get_ptl4(root_table_addr, virtaddr);
+		const pml4 = try self.get_ptl4(root_table, virtaddr);
 		const pml4_entry: pml4_t = @bitCast(pml4[virtaddr_pml4]);
 		
 		const pml3: *page_table_type = @ptrFromInt((try get_addr_from_entry(pml4_entry)) + self.hhdm_offset);
@@ -226,7 +325,7 @@ pub const PageManager = struct {
 		opts.addr = @truncate(physaddr >> 12);
 
 		pml1[virtaddr_pml1] = @bitCast(opts);
-		flush();
+		flush_virtaddr(virtaddr);
 	}
 
 	pub fn map_2m(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: large_page_t) !void {
@@ -250,7 +349,7 @@ pub const PageManager = struct {
 		opts.ps = 1;
 
 		pml2[virtaddr_pml2] = @bitCast(opts);
-		flush();
+		flush_virtaddr(virtaddr);
 	}
 
 	pub fn map_1g(self: *PageManager, root_table: *page_table_type, physaddr: usize, virtaddr: usize, options: huge_page_t) !void {
@@ -269,7 +368,28 @@ pub const PageManager = struct {
 		opts.ps = 1;
 
 		pml3[virtaddr_pml3] = @bitCast(opts);
-		flush();
+		flush_virtaddr(virtaddr);
+	}
+
+	/// Add pml5 table to handle a region of 128 PiB
+	pub fn add_pml5(self: *PageManager, root_table: *page_table_type, pml5: *page_table_type, region: usize) !void {
+		if(self.n_levels < 5) return error.LEVEL_5_NOT_SUPPORTED;
+		if(region & 0x01FF_FFFF_FFFF_FFFF != 0) return error.BAD_ALIGN;
+		const region_entry = (region >> 48) & 0x1ff;
+		root_table[region_entry] = @bitCast(pml5_t {
+			.p = 1,
+			.rw = 1,
+			.us = 0,
+			.pwt = 0,
+			.pcd = 0,
+			.a = 0,
+			.avl1 = 0,
+			.rsvd = 0,
+			.avl2 = 0,
+			.addr = @truncate(@intFromPtr(pml5) >> 12),
+			.avl3 = 0,
+			.xd = 0
+		});
 	}
 
 	/// Add pml4 table to handle a region of 256 TiB
@@ -395,7 +515,7 @@ pub const PageManager = struct {
 
 		const ptl1: *page_table_type = @ptrFromInt((try get_addr_from_entry(ptl2_entry)) + self.hhdm_offset);
 		ptl1[virtaddr_pml1] = 0;
-		flush();
+		flush_virtaddr(virtaddr);
 	}
 
 	pub fn is_mapped(self: *PageManager, root_table: *page_table_type, virtaddr: usize) bool {
@@ -431,10 +551,42 @@ pub const PageManager = struct {
 		return true;
 	}
 
+	pub fn last_map_level(self: *PageManager, root_table: *page_table_type, virtaddr: usize) u8 {
+		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
+		const virtaddr_pml3 = (virtaddr >> 30) & 0x1ff;
+		const virtaddr_pml2 = (virtaddr >> 21) & 0x1ff;
+		const virtaddr_pml1 = (virtaddr >> 12) & 0x1ff;
+
+		const ptl4 = self.get_ptl4(root_table, virtaddr) catch return 0;
+		const ptl4_entry: pml4_t = @bitCast(ptl4[virtaddr_pml4]);
+		if(ptl4_entry.p == 0) {
+			return 1;
+		}
+		const ptl3: *page_table_type = @ptrFromInt((get_addr_from_entry(ptl4_entry) catch return 1) + self.hhdm_offset);
+		const ptl3_entry: pml3_t = @bitCast(ptl3[virtaddr_pml3]);
+		if(ptl3_entry.p == 0) {
+			return 2;
+		}
+		if(ptl3_entry.ps == 1) return 5;
+
+		const ptl2: *page_table_type = @ptrFromInt((get_addr_from_entry(ptl3_entry) catch return 2) + self.hhdm_offset);
+		const ptl2_entry: pml3_t = @bitCast(ptl2[virtaddr_pml2]);
+		if(ptl2_entry.p == 0) {
+			return 3;
+		}
+		if(ptl2_entry.ps == 1) return 5;
+
+		const ptl1: *page_table_type = @ptrFromInt((get_addr_from_entry(ptl2_entry) catch return 3) + self.hhdm_offset);
+		const ptl1_entry: page_t = @bitCast(ptl1[virtaddr_pml1]);
+		if(ptl1_entry.p == 0) {
+			return 4;
+		}
+		return 5;
+	}
+
 	pub fn delete_entry(self: *PageManager, table: *page_table_type, entry: u9) void {
 		_ = self;
 		table[entry] = 0;
-		flush();
 	}
 
 	pub fn map_4k_alloc(self: *PageManager, 
@@ -518,10 +670,10 @@ pub const PageManager = struct {
 		var opts = options;
 		opts.addr = @truncate(physaddr >> 12);
 		pml1[virtaddr_pml1] = @bitCast(opts);
-		flush();
+		flush_virtaddr(virtaddr);
 	}
 
-	pub fn map_4k_cascade(self: *PageManager, root_table: *page_table_type, virtaddr: usize, 
+	pub fn map_4k_cascade(self: *PageManager, root_table: *page_table_type, physaddr: ?usize, virtaddr: usize, 
 		options1: page_t, options2: pml2_t, options3: pml3_t, options4: pml4_t) !void {
 		if(virtaddr & 0xFFF != 0) return error.BAD_ALIGN;
 		// Entries in each table level
@@ -553,8 +705,12 @@ pub const PageManager = struct {
 		const pml1: *page_table_type = @ptrFromInt(try get_addr_from_entry(pml2_entry) + self.hhdm_offset);
 		const pml1_entry: page_t = @bitCast(pml1[virtaddr_pml1]);
 		var opts1 = options1;
-		opts1.addr = pml1_entry.addr;
+		opts1.addr = if(physaddr) |p| @truncate(p >> 12) else pml1_entry.addr;
 		pml1[virtaddr_pml1] = @bitCast(opts1);
-		flush();
+		flush_virtaddr(virtaddr);
+	}
+
+	pub fn iterator(self: *@This(), root_table: *page_table_type) !PageTableIterator {
+		return PageTableIterator.init(root_table, self, self.hhdm_offset);
 	}
 };

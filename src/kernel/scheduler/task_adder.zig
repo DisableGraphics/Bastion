@@ -26,4 +26,15 @@ pub const TaskAdder = struct {
 				ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
 				@intFromPtr(task), 0, 0));
 	}
+
+	pub fn add_blocked_task(task: *tsk.Task) void {
+		// Round-robin
+		const dest = atomicAddModulo(&counter, 1, @truncate(schman.SchedulerManager.schedulers.len));
+		
+		ipi.IPIProtocolHandler.send_ipi(
+			dest, 
+			ipi.IPIProtocolPayload.init_with_data(
+				ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE_BLOCKED, 
+				@intFromPtr(task), 0, 0));
+	}
 };

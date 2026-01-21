@@ -3,6 +3,7 @@ const framealloc = @import("physicalalloc.zig");
 const page = @import("pagemanager.zig");
 const spin = @import("../sync/spinlock.zig");
 const limine = @import("limine");
+const assm = @import("../arch/x86_64/asm.zig");
 
 const kernel_tables = struct{
 	pml3_kernel: *page.page_table_type,
@@ -195,6 +196,7 @@ pub const KernelMemoryManager = struct {
 	}
 
 	fn setup_kernel(self: *KernelMemoryManager) !kernel_tables {
+		const root_table: *page.page_table_type = @ptrFromInt(assm.read_cr3() + self.hhdm_offset);
 		const pml3_kernel: *page.page_table_type = @ptrFromInt((try self.alloc_phys(1)).?);
 		const pml2_kernel: *page.page_table_type = @ptrFromInt((try self.alloc_phys(1)).?);
 
@@ -215,7 +217,7 @@ pub const KernelMemoryManager = struct {
 		std.log.info("Kernel size: {}", .{self.kernel_size});
 		const max_kernel_page = (kernel_pml2_region + self.kernel_size + (1 << 12) - 1) & ~@as(u64, (1 << 12) - 1);
 		while(it < max_kernel_page) : (it += (1 << 12)) {
-			const physical = try self.pm.get_physaddr(it);
+			const physical = try self.pm.get_physaddr(root_table, it);
 			std.log.info("2m addr: {x}, physical: {x}", .{it, physical});
 			try self.pm.map_4k(self.pm.root_table.?, physical, it, .{});
 		}
@@ -359,6 +361,16 @@ pub const KernelMemoryManager = struct {
 		return null;
 	}
 
+	pub fn prepare_pat() void {
+		const IA32_PAT = 0x277;
+		// Entry #0: Write back
+		// Entry #1: Write through
+		// Entry #2: Write Combine
+		// Entry #3: Uncacheable
+		// Else: repeat
+		assm.write_msr(IA32_PAT, 0x0001040600010406);
+	}
+
 	fn setup_hhdm(self: *KernelMemoryManager, kt: kernel_tables, map: *limine.MemoryMapResponse) !void {
 		const buffer_alloc_pages = 32;
 		const buffer = (try self.alloc_virt(buffer_alloc_pages)).?;
@@ -464,7 +476,8 @@ pub const KernelMemoryManager = struct {
 
 		std.log.info("Mapped page tables and bitmap", .{});
 		std.log.info("Kernel start: 0x{x}, kernel end: 0x{x}", .{self.kernel_offset, self.kernel_offset + self.kernel_size});
-		const pt_phys_addr = try self.pm.get_physaddr(@intFromPtr(self.pm.root_table.?));
+		const root_table: *page.page_table_type = @ptrFromInt(assm.read_cr3() + self.hhdm_offset);
+		const pt_phys_addr = try self.pm.get_physaddr(root_table, @intFromPtr(self.pm.root_table.?));
 
 		// Do a temporary mapping
 		const tmp_mapping: *page.page_table_type = @ptrFromInt((try self.alloc_virt(1)) orelse return error.OUT_OF_MEMORY);
@@ -472,7 +485,9 @@ pub const KernelMemoryManager = struct {
 		try self.pm.add_pml3(self.pm.root_table.?, @ptrFromInt(@intFromPtr(tmp_mapping) - self.hhdm_offset), 0);
 		try self.pm.map_1g(self.pm.root_table.?, 0, 0, .{});
 		try self.pm.map_4k(self.pm.root_table.?, @intFromPtr(tmp_mapping) - self.hhdm_offset, @intFromPtr(tmp_mapping), .{});
-
+		// Prepare PAT
+		prepare_pat();
+		// Set up paging
 		page.set_cr3(pt_phys_addr);
 		self.pm.delete_entry(self.pm.root_table.?, 0);
 		std.log.info("Tables changed", .{});

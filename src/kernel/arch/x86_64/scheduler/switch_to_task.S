@@ -33,8 +33,6 @@ switch_task:
 
 	# Update TSS->rsp0
 	mov %rbx, 4(%rdx)       # adjust rsp0 field in TSS
-	mov $40, %bx			# Save TSS GDT descriptor
-	ltr %bx					# Reload tss so that transitions to kernel work properly
 
 	# Switch address space if needed
 	mov %cr3, %r10

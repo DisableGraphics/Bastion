@@ -40,6 +40,8 @@ const port = @import("ipc/port.zig");
 const cpui = @import("arch/x86_64/cpuid.zig");
 const iport = @import("interrupts/iporttable.zig");
 const ppt = @import("memory/per_process_table.zig");
+const asa = @import("memory/addrspacealloc.zig");
+const pp = @import("memory/physicalpage.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -212,6 +214,7 @@ fn test2() void {
 			\\mov $13,%rax
 			\\syscall
 		);
+		asm volatile("hlt");
 	}
 }
 
@@ -296,6 +299,7 @@ fn main() !void {
 		);
 		try km.setup_frame_allocator(response);
 		try km.setup_virtual_stage_one(response);
+		try pp.PhysicalPageManager.ginit(response, &km);
 	} else {
 		return setup_error.MEMORY_MAP_NOT_PRESENT;
 	}
@@ -319,6 +323,7 @@ fn main() !void {
 		try ipi.IPIProtocolHandler.ginit(mp_cores, &km);
 		try ppt.PerProcessTable.ginit(mp_cores, &km);
 	}
+	
 	_ = try setup_local_apic_timer(&picc, offset, 0, true);
 
 	try ta.TimerAllocator.init();
@@ -329,12 +334,11 @@ fn main() !void {
 	try pta.PageTableAllocator.init(1000, mp_cores, &km);
 	try pa.PortAllocator.init(2000, mp_cores, &km);
 	try pca.PortChunkAllocator.init(6, mp_cores, &km);
+	try asa.AddressSpaceAllocator.init(1000, mp_cores, &km);
+	try pp.MappingNodeAllocator.init(32, mp_cores, &km);
+
 	sysc.setup_syscalls();
 	ppt.PerProcessTable.setup_on_cpu(mycpuid());
-
-	const p = pca.PortChunkAllocator.alloc();
-	std.debug.assert(p != null);
-	try pca.PortChunkAllocator.free(p.?);
 
 	if(requests.mp_request.response) |mp_response| {
 		std.log.info("Available: {} CPUs", .{mp_cores});
@@ -383,20 +387,24 @@ fn main() !void {
 
 	// This is to map the test2 function as user-readable.
 	// Cursed thing, do not attempt
+	const adr = asa.AddressSpaceAllocator.alloc().?;
+	adr.cr3 = @ptrFromInt(assm.read_cr3());
+	adr.pageman = km.pm;
+	adr.refcount = std.atomic.Value(u32).init(0);
 	const shittyoffset = 0xA0000000;
 	const ph = (try km.alloc_phys(1)).?;
 	const addr: *[4096]u8 = @ptrFromInt(ph + shittyoffset);
 	try km.pm.map_4k_alloc(km.pm.root_table.?, ph, @intFromPtr(addr), km.pfa, .{.us = 1, .p = 1});
 	@memcpy(addr, @as(*const [4096]u8, @ptrCast(&test2)));
 	const addr_size: usize = @intFromPtr(addr);
-	try km.pm.map_4k_cascade(km.pm.root_table.?, addr_size, 
+	try km.pm.map_4k_cascade(km.pm.root_table.?, null, addr_size, 
 		.{.us = 1, .p = 1}, .{.us = 1, .p = 1}, .{.us = 1, .p = 1}, .{.us = 1, .p = 1});
 	// Do a makeshift stack
 	const user_stack = (try km.alloc_phys(4)).?;
 	try km.pm.map_4k_alloc(km.pm.root_table.?, user_stack, user_stack + shittyoffset, km.pfa, .{.us = 1, .p = 1});
 	for(0..4) |i| {
 		const off = i*pagemanager.PAGE_SIZE;
-		try km.pm.map_4k_cascade(km.pm.root_table.?, user_stack + off + shittyoffset, 
+		try km.pm.map_4k_cascade(km.pm.root_table.?, null, user_stack + off + shittyoffset, 
 			.{.us = 1, .rw = 1, .p = 1}, 
 			.{.us = 1, .rw = 1, .p = 1},
 			.{.us = 1, .rw = 1, .p = 1},
@@ -406,11 +414,11 @@ fn main() !void {
 	const kernel_stack2 = sa.KernelStackAllocator.alloc().?;
 	const test_task2 = talloc.TaskAllocator.alloc().?;
 	test_task2.* = try tsk.Task.init_user_task(
-		@ptrCast(addr),
-		kernel_stack2,
-		@ptrFromInt(user_stack + shittyoffset + 4*pagemanager.PAGE_SIZE),
-		@ptrFromInt(assm.read_cr3()),
+	kernel_stack2,
+	@ptrFromInt(assm.read_cr3()),
+	adr
 	);
+	try test_task2.start_user_task(@ptrCast(addr), @ptrFromInt(user_stack + shittyoffset + 4*pagemanager.PAGE_SIZE));
 	tasadd.TaskAdder.add_task(test_task2);
 	idt.enable_interrupts();
 	sched.schedule(false);
@@ -432,6 +440,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	
 	gdt.init(ap_data.processor_id);
 	idt.init();
+	kmm.KernelMemoryManager.prepare_pat();
 	pagemanager.set_cr3(@intFromPtr(km.pm.root_table.?) - km.pm.hhdm_offset);
 	var lapicc = try setup_local_apic_timer(&picc, km.pm.hhdm_offset, ap_data.processor_id, false);
 	std.log.info("Hello my name is {} (Reported cpuid: {})", .{ap_data.processor_id, mycpuid()});

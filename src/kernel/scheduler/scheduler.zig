@@ -84,6 +84,12 @@ pub const Scheduler = struct {
 		self.add_task_to_list(tas, &self.queues[0]);
 		self.unlock();
 	}
+	// Adds a new blocked task
+	pub fn add_blocked_task(self: *Scheduler, tas: *task.Task) void {
+		self.lock();
+		self.add_task_to_list(tas, &self.blocked_tasks);
+		self.unlock();
+	}
 	// Adds a priority boost task
 	pub fn add_priority_boost(self: *Scheduler, tas: *task.Task) void {
 		self.lock();

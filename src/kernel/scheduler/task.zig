@@ -14,6 +14,7 @@ const portchunk = @import("../ipc/portchunkalloc.zig");
 const ips = @import("../ipc/ipcfn.zig");
 const iport = @import("../interrupts/iporttable.zig");
 const pa = @import("../ipc/portalloc.zig");
+const asp = @import("../memory/addrspace.zig") ;
 
 extern fn jump_to_ring3() callconv(.C) void;
 
@@ -22,7 +23,8 @@ pub const TaskStatus = enum(u64) {
 	IPC,
 	BLOCKED,
 	SLEEPING,
-	FINISHED
+	FINISHED,
+	STARTING
 };
 
 pub const KERNEL_STACK_SIZE = 16*1024;
@@ -53,7 +55,10 @@ pub const Task = extern struct {
 	send_msg: ?*const ips.ipc_msg.ipc_message_t = null,
 	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
 	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
-	irq_registered: u8 = std.math.maxInt(u8),
+	irq_registered: u8 = 0,
+	fault_port: i16 = -1,
+	syscall_port: i16 = -1,
+	addr_space: ?*asp.AddressSpace = null,
 
 	pub fn format(
             self: @This(),
@@ -85,8 +90,8 @@ pub const Task = extern struct {
 	pub fn init_kernel_task(
 		func: *const fn() void,
 		kernel_stack: *sa.KernelStack,
-		root_page_table: *page.page_table_type,
-		) Task {
+		root_page_table: *page.page_table_type
+	) Task {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
 		stack_p = stack_p - 10;
@@ -106,29 +111,19 @@ pub const Task = extern struct {
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
+			
 		};
 	}
 
 	pub fn init_user_task(
-		func: *const fn() void,
 		kernel_stack: *sa.KernelStack,
-		user_stack: *anyopaque,
 		root_page_table: *page.page_table_type,
+		addr_space: *asp.AddressSpace
 		) !Task {
 
-		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
-		stack_p = stack_p - 10;
-		stack_p[9] = @intFromPtr(&jump_to_ring3);
-		stack_p[4] = @intFromPtr(user_stack);
-		stack_p[3] = @intFromPtr(func);
-		stack_p[0] = 0x202;
-
-		const prt = pa.PortAllocator.alloc();
-		if(prt == null) return error.NO_PORTS_AVAILABLE;
-
 		return .{
-			.stack = @ptrCast(stack_p),
-			.kernel_stack = @ptrCast(stack_p),
+			.stack = @ptrCast(kernel_stack),
+			.kernel_stack = @ptrCast(kernel_stack),
 			.root_page_table = root_page_table,
 			.next = null,
 			.prev = null,
@@ -140,9 +135,19 @@ pub const Task = extern struct {
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
-			.ports = [_]?*port.Port{prt} ++ ([_]?*port.Port{null} ** (N_PORTS - 1))
-
+			.addr_space = addr_space
 		};
+	}
+
+	pub fn start_user_task(self: *Task, ip: *anyopaque, sp: *anyopaque) !void {
+		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(self.kernel_stack) + @sizeOf(sa.KernelStack));
+		stack_p = stack_p - 10;
+		stack_p[9] = @intFromPtr(&jump_to_ring3);
+		stack_p[4] = @intFromPtr(sp);
+		stack_p[3] = @intFromPtr(ip);
+		stack_p[0] = 0x202;
+		self.stack = @ptrCast(stack_p);
+		self.kernel_stack = @ptrCast(stack_p);
 	}
 
 	pub fn init_idle_task(
@@ -237,7 +242,7 @@ pub const Task = extern struct {
 		// Free task
 		if(self.cpu_created_on == mycpu) {
 			std.log.info("Destroying kernel task {}", .{self});
-			sa.KernelStackAllocator.free(self.kernel_stack) catch |err| {
+			sa.KernelStackAllocator.free(@ptrCast(self.kernel_stack_top)) catch |err| {
 				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
 				std.log.err("Error: {}", .{err});
 			};

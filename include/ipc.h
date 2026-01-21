@@ -10,15 +10,15 @@ extern "C" {
 /// No error
 #define EOK 0
 /// No destination
-#define ENODEST 1
+#define ENODEST -1
 /// Invalid operation
-#define EINVALOP 2
+#define EINVALOP -2
 /// Invalid message
-#define EINVALMSG 3
+#define EINVALMSG -3
 /// No permissions
-#define ENOPERM 4
+#define ENOPERM -4
 /// Port has been closed by the owner
-#define ENOOWN 5
+#define ENOOWN -5
 
 // Flags
 /// Paging flags. All operations can only be used on sys_ipc_send() unless otherwise noted.
@@ -29,7 +29,7 @@ extern "C" {
 #define IPC_FLAG_GRANT_PAGE (1 << 1)
 //// Take page from destination. Destination will not be allowed to use that page anymore. Effectively source steals from destination.
 #define IPC_FLAG_REVOKE_PAGE (1 << 2)
-//// Maps page in value0 with the options put in value1. Process that maps the page must be the owner.
+//// Changes page options of page in value0 with the options in value1.
 #define IPC_FLAG_MAP_PAGE (1 << 3)
 
 /// Process management flags. All operations can only be used on sys_ipc_send() unless otherwise noted.
@@ -40,17 +40,30 @@ extern "C" {
 //// Destroys the process behind the dest port. Source process has to have permissions to kill the destination process.
 //// Also note that this message is mandatory when finishing a process.
 #define IPC_FLAG_KILL_PROCESS (1 << 5)
-//// Creates a new address space for the port owner process.
+//// Creates a new address space on the port.
 #define IPC_FLAG_NEW_ADDR_SPACE_PROC (1 << 6)
+//// Binds process to address space
+#define IPC_FLAG_BIND_ADDR_SPACE (1 << 23)
+//// Starts process. Instruction pointer goes into value0 and stack goes into value1. Can only be started once.
+#define IPC_FLAG_START_PROCESS (1 << 24)
 //// Waits for the port owner to close the port. As ports are freed when a process is closed, this can also work as a substitute of wait() in POSIX systems.
 //// Can only be used in sys_ipc_recv()
 #define IPC_FLAG_WAIT_PROCESS (1 << 7)
+//// Sleeps a process for a period of time in milliseconds
+#define IPC_FLAG_PROCESS_SLEEP (1 << 8)
+
+#define IPC_FLAG_PROCESS_BLOCK (1 << 21)
+#define IPC_FLAG_PROCESS_UNBLOCK (1 << 22)
 
 /// Synchronisation flags. Can be used with both sys_ipc_send() and sys_ipc_recv()
 //// Make the IPC call non blocking (by default IPC calls are blocking). Returns ENODEST if there is no receiver or sender.
-#define IPC_FLAG_NONBLOCKING (1 << 8)
+#define IPC_FLAG_NONBLOCKING (1 << 10)
 
 /// Interrupt management flags. Unless noted, any flags must only be used on sys_ipc_send()
+//// Register fault handler.
+//// Same as with the syscall handler but for faults.
+//// WARNING: If there is no fault handler registered the process *will* be killed immediately it if causes a CPU fault.
+#define IPC_FLAG_FAULT_HANDLER (1 << 11)
 //// Register to an interrupt. Interrupt number must be added in field value0 of the ipc message.
 #define IPC_FLAG_INT_REGISTER (1 << 12)
 //// Acknowledge interrupt. If interrupt is not acknowledged, the interrupt source will not emit more interrupts until it is acknowledged. 
@@ -90,6 +103,18 @@ extern "C" {
 #define IPC_RIGHT_MODIF_RIGHTS (1 << 4)
 /// Allows other processes to grant, revoke and share pages.
 #define IPC_RIGHT_PAGING (1 << 5)
+
+// Mapping options
+// The following options are guaranteed to exist in most processors:
+#define PAGE_MAP_USER (1 << 1)
+#define PAGE_MAP_READ (1 << 2)
+#define PAGE_MAP_WRITE (1 << 3)
+#define PAGE_MAP_EXECUTE (1 << 4)
+// Caching options. Mutually exclusive and optional, returns EINVALOP if used in the same mapping.
+// Default behaviour is write-back
+#define PAGE_MAP_CACHE_WRITE_THROUGH (1 << 5)
+#define PAGE_MAP_CACHE_WRITE_COMBINE (1 << 6)
+#define PAGE_MAP_CACHE_UNCACHEABLE (1 << 7)
 
 // Some type definitions for messages
 typedef int16_t port_t;

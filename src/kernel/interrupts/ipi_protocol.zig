@@ -25,15 +25,20 @@ pub const IPIProtocolMessageType = enum(u64) {
 	SCHEDULE,
 	TASK_LOAD_BALANCING_REQUEST,
 	TASK_LOAD_BALANCING_RESPONSE,
+	TASK_LOAD_BALANCING_RESPONSE_BLOCKED,
 
 	LAPIC_TIMER_SYNC_STAGE_1,
 	LAPIC_TIMER_SYNC_STAGE_2,
 
 	FREE_TASK,
+	EXIT_TASK,
 	FREE_FPU_BUFFER,
 	FREE_IO_BITMAP,
 	FREE_PORT,
-	SEND_IRQ_MSG
+	SEND_IRQ_MSG,
+
+	BLOCK_TASK,
+	UNBLOCK_TASK
 };
 
 pub const IPIProtocolPayload = struct {
@@ -126,6 +131,14 @@ pub const IPIProtocolHandler = struct {
 						sch.add_task(task);
 					}
 				},
+				IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE_BLOCKED => {
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					if(p0 >= main.km.hhdm_offset) {
+						const task: *tsk.Task = @ptrFromInt(p0);
+						task.cpu_owner = @truncate(mycpu);
+						sch.add_blocked_task(task);
+					}
+				},
 				IPIProtocolMessageType.LAPIC_TIMER_SYNC_STAGE_1 => {
 					// Just swallow the error
 				},
@@ -156,6 +169,21 @@ pub const IPIProtocolHandler = struct {
 					_ = ips.ipc_send_from_irq(
 						ips.ipc_msg.ipc_message_t{.dest = 0,.source = 0,.flags = 0,.npages = 0,.page = 0,.value0 = irqn},
 					pseudotask);
+				},
+				IPIProtocolMessageType.EXIT_TASK => {
+					const task: *tsk.Task = @ptrFromInt(p0);
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					sch.exit(task);
+				},
+				IPIProtocolMessageType.BLOCK_TASK => {
+					const task: *tsk.Task = @ptrFromInt(p0);
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					sch.block(task, tsk.TaskStatus.BLOCKED);
+				},
+				IPIProtocolMessageType.UNBLOCK_TASK => {
+					const task: *tsk.Task = @ptrFromInt(p0);
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					sch.unblock(task);
 				},
 				else => {
 					std.log.err("No handler for IPI payload of type: {s}", .{@tagName(msgt)});

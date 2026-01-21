@@ -66,6 +66,10 @@ fn wake_all(prt: *port.Port, sch: *sched.Scheduler, cpuid: u32) void {
 	while(prt.dequeueSender()) |send| {
 		wake_task(send, sch, cpuid);
 	}
+	// Wake up all waiters
+	while(prt.dequeueWaiter()) |wait| {
+		wake_task(wait, sch, cpuid);
+	}
 }
 
 pub fn port_close(task: *tsk.Task, prt: i16) !void {

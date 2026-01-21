@@ -56,3 +56,13 @@ pub fn alloc(ncores: u64, allocator: *kmm.KernelMemoryManager) !void {
 pub fn get_tss(core_id: u32) *tss_t {
     return &tss_s[core_id];
 }
+
+pub fn load_tss() void {
+	asm volatile(
+		\\mov $40, %ax
+		\\ltr %ax
+		:
+		:
+		: "ax"
+	);
+}

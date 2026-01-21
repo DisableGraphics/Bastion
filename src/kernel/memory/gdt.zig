@@ -43,6 +43,7 @@ pub fn gdt_init(local_gdt: *gdt_type, core_id: u32) void {
 	const high32bit: u32 =  @truncate(@intFromPtr(tss.get_tss(core_id)) >> 32);
 	local_gdt[6] = high32bit;
 	load_gdt(&gdtreg);
+	tss.load_tss();
 }
 
 pub fn alloc(ncores: u64, allocator: *kmm.KernelMemoryManager) !void {
