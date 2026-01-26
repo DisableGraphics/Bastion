@@ -67,9 +67,10 @@ pub fn build(b: *std.Build) void {
 	// Import the Limine module into the kernel
 	kernel.root_module.addImport("limine", limine_module);
 	kernel.addIncludePath(b.path("include"));
+	// Try to eliminate a GPF
+	kernel.root_module.error_tracing = false;
     kernel.setLinkerScript(b.path("src/kernel/arch/x86_64/linker.ld"));
     b.installArtifact(kernel);
-
 
     const kernel_step = b.step("kernel", "Build the kernel");
     kernel_step.dependOn(&kernel.step);

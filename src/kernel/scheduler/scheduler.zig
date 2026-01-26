@@ -169,10 +169,6 @@ pub const Scheduler = struct {
 
 	// Needs to have a idle task set up, or it will panic
 	fn next_task(self: *Scheduler) *task.Task {
-		// Cleanup task has the highest priority. Why? because memory is limited. We need to free the dead process as soon as possible.
-		if(self.cleanup_task) |t| {
-			if(t.state == task.TaskStatus.READY) return t;
-		}
 		// Second highest priority goes to the priority boost task
 		if(self.priority_boost_task) |t| {
 			if(t.state == task.TaskStatus.READY) return t;
@@ -189,6 +185,9 @@ pub const Scheduler = struct {
 			if(self.search_available_task(task_param)) |t| {
 				return t;
 			}
+		}
+		if(self.cleanup_task) |t| {
+			if(t.state == task.TaskStatus.READY) return t;
 		}
 		return self.idle_task.?;
 	}
@@ -233,6 +232,7 @@ pub const Scheduler = struct {
 			}
 			self.copy_iobitmap(t);
 			if(self.current_process.?.has_used_vector) fpu.save_fpu_buffer(self.current_process.?);
+			self.current_process.?.save_tls();
 			const mytable = ppt.PerProcessTable.get_my_table();
 			switch_task(
 				&self.current_process.?,

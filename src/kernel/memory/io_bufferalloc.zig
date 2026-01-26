@@ -6,4 +6,4 @@ const std = @import("std");
 const tss = @import("tss.zig");
 const ma = @import("multialloc.zig");
 
-pub const IOBufferAllocator = ma.MultiAlloc(tss.io_bitmap_t, true, 6, &[_]type{});
+pub const IOBufferAllocator = ma.MultiAlloc(tss.io_bitmap_t, true, 6);

@@ -166,6 +166,8 @@ var supports_rdtscp: std.atomic.Value(bool) = std.atomic.Value(bool).init(false)
 var setup_complete: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 var nsetups: std.atomic.Value(u32) = std.atomic.Value(u32).init(0);
 
+var physical_memory_manager_port = port.Port.init();
+
 pub fn setup_mycpuid() !void {
 	const id = mycpuid_lapic();
 	if(id == 0) {
@@ -206,16 +208,6 @@ pub fn mycpuid_lapic() u64 {
 
 inline fn mycpuid_gs() u32 {
 	return @truncate(ppt.PerProcessTable.get_my_table().mycpuid);
-}
-
-fn test2() void {
-	while(true) {
-		asm volatile(
-			\\mov $13,%rax
-			\\syscall
-		);
-		asm volatile("hlt");
-	}
 }
 
 fn on_priority_boost() void {
@@ -260,9 +252,10 @@ fn colorpoint() void {
 }
 
 fn cleanup() void {
+	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
+	_ = sched.current_process.?.add_port(&physical_memory_manager_port) catch unreachable;
 	while(true) {
 		std.log.debug("Deleting dead tasks", .{});
-		var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 		sched.clear_deleted_tasks();
 		sched.block(sched.current_process.?, tsk.TaskStatus.SLEEPING);
 	}
@@ -364,12 +357,12 @@ fn main() !void {
 		assm.read_cr3(),
 	);
 
-	//const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
-	//var priority_boost = tsk.Task.init_kernel_task(
-		//on_priority_boost,
-		//kernel_stack_priority_boost,
-		//@ptrFromInt(assm.read_cr3()),
-	//);
+	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
+	var priority_boost = tsk.Task.init_kernel_task(
+		on_priority_boost,
+		kernel_stack_priority_boost,
+		@ptrFromInt(assm.read_cr3()),
+	);
 	const cleanup_stack = sa.KernelStackAllocator.alloc().?;
 	var cleanup_task = tsk.Task.init_kernel_task(
 		cleanup,
@@ -382,44 +375,9 @@ fn main() !void {
 
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(0);	
 	sched.add_idle(&idle_task);
-	//sched.add_priority_boost(&priority_boost);
+	sched.add_priority_boost(&priority_boost);
 	sched.add_cleanup(&cleanup_task);
 
-	// This is to map the test2 function as user-readable.
-	// Cursed thing, do not attempt
-	const adr = asa.AddressSpaceAllocator.alloc().?;
-	adr.cr3 = @ptrFromInt(assm.read_cr3());
-	adr.pageman = km.pm;
-	adr.refcount = std.atomic.Value(u32).init(0);
-	const shittyoffset = 0xA0000000;
-	const ph = (try km.alloc_phys(1)).?;
-	const addr: *[4096]u8 = @ptrFromInt(ph + shittyoffset);
-	try km.pm.map_4k_alloc(km.pm.root_table.?, ph, @intFromPtr(addr), km.pfa, .{.us = 1, .p = 1});
-	@memcpy(addr, @as(*const [4096]u8, @ptrCast(&test2)));
-	const addr_size: usize = @intFromPtr(addr);
-	try km.pm.map_4k_cascade(km.pm.root_table.?, null, addr_size, 
-		.{.us = 1, .p = 1}, .{.us = 1, .p = 1}, .{.us = 1, .p = 1}, .{.us = 1, .p = 1});
-	// Do a makeshift stack
-	const user_stack = (try km.alloc_phys(4)).?;
-	try km.pm.map_4k_alloc(km.pm.root_table.?, user_stack, user_stack + shittyoffset, km.pfa, .{.us = 1, .p = 1});
-	for(0..4) |i| {
-		const off = i*pagemanager.PAGE_SIZE;
-		try km.pm.map_4k_cascade(km.pm.root_table.?, null, user_stack + off + shittyoffset, 
-			.{.us = 1, .rw = 1, .p = 1}, 
-			.{.us = 1, .rw = 1, .p = 1},
-			.{.us = 1, .rw = 1, .p = 1},
-			.{.us = 1, .rw = 1, .p = 1});
-	}
-	
-	const kernel_stack2 = sa.KernelStackAllocator.alloc().?;
-	const test_task2 = talloc.TaskAllocator.alloc().?;
-	test_task2.* = try tsk.Task.init_user_task(
-	kernel_stack2,
-	@ptrFromInt(assm.read_cr3()),
-	adr
-	);
-	try test_task2.start_user_task(@ptrCast(addr), @ptrFromInt(user_stack + shittyoffset + 4*pagemanager.PAGE_SIZE));
-	tasadd.TaskAdder.add_task(test_task2);
 	idt.enable_interrupts();
 	sched.schedule(false);
 
@@ -464,12 +422,12 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	nm.enable_vector();
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
-	//const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
-	//var priority_boost = tsk.Task.init_kernel_task(
-		//on_priority_boost,
-		//kernel_stack_priority_boost,
-		//@ptrFromInt(assm.read_cr3()),
-	//);
+	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
+	var priority_boost = tsk.Task.init_kernel_task(
+		on_priority_boost,
+		kernel_stack_priority_boost,
+		@ptrFromInt(assm.read_cr3()),
+	);
 	const cleanup_stack = sa.KernelStackAllocator.alloc().?;
 	var cleanup_task = tsk.Task.init_kernel_task(
 		cleanup,
@@ -479,7 +437,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	sched.add_idle(&idle_task);
 	
 	sched.add_cleanup(&cleanup_task);
-	//sched.add_priority_boost(&priority_boost);
+	sched.add_priority_boost(&priority_boost);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	idt.enable_interrupts();
 	sched.schedule(false);

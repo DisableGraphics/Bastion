@@ -19,8 +19,6 @@ switch_task:
 	push %r13
 	push %r14
 	push %r15
-	push %gs
-	push %fs
 	pushfq
 	mov %rsp, (%r10)        # Save kernel stack pointer (RSP) into TCB (If current_task isn't deleted of course)
 .no_current:
@@ -43,8 +41,6 @@ switch_task:
 
 	# Restore callee-saved regs
 	popfq
-	pop %fs
-	pop %gs
 	pop %r15
 	pop %r14
 	pop %r13

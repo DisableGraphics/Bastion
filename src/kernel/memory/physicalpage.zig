@@ -4,15 +4,17 @@ const limine = @import("limine");
 const km = @import("kmm.zig");
 const page = @import("pagemanager.zig");
 const ma = @import("multialloc.zig");
+const ipi = @import("../interrupts/ipi_protocol.zig");
+const main = @import("../main.zig");
 
-pub const MappingNodeAllocator = ma.MultiAlloc(MappingNode, false, 1024, 
-	&[_]type{}); 
+pub const MappingNodeAllocator = ma.MultiAlloc(MappingNode, false, 1024); 
 
-const MappingNode = struct {
+pub const MappingNode = struct {
 	as: *addrspac.AddressSpace,
 	vpn: usize, 
 	next: ?*MappingNode,
 	parent: ?*MappingNode, 
+	cpu_owner: u64,
 };
 const OwnerData = struct {
 	owner: ?*addrspac.AddressSpace,
@@ -36,7 +38,7 @@ pub const PhysicalPage = struct {
 	}
 
 	pub fn is_in_addr_space(self: *PhysicalPage, ad: *addrspac.AddressSpace) bool {
-		const s = self.refcount.load(.acq_rel);
+		const s = self.refcount.load(.acquire);
 		if(s == 1) {
 			return ad == self.mapping_data.single.owner;
 		} else if(s > 1) {
@@ -55,19 +57,25 @@ pub const PhysicalPage = struct {
 		const s = self.refcount.fetchAdd(1, .acq_rel);
 		if(s == 0) {
 			self.mapping_data.single.owner = ad;
+			self.mapping_data.single.vaddr = vpn;
 		} else if(s == 1) {
 			const curr_on_err = self.mapping_data.single;
 			const current = MappingNode {
 				.as = curr_on_err.owner.?,
 				.vpn = curr_on_err.vaddr,
 				.parent = null,
-				.next = null
+				.next = null,
+				.cpu_owner = main.mycpuid()
 			};
 
-			self.mapping_data.shared_list = MappingNodeAllocator.alloc() orelse return error.NO_SPACE_AVAILABLE;
+			self.mapping_data.shared_list = MappingNodeAllocator.alloc() orelse {
+				_ = self.refcount.fetchSub(1, .acq_rel);
+				return error.NO_SPACE_AVAILABLE;
+			};
 			self.mapping_data.shared_list.?.next = MappingNodeAllocator.alloc() orelse {
 				MappingNodeAllocator.free(self.mapping_data.shared_list.?) catch unreachable;
 				self.mapping_data.single = curr_on_err;
+				_ = self.refcount.fetchSub(1, .acq_rel);
 				return error.NO_SPACE_AVAILABLE;
 			};
 			self.mapping_data.shared_list.?.* = current;
@@ -75,7 +83,8 @@ pub const PhysicalPage = struct {
 				.as = ad,
 				.vpn = vpn,
 				.next = null,
-				.parent = null
+				.parent = null,
+				.cpu_owner = main.mycpuid()
 			};
 		} else {
 			var head = self.mapping_data.shared_list;
@@ -86,15 +95,85 @@ pub const PhysicalPage = struct {
 			}
 
 			head.?.next = MappingNodeAllocator.alloc() orelse {
+				_ = self.refcount.fetchSub(1, .acq_rel);
 				return error.NO_SPACE_AVAILABLE;
 			};
 			head.?.next.?.* = MappingNode{
 				.as = ad,
 				.vpn = vpn,
 				.next = null,
-				.parent = null
+				.parent = null,
+				.cpu_owner = main.mycpuid()
 			};
 		}
+	}
+
+	pub fn remove_addr_space(self: *PhysicalPage, ad: *addrspac.AddressSpace) ?struct {
+		nentries: usize, virtaddr: usize} {
+		const r = self.refcount.load(.acquire);
+		if(r == 1) {
+			if(self.mapping_data.single.owner == ad) {
+				const ref = self.refcount.fetchSub(1, .acq_rel);
+				self.mapping_data.single.owner = null;
+				return .{ .nentries = ref, .virtaddr = self.mapping_data.single.vaddr};
+			}
+		} else if(r == 2) {
+			var head = self.mapping_data.shared_list;
+			var h1 = head;
+			while(h1 != null and h1.?.as != ad) {
+				head = h1;
+				h1 = h1.?.next;
+			}
+			if(h1 != null) {
+				const ref = self.refcount.fetchSub(1, .acq_rel);
+				const n1 = self.mapping_data.shared_list;
+				const n2 = self.mapping_data.shared_list.?.next;
+
+				const result = if(n1.?.as == ad) n2.? else n1.?;
+				const opp = if(n1.?.as == ad) n1.? else n2.?;
+				const virtaddr_ret = opp.vpn;
+
+				self.mapping_data.single = .{.owner = result.as, .vaddr = result.vpn};
+
+				const v = [_]?*MappingNode{n1, n2};
+				for(v) |node| {
+					if(node.?.cpu_owner == main.mycpuid()) {
+						MappingNodeAllocator.free(node.?) catch unreachable;
+					} else {
+						ipi.IPIProtocolHandler.send_ipi(@truncate(node.?.cpu_owner), 
+							ipi.IPIProtocolPayload.init_with_data(
+								ipi.IPIProtocolMessageType.FREE_PAGE_NODE, 
+								@intFromPtr(node.?), 0,0)
+						);
+					}
+				}
+				return .{ .nentries = ref, .virtaddr = virtaddr_ret};
+			}
+		} else if(r > 2) {
+			var head = self.mapping_data.shared_list;
+			var h1 = head;
+			while(h1 != null and h1.?.as != ad) {
+				head = h1;
+				h1 = h1.?.next;
+			}
+			if(h1 != null) {
+				const ref = self.refcount.fetchSub(1, .acq_rel);
+				const node = head.?.next;
+				const virtaddr_ret = node.?.vpn;
+				if(node.?.cpu_owner == main.mycpuid()) {
+					MappingNodeAllocator.free(node.?) catch unreachable;
+				} else {
+					ipi.IPIProtocolHandler.send_ipi(@truncate(node.?.cpu_owner), 
+						ipi.IPIProtocolPayload.init_with_data(
+							ipi.IPIProtocolMessageType.FREE_PAGE_NODE, 
+							@intFromPtr(node.?), 0,0)
+					);
+				}
+				head.?.next = head.?.next.?.next;
+				return .{ .nentries = ref, .virtaddr = virtaddr_ret};
+			}
+		}
+		return null;
 	}
 
 	pub fn set_owner(self: *PhysicalPage, ad: *addrspac.AddressSpace, vdn: usize) void {
@@ -168,7 +247,7 @@ pub const PhysicalPageManager = struct {
 
 	pub fn get(physaddr: usize) ?*PhysicalPage {
 		for(regions) |region| {
-			if(region.start >= physaddr and physaddr < region.end) {
+			if(physaddr >= region.start and physaddr < region.end) {
 				const offset = (physaddr - region.start) / page.PAGE_SIZE;
 				return &region.physical_pages[offset];
 			}

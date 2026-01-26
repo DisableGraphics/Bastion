@@ -1,12 +1,9 @@
 // Based on https://github.com/ThatDreche/spinlock/blob/main/spinlock.zig
 
 const std = @import("std");
-const idt = @import("../interrupts/idt.zig");
-
 const spinlock_state = enum(u8){Unlocked,Locked};
 
 pub const SpinLock = struct {
-	
 	state: std.atomic.Value(spinlock_state),
 
 	pub fn init() SpinLock {

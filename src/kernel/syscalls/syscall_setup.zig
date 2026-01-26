@@ -319,7 +319,8 @@ fn start_process(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 		if(meself == owner or p.rights_mask.load(.seq_cst) & port.Rights.KILL != 0) {
 			owner.?.start_user_task(
 				@ptrFromInt(ptr.value0),
-				@ptrFromInt(ptr.value1)
+				@ptrFromInt(ptr.value1),
+				task.tls_registers.init(ptr.value2, ptr.value3)
 			) catch {
 				return ipcfn.ipc_msg.ENODEST;
 			};
@@ -479,8 +480,8 @@ fn change_options(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 
 fn transfer_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 	if(!is_valid_mapping(ptr.value0)) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.page & 0xFFF != 0) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.value1 & 0xFFF != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.page & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.value1 & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	const meself = sch.current_process.?;
 	const prt = meself.get_port(ptr.dest);
@@ -526,8 +527,8 @@ fn transfer_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 
 fn share_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 	if(!is_valid_mapping(ptr.value0)) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.page & 0xFFF != 0) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.value1 & 0xFFF != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.page & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.value1 & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	const meself = sch.current_process.?;
 	const prt = meself.get_port(ptr.dest);
@@ -565,8 +566,8 @@ fn share_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 
 fn revoke_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 	if(!is_valid_mapping(ptr.value0)) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.page & 0xFFF != 0) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.value1 & 0xFFF != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.page & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.value1 & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	const meself = sch.current_process.?;
 	const prt = meself.get_port(ptr.dest);
@@ -579,10 +580,10 @@ fn revoke_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 			// Check that all are transferrable
 			for(0..ptr.npages) |i| {
 				const virtaddr = ptr.page + i*page.PAGE_SIZE;
-				const physaddr = main.km.pm.get_physaddr(owner.addr_space.?.cr3.?, virtaddr) catch return ipcfn.ipc_msg.ENODEST;
+				const physaddr = main.km.pm.get_physaddr(owner.?.addr_space.?.cr3.?, virtaddr) catch return ipcfn.ipc_msg.ENODEST;
 				// Check that the page is not shared and that I'm the granter
 				if(pp.PhysicalPageManager.get(physaddr)) |phyp| {
-					if(phyp.grantor.owner != meself) return ipcfn.ipc_msg.ENOPERM;
+					if(phyp.grantor.owner != meself.addr_space.?) return ipcfn.ipc_msg.ENOPERM;
 				} else {
 					return ipcfn.ipc_msg.ENODEST;
 				}
@@ -591,7 +592,7 @@ fn revoke_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 			for(0..ptr.npages) |i| {
 				const virtaddr_origin = ptr.page + i*page.PAGE_SIZE;
 				const virtaddr_dest = ptr.value1 + i*page.PAGE_SIZE;
-				const physaddr = main.km.pm.get_physaddr(owner.addr_space.?.cr3.?, virtaddr_origin) catch unreachable;
+				const physaddr = main.km.pm.get_physaddr(owner.?.addr_space.?.cr3.?, virtaddr_origin) catch unreachable;
 				const physpage = pp.PhysicalPageManager.get(physaddr) orelse unreachable;
 				// Validated that page is not shared last step
 				physpage.grantor.owner = null;
@@ -646,6 +647,7 @@ pub export fn syscall_handler_stage_1(
 				ipcfn.ipc_msg.IPC_FLAG_MAP_PAGE => change_options(ptr),
 				ipcfn.ipc_msg.IPC_FLAG_GRANT_PAGE => transfer_page_range(ptr),
 				ipcfn.ipc_msg.IPC_FLAG_SHARE_PAGE => share_page_range(ptr),
+				ipcfn.ipc_msg.IPC_FLAG_REVOKE_PAGE => revoke_page_range(ptr),
 
 				else => ipcfn.ipc_msg.EINVALOP
 			};
@@ -687,5 +689,37 @@ pub export fn syscall_handler_stage_1(
 			// No syscall server registered then -1
 			return -1;
 		}
+	}
+}
+
+
+pub fn inner_transfer_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t, srcaddrspace: *as.AddressSpace) ret_t {
+	if(!is_valid_mapping(ptr.value0)) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.page & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
+	if(ptr.value1 & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
+	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
+	const prt = sch.current_process.?.get_port(ptr.dest);
+	if(prt) |p| {
+		const owner = p.owner.load(.seq_cst);
+		if(owner == null) @panic("MEMORY MANAGER DOES NOT EXIST");
+		// In this case it's != instead of == because I cannot transfer pages to myself.
+		const opts = options(ptr.value0);
+		// Transfer
+		for(0..ptr.npages) |i| {
+			const virtaddr_origin = ptr.page + i*page.PAGE_SIZE;
+			const virtaddr_dest = ptr.value1 + i*page.PAGE_SIZE;
+			const physaddr = main.km.pm.get_physaddr(srcaddrspace.cr3.?, virtaddr_origin) catch unreachable;
+			const physpage = pp.PhysicalPageManager.get(physaddr) orelse unreachable;
+			// Validated that page is not shared last step
+			physpage.set_grantor(srcaddrspace, virtaddr_origin);
+			physpage.set_owner(owner.?.addr_space.?, virtaddr_dest);
+
+			srcaddrspace.remove_mapping_4k(virtaddr_origin) catch unreachable;
+			owner.?.addr_space.?.add_mapping_4k(physaddr, virtaddr_dest, opts.o1, opts.o2, opts.o3, opts.o4) catch unreachable;
+		}
+		// Signal page transfer
+		return ipcfn.ipc_send(ptr);
+	} else {
+		return ipcfn.ipc_msg.ENODEST;
 	}
 }

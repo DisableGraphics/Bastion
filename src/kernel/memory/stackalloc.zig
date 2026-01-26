@@ -7,4 +7,4 @@ const ma = @import("multialloc.zig");
 
 pub const KernelStack = [4*page.PAGE_SIZE]u8;
 
-pub const KernelStackAllocator = ma.MultiAlloc(KernelStack, true, 64, &[_]type{});
+pub const KernelStackAllocator = ma.MultiAlloc(KernelStack, true, 64);

@@ -3,7 +3,7 @@ const kmm = @import("kmm.zig");
 const main = @import("../main.zig");
 const page = @import("pagemanager.zig");
 
-pub fn MultiAlloc(comptime inner: type, comptime needs_zeroed: bool, comptime minimum_expected_per_core: u64, comptime cast_types: []const type) type {
+pub fn MultiAlloc(comptime inner: type, comptime needs_zeroed: bool, comptime minimum_expected_per_core: u64) type {
 	return struct {
 		var allocators: []slab.SlabAllocator(inner) = undefined;
 		pub fn init(expected_ports: u64, mp_cores: u64, km: *kmm.KernelMemoryManager) !void {
@@ -44,38 +44,11 @@ pub fn MultiAlloc(comptime inner: type, comptime needs_zeroed: bool, comptime mi
 			return allocators[myid].free(ts);
 		}
 
-		pub fn alloc_as(comptime T: type) ?*T {
-			if (cast_types.len != 0) {
-				comptime {
-					var ok = false;
-					for (cast_types) |A| {
-						if (A == T) {
-							ok = true;
-							break;
-						}
-					}
-					if (!ok) @compileError("alloc_as: requested type is not in allowed casts");
-				}
-				return @ptrCast(alloc());
+		pub fn get_cpu_owner(ts: *inner) ?u64 {
+			for(0..allocators.len) |i| {
+				if(allocators[i].allocated_from_this_slab(ts)) return i;
 			}
-			@compileError("A whitelist must be provided in order to use alloc_as");
-		}
-
-		pub fn free_as(comptime T: type, ts: *T) !void {
-			if (cast_types.len != 0) {
-				comptime {
-					var ok = false;
-					for (cast_types) |A| {
-						if (A == T) {
-							ok = true;
-							break;
-						}
-					}
-					if (!ok) @compileError("free_as: requested type is not in allowed casts");
-				}
-				return free(@as(*inner, @ptrCast(ts)));
-			}
-			@compileError("A whitelist must be provided in order to use free_as");
+			return null;
 		}
 	};
 }

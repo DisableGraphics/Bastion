@@ -8,7 +8,7 @@ const ii = @import("../interrupts/illegal_instruction.zig");
 const ma = @import("../memory/multialloc.zig");
 
 pub const fpu_buffer = [2880]u8;
-pub const FPUBufferAllocator = ma.MultiAlloc(fpu_buffer, true, 56, &[_]type{});
+pub const FPUBufferAllocator = ma.MultiAlloc(fpu_buffer, true, 56);
 
 pub fn save_fpu_buffer(task: *tsk.Task) void {
 	ii.save_vector(&task.fpu_buffer.?[0]);

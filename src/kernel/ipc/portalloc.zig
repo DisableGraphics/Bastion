@@ -6,4 +6,4 @@ const std = @import("std");
 const port = @import("port.zig");
 const ma = @import("../memory/multialloc.zig");
 
-pub const PortAllocator = ma.MultiAlloc(port.Port, false, 128, &[_]type{});
+pub const PortAllocator = ma.MultiAlloc(port.Port, false, 128);

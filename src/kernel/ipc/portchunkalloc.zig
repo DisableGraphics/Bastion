@@ -8,4 +8,4 @@ const ma = @import("../memory/multialloc.zig");
 
 pub const port_chunk = [256]?*port.Port;
 
-pub const PortChunkAllocator = ma.MultiAlloc(port_chunk, true, 6, &[_]type{});
+pub const PortChunkAllocator = ma.MultiAlloc(port_chunk, true, 6);

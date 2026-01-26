@@ -30,5 +30,6 @@ const std = @import("std");
 pub export fn unlock_scheduler_from_context_switch() callconv(.C) void {
 	var sceh = SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	sceh.has_transferred_ok.store(true, .seq_cst);
+	sceh.current_process.?.load_tls();
 	sceh.unlock();
 }

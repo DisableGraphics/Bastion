@@ -45,6 +45,8 @@ extern "C" {
 //// Binds process to address space
 #define IPC_FLAG_BIND_ADDR_SPACE (1 << 23)
 //// Starts process. Instruction pointer goes into value0 and stack goes into value1. Can only be started once.
+//// Thread local storage address goes into value2, value3, value4 or value5 depending on the ABI and architecture
+///// x86_64 -> fs is value2 and gs is value3
 #define IPC_FLAG_START_PROCESS (1 << 24)
 //// Waits for the port owner to close the port. As ports are freed when a process is closed, this can also work as a substitute of wait() in POSIX systems.
 //// Can only be used in sys_ipc_recv()

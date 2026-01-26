@@ -6,4 +6,4 @@ const page = @import("../memory/pagemanager.zig");
 const std = @import("std");
 const ma = @import("../memory/multialloc.zig");
 
-pub const TaskAllocator = ma.MultiAlloc(tsk.Task, false, 64, &[_]type{});
+pub const TaskAllocator = ma.MultiAlloc(tsk.Task, false, 64);

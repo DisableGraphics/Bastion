@@ -15,10 +15,12 @@ const ips = @import("../ipc/ipcfn.zig");
 const iport = @import("../interrupts/iporttable.zig");
 const pa = @import("../ipc/portalloc.zig");
 const asp = @import("../memory/addrspace.zig") ;
+const builtin = @import("builtin");
+const assm = @import("../arch/x86_64/asm.zig");
 
 extern fn jump_to_ring3() callconv(.C) void;
 
-pub const TaskStatus = enum(u64) {
+pub const TaskStatus = enum(u8) {
 	READY,
 	IPC,
 	BLOCKED,
@@ -27,14 +29,35 @@ pub const TaskStatus = enum(u64) {
 	STARTING
 };
 
+pub const tls_registers_x86_64 = extern struct {
+	fs: u64 = 0,
+	gs: u64 = 0,
+
+	pub fn init(value1: u64, value2: u64) tls_registers_x86_64 {
+		return .{
+			.fs = value1,
+			.gs = value2
+		};
+	}
+};
+
+pub const tls_registers = switch (builtin.cpu.arch) {
+	.x86_64 => tls_registers_x86_64,
+	else => unreachable
+};
+
 pub const KERNEL_STACK_SIZE = 16*1024;
 const N_PORTS = 4;
 const N_PORT_CHUNKS = 8;
 
 pub const Task = extern struct {
+	// DO NOT TOUCH HERE, assembly changes these fields
 	stack: *anyopaque,
 	root_page_table: *page.page_table_type,
 	kernel_stack: *sa.KernelStack,
+	// You can change from here onwards
+	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
+	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
 	next: ?*Task = null,
 	prev: ?*Task = null,
 	transfer_ok: ?*std.atomic.Value(bool) = null,
@@ -44,21 +67,22 @@ pub const Task = extern struct {
 	current_queue: ?*sch.scheduler_queue = null,
 	iopb_bitmap: ?*tss.io_bitmap_t = null,
 	fpu_buffer: ?*buffer.fpu_buffer = null,
-	state: TaskStatus,
+	receive_msg: ?*ips.ipc_msg.ipc_message_t = null,
+	send_msg: ?*const ips.ipc_msg.ipc_message_t = null,
+	addr_space: ?*asp.AddressSpace = null,
+
+	tls: tls_registers = tls_registers.init(0, 0),
+
 	iopb_bitmap_created_on: u32 = 0,
 	cpu_created_on: u32 = 0,
 	cpu_owner: u32 = 0,
 	cpu_fpu_buffer_created_on: u32 = 0,
-	has_used_vector: bool = false,
-	is_pinned: bool,
-	receive_msg: ?*ips.ipc_msg.ipc_message_t = null,
-	send_msg: ?*const ips.ipc_msg.ipc_message_t = null,
-	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
-	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
-	irq_registered: u8 = 0,
 	fault_port: i16 = -1,
 	syscall_port: i16 = -1,
-	addr_space: ?*asp.AddressSpace = null,
+	has_used_vector: bool = false,
+	is_pinned: bool,
+	irq_registered: u8 = 0,
+	state: TaskStatus,
 
 	pub fn format(
             self: @This(),
@@ -95,7 +119,7 @@ pub const Task = extern struct {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
 		stack_p = stack_p - 10;
-		stack_p[9] = @intFromPtr(func);
+		stack_p[7] = @intFromPtr(func);
 		stack_p[0] = 0x202;
 		return .{
 			.stack = @ptrCast(stack_p),
@@ -139,15 +163,16 @@ pub const Task = extern struct {
 		};
 	}
 
-	pub fn start_user_task(self: *Task, ip: *anyopaque, sp: *anyopaque) !void {
+	pub fn start_user_task(self: *Task, ip: *anyopaque, sp: *anyopaque, tls: tls_registers) !void {
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(self.kernel_stack) + @sizeOf(sa.KernelStack));
 		stack_p = stack_p - 10;
-		stack_p[9] = @intFromPtr(&jump_to_ring3);
-		stack_p[4] = @intFromPtr(sp);
-		stack_p[3] = @intFromPtr(ip);
+		stack_p[7] = @intFromPtr(&jump_to_ring3);
+		stack_p[2] = @intFromPtr(sp);
+		stack_p[1] = @intFromPtr(ip);
 		stack_p[0] = 0x202;
 		self.stack = @ptrCast(stack_p);
 		self.kernel_stack = @ptrCast(stack_p);
+		self.tls = tls;
 	}
 
 	pub fn init_idle_task(
@@ -239,6 +264,11 @@ pub const Task = extern struct {
 			std.log.err("Error while freeing ports: {}", .{err});
 		};
 
+		// Free the address space
+		self.close_addr_space() catch |err| {
+			std.log.err("Error while closing address space: {}", .{err});
+		};
+
 		// Free task
 		if(self.cpu_created_on == mycpu) {
 			std.log.info("Destroying kernel task {}", .{self});
@@ -326,6 +356,30 @@ pub const Task = extern struct {
 			if(self.get_port(casted) != null) {
 				try ips.port_close(self, casted);
 			}
+		}
+	}
+
+	fn close_addr_space(self: *Task) !void {
+		if(self.addr_space) |a| {
+			try a.close();
+		}
+	}
+
+	pub fn save_tls(self: *Task) void {
+		if(builtin.cpu.arch == .x86_64) {
+			const fsbase = 0xC0000100;
+			const gsbase = 0xC0000101;
+			self.tls.fs = assm.read_msr(fsbase);
+			self.tls.gs = assm.read_msr(gsbase);
+		}
+	}
+
+	pub fn load_tls(self: *Task) void {
+		if(builtin.cpu.arch == .x86_64) {
+			const fsbase = 0xC0000100;
+			const gsbase = 0xC0000101;
+			assm.write_msr(fsbase, self.tls.fs);
+			assm.write_msr(gsbase, self.tls.gs);
 		}
 	}
 };

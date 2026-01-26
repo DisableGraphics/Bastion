@@ -19,6 +19,8 @@ const port = @import("../ipc/port.zig");
 const portalloc = @import("../ipc/portalloc.zig");
 const iportable = @import("iporttable.zig");
 const ips = @import("../ipc/ipcfn.zig");
+const pp = @import("../memory/physicalpage.zig");
+const pta = @import("../memory/pagetablealloc.zig");
 
 pub const IPIProtocolMessageType = enum(u64) {
 	NONE,
@@ -35,6 +37,8 @@ pub const IPIProtocolMessageType = enum(u64) {
 	FREE_FPU_BUFFER,
 	FREE_IO_BITMAP,
 	FREE_PORT,
+	FREE_PAGE_NODE,
+	FREE_PAGE_TABLE,
 	SEND_IRQ_MSG,
 
 	BLOCK_TASK,
@@ -162,6 +166,14 @@ pub const IPIProtocolHandler = struct {
 				IPIProtocolMessageType.FREE_PORT => {
 					const p: *port.Port = @ptrFromInt(p0);
 					portalloc.PortAllocator.free(p) catch |err| std.log.err("Error while freeing port: {}", .{err});
+				},
+				IPIProtocolMessageType.FREE_PAGE_NODE => {
+					const p: *pp.MappingNode = @ptrFromInt(p0);
+					pp.MappingNodeAllocator.free(p) catch |err| std.log.err("Error while freeing page node: {}", .{err});
+				},
+				IPIProtocolMessageType.FREE_PAGE_TABLE => {
+					const p: *page.page_table_type = @ptrFromInt(p0);
+					pta.PageTableAllocator.free(p) catch |err| std.log.err("Error while freeing page table: {}", .{err});
 				},
 				IPIProtocolMessageType.SEND_IRQ_MSG => {
 					const pseudotask: *tsk.Task = @ptrFromInt(p1);

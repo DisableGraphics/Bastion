@@ -114,92 +114,178 @@ pub fn get_cr3() u64 {
 }
 
 pub const it_page_type = union(enum) {
-	page: page_t,
-	med_page: large_page_t,
-	large_page: huge_page_t
+	page: *page_t,
+	med_page: *large_page_t,
+	large_page: *huge_page_t
+};
+
+pub const PageIterator = struct {
+	pml4: *page_table_type,
+	hhdm_offset: usize,
+	pm: *PageManager,
+
+	i4: usize = 0,
+	i3: usize = 0,
+	i2: usize = 0,
+	i1: usize = 0,
+
+	pub fn init(pml4: *page_table_type, pm: *PageManager, hhdm_offset: usize) PageIterator {
+		return .{
+			.pml4 = pml4,
+			.hhdm_offset = hhdm_offset,
+			.pm = pm
+		};
+	}
+
+	pub fn next(self: *@This()) ?it_page_type {
+		const max_i4: usize = (self.hhdm_offset >> 39) & 0x1FF;
+
+		while (self.i4 < max_i4) {
+			const e4: pml4_t = @bitCast(self.pml4[self.i4]);
+			if (e4.p == 0) {
+				self.i4 += 1;
+				self.i3 = 0;
+				continue;
+			}
+
+			const pml3: *page_table_type =
+				@ptrFromInt((PageManager.get_addr_from_entry(e4) catch unreachable) + self.hhdm_offset);
+
+			while (self.i3 < 512) {
+				const e3: pml3_t = @bitCast(pml3[self.i3]);
+				if (e3.p == 0) {
+					self.i3 += 1;
+					self.i2 = 0;
+					continue;
+				}
+
+				// 1 GiB page
+				if (e3.ps != 0) {
+					defer self.i3 += 1;
+					return .{ .large_page = @ptrCast(&pml3[self.i3]) };
+				}
+
+				const pml2: *page_table_type =
+					@ptrFromInt((PageManager.get_addr_from_entry(e3) catch unreachable) + self.hhdm_offset);
+
+				while (self.i2 < 512) {
+					const e2: pml2_t = @bitCast(pml2[self.i2]);
+					if (e2.p == 0) {
+						self.i2 += 1;
+						self.i1 = 0;
+						continue;
+					}
+
+					// 2 MiB page
+					if (e2.ps != 0) {
+						defer self.i2 += 1;
+						return .{ .med_page = @ptrCast(&pml2[self.i2]) };
+					}
+
+					const pml1: *page_table_type =
+						@ptrFromInt((PageManager.get_addr_from_entry(e2) catch unreachable) + self.hhdm_offset);
+
+					while (self.i1 < 512) {
+						const e1: page_t = @bitCast(pml1[self.i1]);
+						if (e1.p == 0) {
+							self.i1 += 1;
+							continue;
+						}
+
+						defer self.i1 += 1;
+						return .{ .page = @ptrCast(&pml1[self.i1]) };
+					}
+
+					self.i1 = 0;
+					self.i2 += 1;
+				}
+
+				self.i2 = 0;
+				self.i3 += 1;
+			}
+
+			self.i3 = 0;
+			self.i4 += 1;
+		}
+
+		return null;
+	}
+
 };
 
 pub const PageTableIterator = struct {
     pml4: *page_table_type,
     hhdm_offset: usize,
-	pm: *PageManager,
 
     i4: usize = 0,
     i3: usize = 0,
     i2: usize = 0,
     i1: usize = 0,
 
-    pub fn init(pml4: *page_table_type, pm: *PageManager, hhdm_offset: usize) PageTableIterator {
+    emit_pml4: bool = false,
+    emit_pml3: bool = false,
+    emit_pml2: bool = false,
+
+    pub fn init(pml4: *page_table_type, hhdm_offset: usize) PageTableIterator {
         return .{
             .pml4 = pml4,
             .hhdm_offset = hhdm_offset,
-			.pm = pm
         };
     }
 
-    pub fn next(self: *@This()) ?*it_page_type {
-		const max_i4: usize = self.hhdm_offset >> 39;
+    pub fn next(self: *@This()) ?*page_table_type {
+        const max_i4: usize = (self.hhdm_offset >> 39) & 0x1FF;
+
         while (self.i4 < max_i4) {
             const e4: pml4_t = @bitCast(self.pml4[self.i4]);
-            if (!e4.p) {
+            if (e4.p == 0) {
                 self.i4 += 1;
-                self.i3 = 0;
                 continue;
             }
 
             const pml3: *page_table_type =
-                @ptrFromInt((self.pm.get_addr_from_entry(e4) catch unreachable) + self.hhdm_offset);
+                @ptrFromInt((PageManager.get_addr_from_entry(e4) catch unreachable)
+                    + self.hhdm_offset);
 
             while (self.i3 < 512) {
                 const e3: pml3_t = @bitCast(pml3[self.i3]);
-                if (!e3.p) {
+                if (e3.p == 0 or e3.ps != 0) {
                     self.i3 += 1;
-                    self.i2 = 0;
                     continue;
                 }
 
-                // 1GiB page
-                if (e3.ps) {
-                    defer self.i3 += 1;
-                    return &pml3[self.i3];
-                }
-
                 const pml2: *page_table_type =
-                    @ptrFromInt((self.pm.get_addr_from_entry(e3) catch unreachable) + self.hhdm_offset);
+                    @ptrFromInt((PageManager.get_addr_from_entry(e3) catch unreachable)
+                        + self.hhdm_offset);
 
                 while (self.i2 < 512) {
                     const e2: pml2_t = @bitCast(pml2[self.i2]);
-                    if (!e2.p) {
+                    if (e2.p == 0 or e2.ps != 0) {
                         self.i2 += 1;
-                        self.i1 = 0;
                         continue;
                     }
 
-                    // 2MiB page
-                    if (e2.ps) {
-                        defer self.i2 += 1;
-                        return &pml2[self.i2];
-                    }
-
                     const pml1: *page_table_type =
-                        @ptrFromInt((self.pm.get_addr_from_entry(e2) catch unreachable) + self.hhdm_offset);
+                        @ptrFromInt((PageManager.get_addr_from_entry(e2) catch unreachable)
+                            + self.hhdm_offset);
 
-                    if (self.i1 < 512) {
-                        const ret = &pml1[self.i1];
-                        self.i1 += 1;
-                        return ret;
-                    }
-
-                    self.i1 = 0;
                     self.i2 += 1;
+                    return pml1;
                 }
 
                 self.i2 = 0;
                 self.i3 += 1;
+                return pml2;
             }
 
             self.i3 = 0;
             self.i4 += 1;
+            return pml3;
+        }
+
+        if (!self.emit_pml4) {
+            self.emit_pml4 = true;
+            return self.pml4;
         }
 
         return null;
@@ -710,7 +796,11 @@ pub const PageManager = struct {
 		flush_virtaddr(virtaddr);
 	}
 
-	pub fn iterator(self: *@This(), root_table: *page_table_type) !PageTableIterator {
-		return PageTableIterator.init(root_table, self, self.hhdm_offset);
+	pub fn iterator(self: *@This(), root_table: *page_table_type) !PageIterator {
+		return PageIterator.init(root_table, self, self.hhdm_offset);
+	}
+
+	pub fn tableiterator(self: *@This(), root_table: *page_table_type) !PageTableIterator {
+		return PageTableIterator.init(root_table, self.hhdm_offset);
 	}
 };

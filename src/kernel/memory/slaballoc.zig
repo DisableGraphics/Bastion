@@ -51,13 +51,17 @@ pub fn SlabAllocator(comptime T: type) type {
 		}
 
 		pub fn free(self: *SlabAllocator(T), obj: *T) !void {
-			if(@intFromPtr(obj) < @intFromPtr(@as(*T, @ptrCast(@alignCast(self.region.ptr)))) 
-				or @intFromPtr(obj) >= @intFromPtr(@as(*T, @ptrCast(@alignCast(self.region.ptr + self.region.len))))) {
-				return slaberr.OUT_OF_RANGE;
-			}
+			if(!self.allocated_from_this_slab(obj)) return slaberr.OUT_OF_RANGE;
 			const node: *free_list_node = @ptrCast(@alignCast(obj));
 			node.next = self.free_list;
 			self.free_list = node;
+		}
+		pub fn allocated_from_this_slab(self: *SlabAllocator(T), obj: *T) bool {
+			if(@intFromPtr(obj) < @intFromPtr(@as(*T, @ptrCast(@alignCast(self.region.ptr)))) 
+				or @intFromPtr(obj) >= @intFromPtr(@as(*T, @ptrCast(@alignCast(self.region.ptr + self.region.len))))) {
+				return false;
+			}
+			return true;
 		}
 	};
 }
