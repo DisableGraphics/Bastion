@@ -8,3 +8,6 @@ limine/**
 meson-build
 qemu.log
 image.iso
+compile.sh
+limine.conf
+modules.lst

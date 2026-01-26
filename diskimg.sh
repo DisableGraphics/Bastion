@@ -4,6 +4,10 @@ mkdir -p iso_root
 # Copy the relevant files over.
 mkdir -p iso_root/boot
 cp -v zig-out/bin/kernel.elf iso_root/boot/
+
+# Copy modules
+while read -r line; do cp -v "$line" iso_root/boot/; done < modules.lst
+
 mkdir -p iso_root/boot/limine
 cp -v limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin \
       limine/limine-uefi-cd.bin iso_root/boot/limine/
