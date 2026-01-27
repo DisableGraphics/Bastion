@@ -42,6 +42,7 @@ const iport = @import("interrupts/iporttable.zig");
 const ppt = @import("memory/per_process_table.zig");
 const asa = @import("memory/addrspacealloc.zig");
 const pp = @import("memory/physicalpage.zig");
+const ld = @import("exec/loadmod.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -81,7 +82,8 @@ const setup_error = error {
 	FRAMEBUFFER_NOT_PRESENT,
 	MEMORY_MAP_NOT_PRESENT,
 	SERIAL_UNAVAILABLE,
-	HHDM_NOT_PRESENT
+	HHDM_NOT_PRESENT,
+	NO_MEMORY_MANAGER
 };
 
 var pagealloc: framemanager.PageFrameAllocator = undefined;
@@ -369,6 +371,9 @@ fn main() !void {
 		cleanup_stack,
 		@ptrFromInt(assm.read_cr3()),
 	);
+
+	const request = if(requests.module_request.response) |mod_resp| mod_resp else return setup_error.NO_MEMORY_MANAGER;
+	ld.LoadModule.load_mmanager(request);
 
 	nm.setup_supports_avx();
 	nm.enable_vector();

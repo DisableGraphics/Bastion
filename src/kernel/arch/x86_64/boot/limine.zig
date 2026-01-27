@@ -12,6 +12,8 @@ pub export var memory_map_request: limine.MemoryMapRequest linksection(".limine_
 pub export var mp_request: limine.MpRequest linksection(".limine_requests") = .{};
 pub export var hhdm_request: limine.HhdmRequest linksection(".limine_requests") = .{};
 pub export var rsdp_request: limine.RsdpRequest linksection(".limine_requests") = .{};
+pub export var module_request: limine.ModuleRequest linksection(".limine_requests") = .{};
+
 
 pub const SmpInfo = packed struct {
 	processor_id: u32,

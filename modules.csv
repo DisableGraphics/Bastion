@@ -1,2 +1,2 @@
 name,category,compile_cmd,src_path,out_path,is_module
-Stack-Based Memory Manager,Memory,zig build,core/mmanager/stackmm,core/mmanager/stackmm/zig-out/stackmm,true
+Stack-Based Memory Manager,Memory,zig build,core/mmanager/stackmm,core/mmanager/stackmm/zig-out/bin/stackmm,true
