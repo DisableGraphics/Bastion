@@ -191,7 +191,20 @@ pub const PhysicalPage = struct {
 const PhysicalPageRegion = struct {
 	start: usize,
 	end: usize,
-	physical_pages: []PhysicalPage
+	physical_pages: []PhysicalPage,
+	pub fn format(
+		self: @This(),
+		comptime fmt: []const u8,
+		options: std.fmt.FormatOptions,
+		writer: anytype,
+	) !void {
+		_ = fmt;
+		_ = options;
+		try writer.print("PhysicalPageRegion{{ .start = {x}, .end = {x} }}", .{
+			self.start,
+			self.end
+		});
+	}
 };
 
 const region_t = []PhysicalPageRegion;
@@ -217,6 +230,7 @@ pub const PhysicalPageManager = struct {
 		for(1..entries.len) |entry| {
 			const start = truncate_to_page(entries[entry].base);
 			if(start != prev_addr) {
+				std.log.info("Adding to the PhysicalMemoryManager region: {x}-{x} ({})", .{entries[entry].base, entries[entry].base + entries[entry].length, entries[entry].type});
 				try tmp_regions.append(.{
 					.start = start_addr,
 					.end = prev_addr,
@@ -228,6 +242,13 @@ pub const PhysicalPageManager = struct {
 
 			prev_addr = truncate_to_page(entries[entry].base + entries[entry].length);
 		}
+
+		try tmp_regions.append(.{
+			.start = start_addr,
+			.end = prev_addr,
+			.physical_pages = undefined,
+		});
+		n_entries += 1;
 
 		// Allocate for regions
 		const regions_pages = ((n_entries * @sizeOf(PhysicalPageRegion)) + page.PAGE_SIZE - 1) / page.PAGE_SIZE;

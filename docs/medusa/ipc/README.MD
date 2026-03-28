@@ -2,11 +2,11 @@
 This documentation is for the Medusa microkernel application developers.
 
 ## Before you start
-This documentation only applies to applications that need to interface directly with the Medusa microkernel. These include, but are not limited to, memory managers, syscall managers and other low-level basic functionality given by some servers.
+This documentation only applies to applications that need to interface directly with the Medusa microkernel. These include, but are not limited to, memory managers, syscall managers and other very low-level basic functionality given by some servers.
 If you're trying to develop an application for Bastion, please look at the Bastion documentation.
 
 ## Foreword
-The IPC system is not just an IPC system. It's the interface for application developers to communicate with the kernel.
+The IPC system is not just an IPC system, it's the interface for application developers to communicate with the kernel.
 
 In fact, in there are only two different system calls:
 - ipc_recv

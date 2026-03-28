@@ -20,6 +20,9 @@ extern "C" {
 /// Port has been closed by the owner
 #define ENOOWN -5
 
+// Other definitions
+#define IPC_BOOTSTRAP_PORT 0
+
 // Flags
 /// Paging flags. All operations can only be used on sys_ipc_send() unless otherwise noted.
 #define IPC_FLAG_NONE 0
@@ -70,7 +73,7 @@ extern "C" {
 #define IPC_FLAG_INT_REGISTER (1 << 12)
 //// Acknowledge interrupt. If interrupt is not acknowledged, the interrupt source will not emit more interrupts until it is acknowledged. 
 #define IPC_FLAG_INT_ACK (1 << 13)
-//// Request I/O port acccess. The number of the requested IO port goes into value0. This is only valid for CPU architectures that have I/O ports like x86.
+//// Asks the kernel to allow Port IO. The number of the requested IO port goes into value0. This is only valid for CPU architectures that have I/O ports like x86.
 #define IPC_FLAG_PORT_IO (1 << 14)
 //// Register port as syscall handler. 
 //// When an unknown syscall is emitted and the process has a syscall handler, instead of returning immediately from kernel, a message will be sent to the
@@ -150,13 +153,13 @@ typedef struct {
 	\param msg Message to send.
 	\details Sends a message synchronously via IPC to another port defined in the message.
 */
-int sys_ipc_send(const ipc_message_t *msg);
+int64_t sys_ipc_send(const ipc_message_t *msg);
 /**
 	\brief Receive a message via ipc from a port.
 	\param msg Message to send.
 	\details Receives a message synchronously via IPC.
 */
-int sys_ipc_recv(ipc_message_t *msg);
+int64_t sys_ipc_recv(ipc_message_t *msg);
 
 #ifdef __cplusplus
 }

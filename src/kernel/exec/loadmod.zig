@@ -4,105 +4,96 @@ const std = @import("std");
 const builtin = @import("builtin");
 const km = @import("../memory/kmm.zig");
 const page = @import("../memory/pagemanager.zig");
+const asp = @import("../memory/addrspace.zig");
+const aspa = @import("../memory/addrspacealloc.zig");
+const main = @import("../main.zig");
+
+pub const MManagerData = struct {
+	addrsp: *asp.AddressSpace,
+	start_vaddr: usize
+};
 
 pub const LoadModule = struct {
-	pub fn load_mmanager(mod: *limine.ModuleResponse) void {
-		load_elf_mmanager(mod.getModules()[0]);
+	pub fn load_mmanager(mod: *limine.ModuleResponse) !MManagerData {
+		return load_elf_mmanager(mod.getModules()[0]);
 	}
 
 	// Checks if memory manager is supported and panics otherwise
-	// It panics because I don't want to run just the kernel without anything else
-	fn check_supported(header: *elf.Ehdr) void {
-		std.debug.assert(std.mem.eql(u8, header.e_ident[0..4], &[_]u8{0x7f, 'E', 'L', 'F'}));
+	// It panics because I don't want to run just the kernel without any program loaded
+	fn check_supported_x86_64(header: *const elf.Header) !void {
+		if(!header.is_64) return error.NOT_64_BITS_EXEC;
+		if(header.endian != .little) return error.INCORRECT_ENDIANESS;
+		if(header.machine != .X86_64) return error.NON_SUPPORTED_MACHINE;
+		if(header.type != .EXEC) return error.NOT_A_NON_RELOCATABLE_EXECUTABLE; // Must be a non-relocatable executable
+	}
 
-		std.debug.assert(header.e_ident[elf.EI_CLASS] == 2); // 64 bits
-		std.debug.assert(header.e_ident[elf.EI_DATA] == 1); // Little endian (on x86_64)
-		std.debug.assert(header.e_ident[elf.EI_VERSION] == 1); // I only support ELF v1
-		const header_eident = switch(builtin.cpu.arch) {
-			.x86_64 => 0x3E,
-			else => unreachable
+	// Gets mapping options from the ELF segment flags field
+	fn get_opts_from_flags(flags: usize) struct {
+		r: u1,
+		w: u1,
+		exec: u1,
+	} {
+		return .{
+			.exec = @intFromBool(flags & 1 != 0),
+			.w = @intFromBool(flags & 2 != 0),
+			.r = @intFromBool(flags & 4 != 0)
 		};
-		std.debug.assert(header.e_machine == header_eident);
-		std.debug.assert(header.e_type == 2); // Must be a non-relocatable executable
 	}
 
-	fn load_executable() void {
+	fn load_elf_mmanager(file: *limine.File) !MManagerData {	
+		const file_slice: []u8 = @as([*]u8, @ptrCast(file.address))[0..file.size];
+		var reader = std.io.fixedBufferStream(file_slice);
+		const header = try elf.Header.read(&reader);
 
-	}
+		try check_supported_x86_64(&header);
 
-	fn sheader(header: *elf.Ehdr) [*]elf.Shdr {
-		return @ptrFromInt(@intFromPtr(header) + header.e_shoff);
-	}
+		const destaddrspace = aspa.AddressSpaceAllocator.alloc() orelse return error.NO_SPACE_LEFT;
+		destaddrspace.* = asp.AddressSpace.init(main.km.pm);
+		
+		var it = header.program_header_iterator(&reader);
+		while(it.next() catch |err| { return err; }) |v| {
+			if(v.p_type == 1) { // pt_load which means: load into memory
+				const dst1 = (v.p_vaddr & ~@as(usize, (page.PAGE_SIZE - 1)));
+				const dst2 = ((v.p_vaddr + v.p_memsz + page.PAGE_SIZE - 1) & ~@as(usize, (page.PAGE_SIZE - 1)));
+				const npages = (dst2 - dst1) / page.PAGE_SIZE;
+				for(0..npages) |i| {
+					const physaddr = ((try main.km.alloc_virt(1)) orelse return error.NO_PAGES_FREE) - main.km.hhdm_offset;
+					const opts = get_opts_from_flags(v.p_flags);
+					const page_vaddr = dst1 + i * page.PAGE_SIZE;
+					try destaddrspace.add_mapping_4k(physaddr, page_vaddr,
+						.{.p = 1, .us = 1, .rw = opts.w, .xd = @intFromBool(opts.exec == 0)},
+						.{.p = 1, .us = 1, .rw = 1},
+						.{.p = 1, .us = 1, .rw = 1},
+						.{.p = 1, .us = 1, .rw = 1});
+					const dstmem = @as([*]u8, @ptrFromInt(physaddr + main.km.hhdm_offset))[0..page.PAGE_SIZE];
 
-	fn section(header: *elf.Ehdr, idx: usize) *elf.Shdr {
-		return &sheader(header)[idx];
-	}
+					@memset(dstmem, 0);
 
-	fn str_table(header: *elf.Ehdr) ?[*]u8 {
-		if(header.e_shstrndx == elf.SHN_UNDEF) return null;
-		return @ptrCast(header + section(header, header.e_shstrndx).sh_offset);
-	}
+					const page_start = page_vaddr;
+					const page_end = page_vaddr + page.PAGE_SIZE;
 
-	fn lookup_string(header: *elf.Ehdr, offset: usize) ?[*:0]u8 {
-		const strtab = str_table(header);
-		if(strtab) |tab| {
-			return @ptrCast(tab + offset);
-		} else {
-			return null;
-		}
-	}
+					const seg_file_start = v.p_vaddr;
+					const seg_file_end = v.p_vaddr + v.p_filesz;
 
-	fn get_symval(header: *elf.Ehdr, table: usize, idx: usize) !usize {
-		if(table == elf.SHN_UNDEF or idx == elf.SHN_UNDEF) return 0;
-		const shdr = section(header, table);
+					const copy_start = @max(page_start, seg_file_start);
+					const copy_end = @min(page_end, seg_file_end);
 
-		const n_entries = shdr.sh_size/shdr.sh_entsize;
-		if(idx >= n_entries) return error.OUT_OF_RANGE;
+					if (copy_start < copy_end) {
+						const dst_off = copy_start - page_start;
+						const src_off = (copy_start - v.p_vaddr) + v.p_offset;
+						const len = copy_end - copy_start;
 
-		const sym: *elf.Sym = @as([*]*elf.Sym, @ptrFromInt(@intFromPtr(header) + shdr.sh_offset))[idx];
-		if(sym.st_shndx == elf.SHN_UNDEF) {
-			//const strtab = section(header, shdr.sh_link);
-			//const name: [*:0]u8 = @ptrFromInt(@intFromPtr(header) + strtab.sh_offset + sym.st_name);
-			//const target = null;
-			//if(target) |tgt| {
-				//if(sym.st_info & elf.STB_WEAK) {
-					//return 0;
-				//} else {
-					//return error.RELOC_ERROR;
-				//}
-			//}
-			//return @intFromPtr(target);
-			return 0;
-		} else if(sym.st_shndx == elf.SHN_ABS) {
-			return sym.st_value;
-		} else {
-			const target = section(header, sym.st_shndx);
-			return @intFromPtr(header) + sym.st_value + target.sh_offset;
-		}
-	}
-
-	fn load_stage_1(header: *elf.Ehdr, alloc: *km.KernelMemoryManager) !usize {
-		const shdr = sheader(header);
-		for(0..header.e_shnum) |i| {
-			const sect = shdr[i];
-			if(sect.sh_type == elf.SHT_NOBITS) {
-				if(sect.sh_size == 0) continue;
-				if(sect.sh_flags & elf.SHF_ALLOC) {
-					const mem = (try alloc.alloc_virt((sect.sh_size + page.PAGE_SIZE - 1) / page.PAGE_SIZE)) orelse return error.NO_MEMORY;
-					const memory: []u8 = @as([*]u8, @ptrFromInt(mem))[0..sect.sh_size];
-					@memset(memory, 0);
-					sect.sh_offset = mem - @intFromPtr(header);
+						const srcmem = file_slice[src_off .. src_off + len];
+						@memcpy(dstmem[dst_off..dst_off + len], srcmem);
+					}
+					try main.km.pm.unmap(main.km.pm.root_table.?, physaddr + main.km.hhdm_offset);
 				}
+				std.log.info("0x{x} 0x{x} 0x{x}, 0x{x} {}", .{dst1, dst2, v.p_vaddr, v.p_vaddr + v.p_memsz, npages});
 			}
 		}
-	}
-
-	fn load_elf_mmanager(file: *limine.File) void {
-		const header: *elf.Ehdr = @ptrCast(file.address);
-		// In addr should be the ELF header
-		std.log.info("{}", .{header});
-		
-		check_supported(header);
-		
+		return .{
+			.addrsp = destaddrspace,
+			.start_vaddr = header.entry
+		};
 	}
 };

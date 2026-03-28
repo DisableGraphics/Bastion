@@ -5,8 +5,9 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <stdint.h>
 
-size_t syscall(size_t arg0, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5, size_t callno);
+int64_t syscall(size_t arg0, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5, size_t callno);
 
 #ifdef __cplusplus
 }

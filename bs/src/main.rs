@@ -81,8 +81,8 @@ fn load_modules(path: &str) -> Result<Vec<Module>, Box<dyn std::error::Error>> {
 
 fn generate_compile_script(mods: &[Module]) -> std::io::Result<()> {
 	let mut file = File::create("compile.sh")?;
-	// Basically a header to set variables and compile the kernel
-	writeln!(file, "#!/bin/sh\nset -e\nCURR=$PWD\n\n# Kernel\n./compile_kernel.sh")?;
+	// Basically a header to set variables and compile the kernel & required deps
+	writeln!(file, "#!/bin/sh\nset -e\nCURR=$PWD\n\n# Kernel\n./compile_kernel.sh\n# Libsyscall\ncd libsyscall; ./compile.sh; cd \"$CURR\"")?;
 
 	for m in mods.iter().filter(|m| m.selected) {
 		writeln!(file, "\n# Mod: {}", m.name)?;

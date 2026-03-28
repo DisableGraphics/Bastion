@@ -169,7 +169,7 @@ pub const Scheduler = struct {
 
 	// Needs to have a idle task set up, or it will panic
 	fn next_task(self: *Scheduler) *task.Task {
-		// Second highest priority goes to the priority boost task
+		// High priority goes to the priority boost task
 		if(self.priority_boost_task) |t| {
 			if(t.state == task.TaskStatus.READY) return t;
 		}
@@ -382,10 +382,11 @@ pub const Scheduler = struct {
 		} else -1;
 	}
 
-	fn copy_iobitmap(self: *Scheduler, tsk: *task.Task) void {
+	pub fn copy_iobitmap(self: *Scheduler, tsk: *task.Task) void {
 		if(tsk.iopb_bitmap) |bitmap| {
 			@memcpy(&self.cpu_tss.io_bitmap, bitmap);
-			self.cpu_tss.iopb = @sizeOf(@TypeOf(self.cpu_tss.*)) - @sizeOf(@TypeOf(self.cpu_tss.io_bitmap));
+			self.cpu_tss.iopb = @offsetOf(@TypeOf(self.cpu_tss.*), "io_bitmap");
+			std.log.info("CPU TSS: {}", .{self.cpu_tss.iopb});
 		} else {
 			self.cpu_tss.iopb = 65535;
 		}

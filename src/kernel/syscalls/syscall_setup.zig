@@ -64,7 +64,6 @@ fn create_process(ptr: *ipcfn.ipc_msg.ipc_message_t) ret_t {
 				// Try to initialize the task, and if it fails, free everything.
 				newtask.?.* = task.Task.init_user_task(
 					k,
-					@ptrFromInt(page.get_cr3()),
 					meself.addr_space.?
 				) catch {
 					portalloc.PortAllocator.free(p) catch {};
@@ -198,6 +197,7 @@ fn port_io(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 	const bit: u3 = @truncate(ptr.value0 % 8);
 
 	meself.iopb_bitmap.?[byte] &= @as(u8, ~(@as(u8, 1) << bit));
+	sch.copy_iobitmap(meself);
 	return ipcfn.ipc_msg.EOK;
 }
 

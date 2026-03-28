@@ -89,4 +89,9 @@ pub const PageFrameAllocator = struct {
 			try set_entry(self, addr_to_offset(physaddr), 0);
 		}
 	}
+
+	pub fn is_in_use(self: *PageFrameAllocator, address: usize) !bool {
+		const offset = addr_to_offset(address);
+		return self.is_entry_active(offset);
+	}
 };

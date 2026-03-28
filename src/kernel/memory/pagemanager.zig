@@ -95,7 +95,9 @@ pub const page_t = packed struct {
 	xd: u1 = 0,
 };
 
-pub const page_table_type = [512]u64;
+const n_ptable_entries = 512;
+
+pub const page_table_type = [n_ptable_entries]u64;
 
 pub const PagingError = error {
 	BAD_ALIGN,
@@ -129,18 +131,28 @@ pub const PageIterator = struct {
 	i2: usize = 0,
 	i1: usize = 0,
 
-	pub fn init(pml4: *page_table_type, pm: *PageManager, hhdm_offset: usize) PageIterator {
+	higher_half: bool,
+
+
+	pub fn init(pml4: *page_table_type, pm: *PageManager, hhdm_offset: usize, higher_half: bool) PageIterator {
 		return .{
 			.pml4 = pml4,
 			.hhdm_offset = hhdm_offset,
-			.pm = pm
+			.pm = pm,
+			.higher_half = higher_half
 		};
 	}
 
 	pub fn next(self: *@This()) ?it_page_type {
 		const max_i4: usize = (self.hhdm_offset >> 39) & 0x1FF;
 
-		while (self.i4 < max_i4) {
+		const pml4_start = if (self.higher_half) max_i4 else 0;
+		const pml4_end = if (self.higher_half) n_ptable_entries else max_i4;
+		if (self.i4 < pml4_start or self.i4 >= pml4_end) {
+			self.i4 = pml4_start;
+		}
+
+		while (self.i4 < pml4_end) {
 			const e4: pml4_t = @bitCast(self.pml4[self.i4]);
 			if (e4.p == 0) {
 				self.i4 += 1;
@@ -151,7 +163,7 @@ pub const PageIterator = struct {
 			const pml3: *page_table_type =
 				@ptrFromInt((PageManager.get_addr_from_entry(e4) catch unreachable) + self.hhdm_offset);
 
-			while (self.i3 < 512) {
+			while (self.i3 < n_ptable_entries) {
 				const e3: pml3_t = @bitCast(pml3[self.i3]);
 				if (e3.p == 0) {
 					self.i3 += 1;
@@ -168,7 +180,7 @@ pub const PageIterator = struct {
 				const pml2: *page_table_type =
 					@ptrFromInt((PageManager.get_addr_from_entry(e3) catch unreachable) + self.hhdm_offset);
 
-				while (self.i2 < 512) {
+				while (self.i2 < n_ptable_entries) {
 					const e2: pml2_t = @bitCast(pml2[self.i2]);
 					if (e2.p == 0) {
 						self.i2 += 1;
@@ -185,7 +197,7 @@ pub const PageIterator = struct {
 					const pml1: *page_table_type =
 						@ptrFromInt((PageManager.get_addr_from_entry(e2) catch unreachable) + self.hhdm_offset);
 
-					while (self.i1 < 512) {
+					while (self.i1 < n_ptable_entries) {
 						const e1: page_t = @bitCast(pml1[self.i1]);
 						if (e1.p == 0) {
 							self.i1 += 1;
@@ -247,7 +259,7 @@ pub const PageTableIterator = struct {
                 @ptrFromInt((PageManager.get_addr_from_entry(e4) catch unreachable)
                     + self.hhdm_offset);
 
-            while (self.i3 < 512) {
+            while (self.i3 < n_ptable_entries) {
                 const e3: pml3_t = @bitCast(pml3[self.i3]);
                 if (e3.p == 0 or e3.ps != 0) {
                     self.i3 += 1;
@@ -258,7 +270,7 @@ pub const PageTableIterator = struct {
                     @ptrFromInt((PageManager.get_addr_from_entry(e3) catch unreachable)
                         + self.hhdm_offset);
 
-                while (self.i2 < 512) {
+                while (self.i2 < n_ptable_entries) {
                     const e2: pml2_t = @bitCast(pml2[self.i2]);
                     if (e2.p == 0 or e2.ps != 0) {
                         self.i2 += 1;
@@ -574,7 +586,6 @@ pub const PageManager = struct {
 	}
 
 	pub fn unmap(self: *PageManager, root_table: *page_table_type, virtaddr: usize) !void {
-		std.log.info("Unmapping address {x}", .{virtaddr});
 		if(virtaddr & 0x1FF != 0) return error.BAD_ALIGN;
 		const virtaddr_pml4 = (virtaddr >> 39) & 0x1ff;
 		const virtaddr_pml3 = (virtaddr >> 30) & 0x1ff;
@@ -797,10 +808,14 @@ pub const PageManager = struct {
 	}
 
 	pub fn iterator(self: *@This(), root_table: *page_table_type) !PageIterator {
-		return PageIterator.init(root_table, self, self.hhdm_offset);
+		return PageIterator.init(root_table, self, self.hhdm_offset, true);
 	}
 
-	pub fn tableiterator(self: *@This(), root_table: *page_table_type) !PageTableIterator {
+	pub fn hhdm_iterator(self: *@This(), root_table: *page_table_type) !PageIterator {
+		return PageIterator.init(root_table, self, self.hhdm_offset, false);
+	}
+
+	pub fn table_iterator(self: *@This(), root_table: *page_table_type) !PageTableIterator {
 		return PageTableIterator.init(root_table, self.hhdm_offset);
 	}
 };

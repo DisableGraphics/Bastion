@@ -53,7 +53,7 @@ const N_PORT_CHUNKS = 8;
 pub const Task = extern struct {
 	// DO NOT TOUCH HERE, assembly changes these fields
 	stack: *anyopaque,
-	root_page_table: *page.page_table_type,
+	root_page_table: ?*page.page_table_type,
 	kernel_stack: *sa.KernelStack,
 	// You can change from here onwards
 	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
@@ -131,7 +131,6 @@ pub const Task = extern struct {
 			.kernel_stack_top = @ptrCast(kernel_stack),
 			.deinitfn = deinit_kernel_task,
 			.current_queue = null,
-			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
@@ -141,21 +140,19 @@ pub const Task = extern struct {
 
 	pub fn init_user_task(
 		kernel_stack: *sa.KernelStack,
-		root_page_table: *page.page_table_type,
 		addr_space: *asp.AddressSpace
 		) !Task {
 
 		return .{
 			.stack = @ptrCast(kernel_stack),
 			.kernel_stack = @ptrCast(kernel_stack),
-			.root_page_table = root_page_table,
+			.root_page_table = null,
 			.next = null,
 			.prev = null,
 			.state = TaskStatus.READY,
 			.kernel_stack_top = @ptrCast(kernel_stack),
 			.deinitfn = deinit_kernel_task,
 			.current_queue = null,
-			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
@@ -165,7 +162,8 @@ pub const Task = extern struct {
 
 	pub fn start_user_task(self: *Task, ip: *anyopaque, sp: *anyopaque, tls: tls_registers) !void {
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(self.kernel_stack) + @sizeOf(sa.KernelStack));
-		stack_p = stack_p - 10;
+		self.root_page_table = @ptrFromInt(try main.km.pm.get_physaddr(self.addr_space.?.cr3.?, @intFromPtr(self.addr_space.?.cr3)));
+		stack_p = stack_p - 11;
 		stack_p[7] = @intFromPtr(&jump_to_ring3);
 		stack_p[2] = @intFromPtr(sp);
 		stack_p[1] = @intFromPtr(ip);
@@ -189,7 +187,6 @@ pub const Task = extern struct {
 			.deinitfn = null,
 			.extra_arg = null,
 			.current_queue = null,
-			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid())

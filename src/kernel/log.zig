@@ -2,6 +2,7 @@ const serial = @import("serial/serial.zig");
 const spin = @import("sync/spinlock.zig");
 const std = @import("std");
 const idt = @import("interrupts/idt.zig");
+const assm = @import("arch/x86_64/asm.zig");
 
 var writer = serial.Serial.writer();
 var lock = spin.SpinLock.init();
@@ -16,10 +17,10 @@ pub fn logfn(comptime level: std.log.Level,
 		.default => "",
 		else => scope_prefix
 	};
-	idt.disable_interrupts();
+	const mask = assm.irqdisable();
 	lock.lock();
 	
-	defer idt.enable_interrupts();
+	defer assm.irqrestore(mask);
 	defer lock.unlock();
 	writer.print(prefix ++ format ++ "\n", args) catch return;
 }

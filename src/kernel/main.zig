@@ -43,6 +43,9 @@ const ppt = @import("memory/per_process_table.zig");
 const asa = @import("memory/addrspacealloc.zig");
 const pp = @import("memory/physicalpage.zig");
 const ld = @import("exec/loadmod.zig");
+const cp = @import("exec/createproc.zig");
+const mmap = @import("exec/mmap.zig");
+const as = @import("memory/addrspace.zig");
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
@@ -263,6 +266,31 @@ fn cleanup() void {
 	}
 }
 
+fn calculate_allocsizes(memsize: usize) struct {
+	task: usize,
+	kernel_stack: usize,
+	fpu: usize,
+	io: usize,
+	page_table: usize,
+	ports: usize,
+	portchunks: usize,
+	addrspac: usize,
+	mappingnode: usize
+} {
+	const reserved_memory_region = memsize / 10; // 5% of memory
+	return .{
+		.task = (reserved_memory_region / 25) / @sizeOf(tsk.Task), // 4%
+		.kernel_stack = ((reserved_memory_region * 10) / 22) / @sizeOf(sa.KernelStack), // 10%
+		.fpu = (reserved_memory_region / 14) / @sizeOf(fpu.fpu_buffer), // 7%
+		.io = (reserved_memory_region / 100) / @sizeOf(tss.io_bitmap_t), // 1%
+		.page_table = ((reserved_memory_region * 10) / 33) / @sizeOf(pagemanager.page_table_type), // 65%
+		.ports = (reserved_memory_region / 20) / @sizeOf(port.Port), // 5%
+		.portchunks = ((reserved_memory_region * 10 / 333)) / @sizeOf(pca.port_chunk),
+		.addrspac = (reserved_memory_region / 50) / @sizeOf(as.AddressSpace), // 2%
+		.mappingnode = (reserved_memory_region / 100) / @sizeOf(pp.MappingNode), // 1%
+	};
+}
+
 fn main() !void {
 	serial.Serial.init() catch return setup_error.SERIAL_UNAVAILABLE;
 	std.log.info("Kernel start: 0x{x}, kernel end: 0x{x} ({} bytes)", .{&virt_kernel_start, &virt_kernel_end,
@@ -320,17 +348,18 @@ fn main() !void {
 	}
 	
 	_ = try setup_local_apic_timer(&picc, offset, 0, true);
+	const allocsizes = calculate_allocsizes(pagealloc.physical_n_pages*pagemanager.PAGE_SIZE);
 
 	try ta.TimerAllocator.init();
-	try talloc.TaskAllocator.init(1000, mp_cores, &km);
-	try sa.KernelStackAllocator.init(1000, mp_cores, &km);
-	try fpu.FPUBufferAllocator.init(1000, mp_cores, &km);
-	try ioa.IOBufferAllocator.init(6, mp_cores, &km);
-	try pta.PageTableAllocator.init(1000, mp_cores, &km);
-	try pa.PortAllocator.init(2000, mp_cores, &km);
-	try pca.PortChunkAllocator.init(6, mp_cores, &km);
-	try asa.AddressSpaceAllocator.init(1000, mp_cores, &km);
-	try pp.MappingNodeAllocator.init(32, mp_cores, &km);
+	try talloc.TaskAllocator.init(allocsizes.task, mp_cores, &km);
+	try sa.KernelStackAllocator.init(allocsizes.kernel_stack, mp_cores, &km);
+	try fpu.FPUBufferAllocator.init(allocsizes.fpu, mp_cores, &km);
+	try ioa.IOBufferAllocator.init(allocsizes.io, mp_cores, &km);
+	try pta.PageTableAllocator.init(allocsizes.page_table, mp_cores, &km);
+	try pa.PortAllocator.init(allocsizes.ports, mp_cores, &km);
+	try pca.PortChunkAllocator.init(allocsizes.portchunks, mp_cores, &km);
+	try asa.AddressSpaceAllocator.init(allocsizes.addrspac, mp_cores, &km);
+	try pp.MappingNodeAllocator.init(allocsizes.mappingnode, mp_cores, &km);
 
 	sysc.setup_syscalls();
 	ppt.PerProcessTable.setup_on_cpu(mycpuid());
@@ -373,7 +402,7 @@ fn main() !void {
 	);
 
 	const request = if(requests.module_request.response) |mod_resp| mod_resp else return setup_error.NO_MEMORY_MANAGER;
-	ld.LoadModule.load_mmanager(request);
+	const data = try ld.LoadModule.load_mmanager(request);
 
 	nm.setup_supports_avx();
 	nm.enable_vector();
@@ -382,6 +411,12 @@ fn main() !void {
 	sched.add_idle(&idle_task);
 	sched.add_priority_boost(&priority_boost);
 	sched.add_cleanup(&cleanup_task);
+	const task = try cp.create_mmanager_process(data, &km);
+	const map = try mmap.create_memory_map(requests.memory_map_request.response.?, &km);
+	try mmap.map_memory_map(task, map, &pm);
+	std.debug.assert(try task.add_port(&physical_memory_manager_port) == 0);
+	physical_memory_manager_port.owner.store(task, .seq_cst);
+	sched.add_task(task);
 
 	idt.enable_interrupts();
 	sched.schedule(false);
@@ -421,10 +456,10 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 		rsp,
 		assm.read_cr3(),
 	);
-	sysc.setup_syscalls();
 
 	nm.setup_supports_avx();
 	nm.enable_vector();
+	std.log.info("Setting up scheduler for CPU#{}", .{ap_data.processor_id});
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
 	
 	const kernel_stack_priority_boost = sa.KernelStackAllocator.alloc().?;
@@ -445,6 +480,7 @@ pub fn ap_start(arg: *requests.SmpInfo) !void {
 	sched.add_priority_boost(&priority_boost);
 	lapicc.set_on_timer(@ptrCast(&schman.SchedulerManager.on_irq), null);
 	idt.enable_interrupts();
+	std.log.info("Scheduling on CPU #{}", .{mycpuid()});
 	sched.schedule(false);
 	idle();
 }

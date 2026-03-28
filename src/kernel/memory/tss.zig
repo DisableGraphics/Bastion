@@ -22,7 +22,8 @@ pub const tss_t = extern struct {
 	reserved_4: u16, 
 	iopb: u16,
 	io_bitmap: io_bitmap_t,
-	end_of_bitmap: u8
+	end_of_bitmap: u8,
+	padding: u8
 };
 var tss_s: []tss_t = undefined;
 pub fn init(core_id: u32) void {
@@ -43,7 +44,8 @@ pub fn init(core_id: u32) void {
 		.reserved_4 = 0,
 		.iopb = 65535,
 		.io_bitmap = [_]u8{0xFF} ** (IO_BITMAP_SIZE),
-		.end_of_bitmap = 0xff
+		.end_of_bitmap = 0xff,
+		.padding = 0xff
 	};
 }
 

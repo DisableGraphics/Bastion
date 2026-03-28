@@ -218,7 +218,6 @@ pub const KernelMemoryManager = struct {
 		const max_kernel_page = (kernel_pml2_region + self.kernel_size + (1 << 12) - 1) & ~@as(u64, (1 << 12) - 1);
 		while(it < max_kernel_page) : (it += (1 << 12)) {
 			const physical = try self.pm.get_physaddr(root_table, it);
-			std.log.info("2m addr: {x}, physical: {x}", .{it, physical});
 			try self.pm.map_4k(self.pm.root_table.?, physical, it, .{});
 		}
 		return .{.pml3_kernel = pml3_kernel, .pml2_kernel = pml2_kernel, .pml1_kernel = pml1_kernel};

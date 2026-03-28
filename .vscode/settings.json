@@ -1,5 +1,8 @@
 {
 	"[zig]": {
 		"editor.formatOnSave": false
+	},
+	"[m68k]": {
+		"editor.rulers": []
 	}
 }

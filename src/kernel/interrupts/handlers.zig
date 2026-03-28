@@ -6,27 +6,27 @@ const schman = @import("../scheduler/manager.zig");
 const ipcfn = @import("../ipc/ipcfn.zig");
 
 pub const IdtFrame = extern struct {
-    ip: u64,
-    cs: u64,
-    flags: u64,
-    sp: u64,
-    ss: u64,
+	ip: u64,
+	cs: u64,
+	flags: u64,
+	sp: u64,
+	ss: u64,
 	pub fn format(
-            self: IdtFrame,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            _ = fmt;
-            _ = options;
-            try writer.print("IdtFrame{{ .ip = 0x{X}, .cs = 0x{X}, .flags = 0x{X}, sp = 0x{X}, .ss = 0x{X} }}", .{
-                self.ip,
-                self.cs,
+			self: IdtFrame,
+			comptime fmt: []const u8,
+			options: std.fmt.FormatOptions,
+			writer: anytype,
+		) !void {
+			_ = fmt;
+			_ = options;
+			try writer.print("IdtFrame{{ .ip = 0x{X}, .cs = 0x{X}, .flags = 0x{X}, sp = 0x{X}, .ss = 0x{X} }}", .{
+				self.ip,
+				self.cs,
 				self.flags,
 				self.sp,
 				self.ss
-            });
-        }
+			});
+		}
 };
 
 const page_fault_ecode = packed struct {
@@ -73,45 +73,34 @@ fn send_msg_to_fault_handler(ecode: usize, param1: usize) void {
 }
 
 pub fn page_fault(frame: *IdtFrame, error_code: page_fault_ecode) callconv(.Interrupt) void {
-	var writer = serial.Serial.writer();
 	const cr2 = get_cr2();
-	_ = writer.print("Page fault: {}\n{}\nat address 0x{x} (IP: {x})", .{error_code, frame, cr2, frame.ip}) catch @panic("Could not write in page_fault handler");
+	std.log.err("Page fault: {}\n{}\nat address 0x{x} (IP: {x})", .{error_code, frame, cr2, frame.ip});
 	//main.hcf();
 	send_msg_to_fault_handler(0x14, cr2);
 }
 
 pub fn double_fault(frame: *IdtFrame, error_code: u64) callconv(.Interrupt) void {
-	var writer = serial.Serial.writer();
-	_ = writer.print("Double fault: {} {}", .{error_code, frame}) catch @panic("Could not write in double_fault handler");
+	std.log.err("Double fault: {} {}", .{error_code, frame});
 	main.hcf();
 }
-var spinlock = spin.SpinLock.init();
 pub fn general_protection_fault(frame: *IdtFrame, error_code: u64) callconv(.Interrupt) void {
-	spinlock.lock();
-	var writer = serial.Serial.writer();
-	_ = writer.print("General protection fault: {} {}\n", .{error_code, frame}) 
-		catch @panic("Could not write in general_protection_fault handler");
-	spinlock.unlock();
+	std.log.err("General protection fault: {} {}\n", .{error_code, frame});
 	//main.hcf();
 	send_msg_to_fault_handler(0xD, error_code);
 }
 
 pub fn generic_error_code(frame: *IdtFrame, error_code: u64) callconv(.Interrupt) void {
-	var writer = serial.Serial.writer();
-	_ = writer.print("Unknown exception: {} {}\n", .{error_code, frame}) 
-		catch @panic("Could not write in generic_error_code handler");
+	std.log.err("Unknown exception: {} {}\n", .{error_code, frame});
 	//main.hcf();
 	send_msg_to_fault_handler(255, error_code);
 }
 
 pub fn generic_error_generate(n: u32) fn(*IdtFrame) callconv(.Interrupt) void {
-    return struct {
-        fn handler(frame: *IdtFrame) callconv(.Interrupt) void {
-            var writer = serial.Serial.writer();
-            _ = writer.print("Unknown exception #{}: {}\n", .{ n, frame })
-                catch @panic("Could not write in generic_error_generate handler");
-            //main.hcf();
+	return struct {
+		fn handler(frame: *IdtFrame) callconv(.Interrupt) void {
+			std.log.err("Unknown exception #{}: {}\n", .{ n, frame });
+			//main.hcf();
 			send_msg_to_fault_handler(n, 0);
-        }
-    }.handler;
+		}
+	}.handler;
 }
