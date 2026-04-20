@@ -10,7 +10,6 @@ const pagemanager = @import("memory/pagemanager.zig");
 const log = @import("log.zig");
 const framemanager = @import("memory/physicalalloc.zig");
 const kmm = @import("memory/kmm.zig");
-const acpi = @import("arch/x86_64/acpi/acpimanager.zig");
 const pic = @import("arch/x86_64/controllers/pic.zig");
 const lapic = @import("arch/x86_64/controllers/lapic.zig");
 const pit = @import("arch/x86_64/timers/pit.zig");
@@ -37,7 +36,6 @@ const pca = @import("ipc/portchunkalloc.zig");
 const sysc = @import("syscalls/syscall_setup.zig");
 const ips = @import("ipc/ipcfn.zig");
 const port = @import("ipc/port.zig");
-const cpui = @import("arch/x86_64/cpuid.zig");
 const iport = @import("interrupts/iporttable.zig");
 const ppt = @import("memory/per_process_table.zig");
 const asa = @import("memory/addrspacealloc.zig");
@@ -46,14 +44,30 @@ const ld = @import("exec/loadmod.zig");
 const cp = @import("exec/createproc.zig");
 const mmap = @import("exec/mmap.zig");
 const as = @import("memory/addrspace.zig");
+const builtin = @import("builtin");
+
+pub const setup_mycpuid = switch(builtin.cpu.arch) {
+	.x86_64 => @import("arch/x86_64/cpu/mycpuid.zig").setup_mycpuid,
+	else => unreachable
+};
+
+pub const mycpuid = switch(builtin.cpu.arch) {
+	.x86_64 => @import("arch/x86_64/cpu/mycpuid.zig").mycpuid,
+	else => unreachable
+};
+
+pub const cpuid_t = switch(builtin.cpu.arch) {
+	.x86_64 => @import("arch/x86_64/cpu/mycpuid.zig").cpuid_t,
+	else => unreachable
+};
 
 extern const KERNEL_VMA: u8;
 extern const virt_kernel_start: u8;
 extern const virt_kernel_end: u8;
 
 pub const std_options: std.Options = .{
-	// Set the log level to debug
-	.log_level = .debug,
+	// Set the log level. Lower log levels become no-ops
+	.log_level = .info,
 	.page_size_max = 1*1024*1024*1024,
 	// Define logFn to override the std implementation
 	.logFn = log.logfn,
@@ -65,7 +79,7 @@ pub fn hcf() noreturn {
 	}
 }
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, panic_addr: ?usize) noreturn {
-	std.log.err("Error: {s} at {x}", .{msg, panic_addr orelse 0});
+	std.log.err("KERNEL CALL TO PANIC: {s} at {x}", .{msg, panic_addr orelse 0});
 
 	if(error_return_trace) |trace| {
 		std.log.err("Stack trace:", .{});
@@ -92,13 +106,12 @@ const setup_error = error {
 var pagealloc: framemanager.PageFrameAllocator = undefined;
 var pm: pagemanager.PageManager = undefined;
 pub var km: kmm.KernelMemoryManager = undefined;
-var acpiman: acpi.ACPIManager = undefined;
 var picc: pic.PIC = undefined;
 var framebuffer: *limine.Framebuffer = undefined;
 var fb_ptr: [*]volatile u32 = undefined;
 
 var lock = spin.SpinLock.init();
-var mp_cores: u64 = undefined;
+pub var mp_cores: u64 = undefined;
 var ifd = std.atomic.Value(u32).init(0);
 var barrier1 = std.atomic.Value(bool).init(false);
 var barrier2 = std.atomic.Value(bool).init(false);
@@ -167,53 +180,8 @@ fn setup_local_apic_timer(pi: *pic.PIC, hhdm_offset: usize, cpuid: u64, is_bsp: 
 	return lapicc;
 }
 
-var supports_rdtscp: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
-var setup_complete: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
-var nsetups: std.atomic.Value(u32) = std.atomic.Value(u32).init(0);
-
 var physical_memory_manager_port = port.Port.init();
 
-pub fn setup_mycpuid() !void {
-	const id = mycpuid_lapic();
-	if(id == 0) {
-		const has_rdtscp = cpui.cpuid(0x80000001, 0);
-		supports_rdtscp.store((has_rdtscp.edx & (1 << 27)) != 0, .release);
-	}
-	if(supports_rdtscp.load(.acquire)) {
-		assm.write_msr(0xC0000103, id);
-	} else {
-		ppt.PerProcessTable.get_my_table().mycpuid = mycpuid();
-	}
-	const prev = nsetups.fetchAdd(1, .acq_rel);
-	if(prev == mp_cores - 1) {
-		setup_complete.store(true, .release);
-	}
-}
-
-pub fn mycpuid() u64 {
-	if(!setup_complete.load(.acquire)) return mycpuid_lapic();
-	return if(supports_rdtscp.load(.acquire)) mycpuid_rdtscp() else mycpuid_gs();
-}
-
-inline fn mycpuid_rdtscp() u32 {
-	return asm volatile (
-		\\rdtscp
-		\\lfence
-		: [aux]"={ecx}"(->u32)
-		:
-		: "rax", "rdx", "ecx", "memory"
-	);
-}
-
-pub fn mycpuid_lapic() u64 {
-	const lapic_base = lapic.lapic_physaddr();
-	const lapic_virt = lapic_base + km.hhdm_offset;
-	return lapic.LAPIC.get_cpuid(lapic_virt);
-}
-
-inline fn mycpuid_gs() u32 {
-	return @truncate(ppt.PerProcessTable.get_my_table().mycpuid);
-}
 
 fn on_priority_boost() void {
 	var sched = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid());
@@ -335,7 +303,6 @@ fn main() !void {
 	}
 	if(requests.rsdp_request.response) |rsdp_resp| {
 		try pm.map_4k(pm.root_table.?, rsdp_resp.address & ~(@as(u64, 0xFFF)), (rsdp_resp.address + offset) & ~(@as(u64, 0xFFF)), .{});
-		acpiman = try acpi.ACPIManager.init(rsdp_resp.revision, rsdp_resp.address + offset, offset, &km);
 	}
 	idt.set_enable_interrupts();
 	picc = pic.PIC.init();

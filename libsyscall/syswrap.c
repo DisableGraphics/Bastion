@@ -104,6 +104,18 @@ result_t sys_unblock_process(port_t dest) {
 	return sys_ipc_send(&msg);
 }
 
+result_t sys_start_process(port_t dest, void *fn, void *stack, tls_reg_t tls_registers) {
+	const ipc_message_t msg = {
+		.dest = dest,
+		.flags = IPC_FLAG_START_PROCESS,
+		.value0 = (size_t)fn,
+		.value1 = (size_t)stack,
+		.value2 = tls_registers.fs,
+		.value3 = tls_registers.gs
+	};
+	return sys_ipc_send(&msg);
+}
+
 // ------------- Interrupt Management ----------------
 result_t sys_fault_handler(port_t dest) {
 	const ipc_message_t msg = {

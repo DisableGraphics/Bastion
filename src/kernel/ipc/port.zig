@@ -1,6 +1,6 @@
 const tsk = @import("../scheduler/task.zig");
 const std = @import("std");
-const spin = @import("../sync/spinlock.zig");
+const spin = @import("../sync/ispinlock.zig");
 
 pub const Rights = struct {
 	pub const SEND = 1;
@@ -15,7 +15,7 @@ pub const Port = struct {
 	rights_mask: std.atomic.Value(u64) = std.atomic.Value(u64).init(Rights.SEND),
 	count: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
 	cpu_owner: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
-	lock: spin.SpinLock = spin.SpinLock.init(),
+	lock: spin.ISpinLock = spin.ISpinLock.init(),
 	target: ?*anyopaque = null,
 
 	send_head: ?*tsk.Task = null,
@@ -32,7 +32,7 @@ pub const Port = struct {
 			.rights_mask = std.atomic.Value(u64).init(Rights.SEND),
 			.count = std.atomic.Value(u32).init(0),
 			.cpu_owner = std.atomic.Value(u32).init(0),
-			.lock = spin.SpinLock.init(),
+			.lock = spin.ISpinLock.init(),
 			.target = null,
 			.send_head = null,
 			.send_tail = null,

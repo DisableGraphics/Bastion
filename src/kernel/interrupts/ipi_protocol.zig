@@ -27,6 +27,7 @@ pub const IPIProtocolMessageType = enum(u64) {
 	SCHEDULE,
 	TASK_LOAD_BALANCING_REQUEST,
 	TASK_LOAD_BALANCING_RESPONSE,
+	WAKE_TASK_IPC,
 	TASK_LOAD_BALANCING_RESPONSE_BLOCKED,
 
 	LAPIC_TIMER_SYNC_STAGE_1,
@@ -135,6 +136,16 @@ pub const IPIProtocolHandler = struct {
 						sch.add_task(task);
 					}
 				},
+				IPIProtocolMessageType.WAKE_TASK_IPC => {
+					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
+					if(p0 >= main.km.hhdm_offset) {
+						sch.lock();
+						const task: *tsk.Task = @ptrFromInt(p0);
+						task.cpu_owner = @truncate(mycpu);
+						sch.add_task_with_lock_held(task);
+						sch.schedule_to(task);
+					}
+				},
 				IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE_BLOCKED => {
 					const sch = schmn.SchedulerManager.get_scheduler_for_cpu(mycpu);
 					if(p0 >= main.km.hhdm_offset) {
@@ -161,7 +172,7 @@ pub const IPIProtocolHandler = struct {
 				},
 				IPIProtocolMessageType.FREE_IO_BITMAP => {
 					const buffer: *tss.io_bitmap_t = @ptrFromInt(p0);
-					ioa.IOBufferAllocator.free(buffer) catch |err| std.log.err("Error while freeing IO bitmap: {}", .{err});
+					ioa.IOBufferAllocator.free(buffer) catch |err| std.log.err("Error while freeing IO bitmap: {} {*}", .{err, buffer});
 				},
 				IPIProtocolMessageType.FREE_PORT => {
 					const p: *port.Port = @ptrFromInt(p0);

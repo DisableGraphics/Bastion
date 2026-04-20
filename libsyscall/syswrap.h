@@ -8,6 +8,12 @@
 extern "C" {
 #endif
 #include "ipc.h"
+#ifdef __amd64
+struct tls_reg {
+	size_t gs, fs;
+};
+#endif
+typedef struct tls_reg tls_reg_t;
 typedef int64_t ipc_transfer_t;
 typedef int64_t map_result_t;
 typedef int64_t result_t ;
@@ -28,6 +34,7 @@ result_t sys_bind_address_space(port_t port);
 result_t sys_wait_process(port_t port);
 result_t sys_unblock_process(port_t port);
 result_t sys_block_process(port_t port);
+result_t sys_start_process(port_t port, void* fn, void* stack, tls_reg_t tls_registers);
 
 // Interrupt management
 result_t sys_fault_handler(port_t port);

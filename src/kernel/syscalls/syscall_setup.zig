@@ -41,6 +41,8 @@ fn create_port(ptr: *ipcfn.ipc_msg.ipc_message_t) ret_t {
 	const prt = portalloc.PortAllocator.alloc();
 	if(prt) |p| {
 		p.* = port.Port.init();
+		p.owner.store(sch.current_process.?, .unordered);
+		p.rights_mask.store(port.Rights.RECV, .unordered);
 		const prtno = sch.current_process.?.add_port(p) catch ipcfn.ipc_msg.ENODEST;
 		ptr.value0 = @intCast(prtno);
 		return ipcfn.ipc_msg.EOK;
@@ -81,6 +83,7 @@ fn create_process(ptr: *ipcfn.ipc_msg.ipc_message_t) ret_t {
 					return ipcfn.ipc_msg.ENODEST;
 				};
 				p.owner.store(newtask.?, .seq_cst);
+				p.rights_mask.store(port.Rights.KILL | port.Rights.SEND | port.Rights.RECV | port.Rights.TRANSF, .seq_cst);
 				// Make sure that this new task port is 0
 				std.debug.assert(newtaskport == 0);
 
@@ -179,16 +182,19 @@ fn ack_interrupt() ret_t {
 }
 
 fn destroy_port(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
+	// Can't destroy the bootstrap port
+	if(ptr.dest == 0) return ipcfn.ipc_msg.ENOPERM;
 	ipcfn.port_close(schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid()).current_process.?, ptr.dest)
 		catch return ipcfn.ipc_msg.ENODEST;
 	return ipcfn.ipc_msg.EOK;
 }
 
 fn port_io(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
-	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
+	const mycpuid = main.mycpuid();
+	const sch = schman.SchedulerManager.get_scheduler_for_cpu(mycpuid);
 	const meself = sch.current_process.?;
 	if(meself.iopb_bitmap == null) {
-		meself.iopb_bitmap = iob.IOBufferAllocator.alloc() orelse return ipcfn.ipc_msg.ENODEST;
+		meself.add_io_buffer() catch return ipcfn.ipc_msg.ENODEST;
 		@memset(meself.iopb_bitmap.?, 0xFF);
 	}
 	if(ptr.value0 >= 65536) return ipcfn.ipc_msg.ENODEST;
@@ -202,6 +208,14 @@ fn port_io(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 }
 
 fn grant_rights(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
+	// Can't change permissions of the bootstrap port, or else some necessary things (killing, etc...) become impossible to do preemptively
+	// In a real OS this is unacceptable.
+	// You can't grant rights to a bootstrap port because of this:
+	// 1) Malicious process #1 (MP1) creates malicious process #2 (MP2)
+	// 2) MP1 grants its bootstrap port MODIF_RIGHTS permissions and sends it to MP2
+	// 3) MP2 sets the rights as NONE in MP1's bootstrap port
+	// 4) MP1 now is an unkillable rogue process.
+	if(ptr.dest == 0) return ipcfn.ipc_msg.ENOPERM;
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	const meself = sch.current_process.?;
 	const prt = meself.get_port(ptr.dest);
@@ -223,6 +237,9 @@ fn grant_rights(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 }
 
 fn revoke_rights(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
+	// Can't change permissions of the bootstrap port, or else some necessary things (killing, etc...) become impossible to do preemptively
+	// In a real OS this is unacceptable.
+	if(ptr.dest == 0) return ipcfn.ipc_msg.ENOPERM;
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	const meself = sch.current_process.?;
 	const prt = meself.get_port(ptr.dest);
@@ -564,10 +581,9 @@ fn share_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 	}
 }
 
-fn revoke_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
+fn revoke_page_range(ptr: *ipcfn.ipc_msg.ipc_message_t) ret_t {
 	if(!is_valid_mapping(ptr.value0)) return ipcfn.ipc_msg.EINVALOP;
 	if(ptr.page & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
-	if(ptr.value1 & (page.PAGE_SIZE-1) != 0) return ipcfn.ipc_msg.EINVALOP;
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	const meself = sch.current_process.?;
 	const prt = meself.get_port(ptr.dest);
@@ -588,21 +604,28 @@ fn revoke_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 					return ipcfn.ipc_msg.ENODEST;
 				}
 			}
+			var vaddr_dest: ?usize = null;
 			// Now transfer
 			for(0..ptr.npages) |i| {
 				const virtaddr_origin = ptr.page + i*page.PAGE_SIZE;
-				const virtaddr_dest = ptr.value1 + i*page.PAGE_SIZE;
 				const physaddr = main.km.pm.get_physaddr(owner.?.addr_space.?.cr3.?, virtaddr_origin) catch unreachable;
 				const physpage = pp.PhysicalPageManager.get(physaddr) orelse unreachable;
 				// Validated that page is not shared last step
 				physpage.grantor.owner = null;
+				const virtaddr_dest = physpage.grantor.vaddr;
 				physpage.set_owner(meself.addr_space.?, virtaddr_dest);
+				if(vaddr_dest == null) {
+					vaddr_dest = virtaddr_dest;
+				}
 
 				owner.?.addr_space.?.remove_mapping_4k(virtaddr_origin) catch unreachable;
 				meself.addr_space.?.add_mapping_4k(physaddr, virtaddr_dest, opts.o1, opts.o2, opts.o3, opts.o4) catch unreachable;
 			}
-			// Signal page transfer
-			return ipcfn.ipc_send(ptr);
+			// Signal page revoke
+			//return ipcfn.ipc_send(ptr);
+			ptr.value0 = vaddr_dest orelse 1;
+
+			return ipcfn.ipc_msg.EOK;
 		} else {
 			return ipcfn.ipc_msg.ENOPERM;
 		}
@@ -620,7 +643,6 @@ pub export fn syscall_handler_stage_1(
 	r9: u64,
 	rax: u64,
 ) callconv(.C) ret_t {
-	std.log.info("sys: {} {} {} {} {} {} {}", .{rax, rdi, rsi, rdx, r10, r8, r9});
 	switch(rax) {
 		// ipc_send
 		std.math.maxInt(u64) => {
@@ -647,7 +669,6 @@ pub export fn syscall_handler_stage_1(
 				ipcfn.ipc_msg.IPC_FLAG_MAP_PAGE => change_options(ptr),
 				ipcfn.ipc_msg.IPC_FLAG_GRANT_PAGE => transfer_page_range(ptr),
 				ipcfn.ipc_msg.IPC_FLAG_SHARE_PAGE => share_page_range(ptr),
-				ipcfn.ipc_msg.IPC_FLAG_REVOKE_PAGE => revoke_page_range(ptr),
 
 				else => ipcfn.ipc_msg.EINVALOP
 			};
@@ -661,6 +682,7 @@ pub export fn syscall_handler_stage_1(
 				ipcfn.ipc_msg.IPC_FLAG_CREATE_PORT => create_port(ptr),
 				ipcfn.ipc_msg.IPC_FLAG_CREATE_PROCESS => create_process(ptr),
 				ipcfn.ipc_msg.IPC_FLAG_WAIT_PROCESS => wait_for_process(ptr),
+				ipcfn.ipc_msg.IPC_FLAG_REVOKE_PAGE => revoke_page_range(ptr),
 				else => ipcfn.ipc_msg.EINVALOP
 			};
 		},
@@ -691,7 +713,6 @@ pub export fn syscall_handler_stage_1(
 		}
 	}
 }
-
 
 pub fn inner_transfer_page_range(ptr: *const ipcfn.ipc_msg.ipc_message_t, srcaddrspace: *as.AddressSpace) ret_t {
 	if(!is_valid_mapping(ptr.value0)) return ipcfn.ipc_msg.EINVALOP;

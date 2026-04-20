@@ -6,6 +6,7 @@ const page = @import("pagemanager.zig");
 const ma = @import("multialloc.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
 const main = @import("../main.zig");
+const spin = @import("../sync/spinlock.zig");
 
 pub const MappingNodeAllocator = ma.MultiAlloc(MappingNode, false, 1024); 
 
@@ -28,17 +29,21 @@ pub const PhysicalPage = struct {
 	},
 	grantor: OwnerData,
 	refcount: std.atomic.Value(u32),
+	lock: spin.SpinLock,
 
 	pub fn init() PhysicalPage {
 		return .{
 			.grantor = .{.owner = null, .vaddr = 0},
 			.mapping_data = .{.single = .{.owner = null, .vaddr = 0}},
-			.refcount = std.atomic.Value(u32).init(0)
+			.refcount = std.atomic.Value(u32).init(0),
+			.lock = spin.SpinLock.init()
 		};
 	}
 
 	pub fn is_in_addr_space(self: *PhysicalPage, ad: *addrspac.AddressSpace) bool {
 		const s = self.refcount.load(.acquire);
+		self.lock.lock();
+		defer self.lock.unlock();
 		if(s == 1) {
 			return ad == self.mapping_data.single.owner;
 		} else if(s > 1) {
@@ -54,6 +59,8 @@ pub const PhysicalPage = struct {
 	}
 
 	pub fn add_addr_space(self: *PhysicalPage, ad: *addrspac.AddressSpace, vpn: usize) !void {
+		self.lock.lock();
+		defer self.lock.unlock();
 		const s = self.refcount.fetchAdd(1, .acq_rel);
 		if(s == 0) {
 			self.mapping_data.single.owner = ad;
@@ -110,6 +117,8 @@ pub const PhysicalPage = struct {
 
 	pub fn remove_addr_space(self: *PhysicalPage, ad: *addrspac.AddressSpace) ?struct {
 		nentries: usize, virtaddr: usize} {
+		self.lock.lock();
+		defer self.lock.unlock();
 		const r = self.refcount.load(.acquire);
 		if(r == 1) {
 			if(self.mapping_data.single.owner == ad) {
@@ -177,6 +186,8 @@ pub const PhysicalPage = struct {
 	}
 
 	pub fn set_owner(self: *PhysicalPage, ad: *addrspac.AddressSpace, vdn: usize) void {
+		self.lock.lock();
+		defer self.lock.unlock();
 		const v = self.refcount.load(.acquire);
 		std.debug.assert(v == 0 or v == 1);
 		self.mapping_data.single.owner = ad;
@@ -184,6 +195,8 @@ pub const PhysicalPage = struct {
 	}
 
 	pub fn set_grantor(self: *PhysicalPage, ad: *addrspac.AddressSpace, vdn: usize) void {
+		self.lock.lock();
+		defer self.lock.unlock();
 		self.grantor = OwnerData{.owner = ad, .vaddr = vdn};
 	}
 };

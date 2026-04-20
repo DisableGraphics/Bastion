@@ -15,9 +15,9 @@ extern "C" {
 #define CMD_ALLOC_REQUEST 1
 // Request to free 1 page
 #define CMD_FREE_REQUEST 2
-// Request to allocate a range of n pages
+// Request to allocate a range of n pages (contiguous)
 #define CMD_ALLOC_RANGE_REQUEST 3
-// Request to free a range of n pages
+// Request to free a range of n pages (contiguous)
 #define CMD_FREE_RANGE_REQUEST 4
 //// Responses
 // Ok
@@ -36,6 +36,10 @@ extern "C" {
 // Request to map device memory
 #define CMD_DEV_REQUEST 1025
 //// Responses (Same as the constants)
+
+inline int is_valid_command_number(unsigned cmd) {
+	return (cmd > 0 && cmd <= 4) || (cmd >= 1024 && cmd <= 1025);
+}
 
 #ifdef __cplusplus
 }

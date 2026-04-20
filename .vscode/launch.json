@@ -34,7 +34,6 @@
 					"description": "Add module symbols",
 					"text": "add-symbol-file ${workspaceFolder}/core/mmanager/bitmapmm/zig-out/bin/bitmapmm 0x800000"
 				}
-
 			],
 			"preLaunchTask": "Launch QEMU"
 		}

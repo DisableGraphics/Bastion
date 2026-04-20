@@ -19,7 +19,7 @@ To configure the build, just run
 ```
 
 > [!WARNING]
-> Heads up: unless you know what you are doing, it is recommended to use the default configuration for the cfgmodules system.
+> Heads up: unless you know what you are doing, it is recommended to use the default configuration for the cfgmodules system. To do this, just press Escape.
 
 After selecting all necessary options (or just pressing Escape to end up with the recommended default configuration for x86_64 systems), you can proceed to compile the OS:
 

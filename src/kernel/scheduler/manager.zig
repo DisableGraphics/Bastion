@@ -15,7 +15,7 @@ pub const SchedulerManager = struct {
 		}
 	}
 
-	pub fn get_scheduler_for_cpu(cpuid: u64) *sch.Scheduler {
+	pub fn get_scheduler_for_cpu(cpuid: main.cpuid_t) *sch.Scheduler {
 		return &schedulers[cpuid];
 	}
 
@@ -31,5 +31,5 @@ pub export fn unlock_scheduler_from_context_switch() callconv(.C) void {
 	var sceh = SchedulerManager.get_scheduler_for_cpu(main.mycpuid());
 	sceh.has_transferred_ok.store(true, .seq_cst);
 	sceh.current_process.?.load_tls();
-	sceh.unlock();
+	sceh.unlock_without_enabling_int();
 }

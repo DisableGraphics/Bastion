@@ -95,10 +95,45 @@ pub fn generic_error_code(frame: *IdtFrame, error_code: u64) callconv(.Interrupt
 	send_msg_to_fault_handler(255, error_code);
 }
 
+const exception_table = [_][]const u8 {
+	"Division Error",
+	"Debug",
+	"Non-Maskable Interrupt",
+	"Breakpoint",
+	"Overflow",
+	"Bound Range Exceeded",
+	"Invalid Opcode",
+	"Device Not Available",
+	"Double Fault",
+	"Coprocessor Segment Overrun",
+	"Invalid TSS",
+	"Segment Not Present",
+	"Stack-Segment Fault",
+	"General Protection Fault",
+	"Page Fault",
+	"Reserved",
+	"x87 Floating-Point Exception",
+	"Alignment Check",
+	"Machine Check",
+	"SIMD Floating-Point Exception",
+	"Virtualization Exception",
+	"Control Protection Exception",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Hypervisor Injection Exception",
+	"VMM Communication Exception",
+	"Security Exception",
+	"Reserved",
+};
+
 pub fn generic_error_generate(n: u32) fn(*IdtFrame) callconv(.Interrupt) void {
 	return struct {
 		fn handler(frame: *IdtFrame) callconv(.Interrupt) void {
-			std.log.err("Unknown exception #{}: {}\n", .{ n, frame });
+			std.log.err("Unknown exception #{} ({s}): {}\n", .{ n, exception_table[n], frame });
 			//main.hcf();
 			send_msg_to_fault_handler(n, 0);
 		}

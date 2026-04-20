@@ -14,11 +14,11 @@ const spin = @import("../sync/spinlock.zig");
 
 fn wake_task(task: *tsk.Task, sch: ?*sched.Scheduler, cpuid: u32) void {
 	if(task.cpu_owner == cpuid) {
-		if(sch != null) {
-			sch.?.add_task_to_list(task, &sch.?.queues[0]);
+		if(sch) |s| {
+			s.add_task_with_lock_held(task);
 		} else {
 			var s = schman.SchedulerManager.get_scheduler_for_cpu(cpuid);
-			s.add_task_to_list(task, &s.queues[0]);
+			s.add_task_with_lock_held(task);
 		}
 	} else {
 		// Interrupt thread task -> can't be scheduled
@@ -29,9 +29,20 @@ fn wake_task(task: *tsk.Task, sch: ?*sched.Scheduler, cpuid: u32) void {
 		}
 		ipi.IPIProtocolHandler.send_ipi(task.cpu_owner, 
 			ipi.IPIProtocolPayload.init_with_data(
-			ipi.IPIProtocolMessageType.TASK_LOAD_BALANCING_RESPONSE, 
+			ipi.IPIProtocolMessageType.WAKE_TASK_IPC, 
 			@intFromPtr(task), 0, 0)
 		);
+	}
+}
+
+fn start_task(task: *tsk.Task, sch: ?*sched.Scheduler, cpuid: u32) void {
+	if(task.cpu_owner == cpuid) {
+		if(sch) |s| {
+			s.schedule_to(task);
+		} else {
+			var s = schman.SchedulerManager.get_scheduler_for_cpu(cpuid);
+			s.schedule_to(task);
+		}
 	}
 }
 
@@ -74,9 +85,9 @@ fn wake_all(prt: *port.Port, sch: *sched.Scheduler, cpuid: u32) void {
 
 pub fn port_close(task: *tsk.Task, prt: i16) !void {
 	const ptr = task.close_port(prt) orelse return error.NOT_FOUND;
-	ptr.lock.lock();
+	const flags = ptr.lock.lock();
 	const mycpuid = main.mycpuid();
-	defer ptr.lock.unlock();
+	defer ptr.lock.unlock(flags);
 	if(ptr.owner.load(.acquire) == task) {
 		ptr.owner.store(null, .release);
 		wake_all(ptr, schman.SchedulerManager.get_scheduler_for_cpu(mycpuid), @truncate(mycpuid));
@@ -108,62 +119,65 @@ pub fn ipc_send(msg: ?*const ipc_msg.ipc_message_t) i32 {
 	if (msg == null) {
 		return ipc_msg.EINVALMSG;
 	}
-	const m = msg.?;
 	
+	const m = msg.?;
 	const dest_port = m.dest;
-	const src_port = m.source;
 	const mycpu = main.mycpuid();
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(mycpu);
-	sch.lock();
-	const this = sch.current_process.?;
-	const srcport = this.get_port(src_port);
-	const dstport = this.get_port(dest_port);
+	const init_flags = assm.irqdisable();
 
-	dstport.?.lock.lock();
-	if(srcport == null or dstport == null) {
-		sch.unlock();
+	const this = sch.current_process.?;
+	const dstport = this.get_port(dest_port);
+	if(dstport == null) {
+		assm.irqrestore(init_flags);
 		return ipc_msg.ENODEST;
 	}
-	// permissions correct
-	const src_owner = dstport.?.owner.load(.acquire);
-	const dst_rights = dstport.?.rights_mask.load(.acquire);
+	assm.irqrestore(init_flags);
+	const flags = dstport.?.lock.lock();
 
-	const can_send = (this == src_owner) or ((dst_rights & port.Rights.SEND) != 0);
+	// Permission check
+	const owner = dstport.?.owner.load(.acquire);
+	const dst_rights = dstport.?.rights_mask.load(.acquire);
+	const can_send = (this == owner) or ((dst_rights & port.Rights.SEND) != 0);
 	if(!can_send) {
-		dstport.?.lock.unlock();
-		sch.unlock();
+		dstport.?.lock.unlock(flags);
 		return ipc_msg.ENOPERM;
 	}
 	
 	const q = dstport.?.dequeueReceiver();
 	var retvalue = ipc_msg.EOK;
-	if(q) |wr| {
+	if(q) |receiver| {
 		if(m.flags & ipc_msg.IPC_FLAG_TRANSFER_PORT != 0) {
-			const v = port_copy(srcport.?, this, wr);
+			const src_port = m.source;
+			const srcport = this.get_port(src_port);
+			if(srcport == null) {
+				dstport.?.lock.unlock(flags);
+				return ipc_msg.ENODEST;
+			}
+			const v = port_copy(srcport.?, this, receiver);
 			if(v) |portval| {
-				wr.receive_msg.?.source = portval;
+				receiver.receive_msg.?.source = portval;
 			} else |_| {
 				retvalue = ipc_msg.ENOPERM;
 			}
 		}
-		transfer_message(m, wr.receive_msg.?);
-		wake_task(wr, sch, @truncate(mycpu));
-		dstport.?.lock.unlock();
-		sch.unlock();
+		transfer_message(m, receiver.receive_msg.?);
+		wake_task(receiver, sch, @truncate(mycpu));
+		dstport.?.lock.unlock(flags);
+		start_task(receiver, sch, @truncate(mycpu));
 		return retvalue;
 	} else {
 		if(msg.?.flags & ipc_msg.IPC_FLAG_NONBLOCKING == 0) {
 			this.send_msg = m;
 			sch.remove_task_from_list(this, this.current_queue.?);
 			dstport.?.enqueueSender(this);
-			dstport.?.lock.unlock();
+			dstport.?.lock.unlock(flags);
 			sch.schedule_with_lock_held(false);
 			if(dstport.?.owner.load(.acquire) == null) {
 				retvalue = ipc_msg.ENOOWN;
 			}
 		} else {
-			dstport.?.lock.unlock();
-			sch.unlock();
+			dstport.?.lock.unlock(flags);
 			retvalue = ipc_msg.ENODEST;
 		}
 		
@@ -177,30 +191,30 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 	}
 
 	const m = msg.?;
-	const recv_port_id = m.dest;
+	const dest_port = m.dest;
 	const mycpu = main.mycpuid();
 	const sch = schman.SchedulerManager.get_scheduler_for_cpu(mycpu);
-	sch.lock();
+	const init_flags = assm.irqdisable();
 
 	const this = sch.current_process.?;
-	const recv_port = this.get_port(recv_port_id);
-	if (recv_port == null) {
-		sch.unlock();
+	const dstport = this.get_port(dest_port);
+	if (dstport == null) {
+		assm.irqrestore(init_flags);
 		return ipc_msg.ENODEST;
 	}
-	const flags = irq_lock(&recv_port.?.lock);
+	assm.irqrestore(init_flags);
+	const flags = dstport.?.lock.lock();
 
 	// Permission check
-	const owner = recv_port.?.owner.load(.acquire);
-	const rights = recv_port.?.rights_mask.load(.acquire);
+	const owner = dstport.?.owner.load(.acquire);
+	const rights = dstport.?.rights_mask.load(.acquire);
 	const can_recv = (this == owner) or ((rights & port.Rights.RECV) != 0);
 	if (!can_recv) {
-		irq_unlock(&recv_port.?.lock, flags);
-		sch.unlock();
+		dstport.?.lock.unlock(flags);
 		return ipc_msg.ENOPERM;
 	}
 	
-	const q = recv_port.?.dequeueSender();
+	const q = dstport.?.dequeueSender();
 	var retvalue = ipc_msg.EOK;
 	if (q) |sender| {
 		if(sender.send_msg.?.flags & ipc_msg.IPC_FLAG_TRANSFER_PORT != 0) {
@@ -218,59 +232,47 @@ pub fn ipc_recv(msg: ?*ipc_msg.ipc_message_t) i32 {
 		}
 		transfer_message(sender.send_msg.?, m);
 		wake_task(sender, sch, @truncate(mycpu));
-		irq_unlock(&recv_port.?.lock, flags);
-		sch.unlock();
-		
+		dstport.?.lock.unlock(flags);
+		start_task(sender, sch, @truncate(mycpu));
 		return retvalue;
 	} else {
 		if(msg.?.flags & ipc_msg.IPC_FLAG_NONBLOCKING == 0) {
 			this.receive_msg = msg;
 			sch.remove_task_from_list(this, this.current_queue.?);
-			recv_port.?.enqueueReceiver(this);
-			irq_unlock(&recv_port.?.lock, flags);
+			dstport.?.enqueueReceiver(this);
+			dstport.?.lock.unlock(flags);
 			sch.schedule_with_lock_held(false);
-			if(recv_port.?.owner.load(.acquire) == null) {
+			if(dstport.?.owner.load(.acquire) == null) {
 				retvalue = ipc_msg.ENOOWN;
 			}
 		} else {
-			irq_unlock(&recv_port.?.lock, flags);
-			sch.unlock();
+			dstport.?.lock.unlock(flags);
 			retvalue = ipc_msg.ENODEST;
 		}
 		return retvalue;
 	}
 }
 
-fn irq_lock(lock: *spin.SpinLock) usize {
-	const flags = assm.irqdisable();
-	lock.lock();
-	return flags;
-}
-
-fn irq_unlock(lock: *spin.SpinLock, flags: usize) void {
-	lock.unlock();
-	assm.irqrestore(flags);
-}
-
 pub fn ipc_send_from_irq(msg: ipc_msg.ipc_message_t, this: *tsk.Task) i32 {
 	const dest_port = msg.dest;
 	const dstport = this.get_port(dest_port);
-	const flags = irq_lock(&dstport.?.lock);
 	if(dstport == null) {
 		return ipc_msg.ENODEST;
 	}
+	const flags = dstport.?.lock.lock();
 	// As I'm an interrupt thread I don't need permission checks and most fluff 
 	const q = dstport.?.dequeueReceiver();
 	const retvalue = ipc_msg.EOK;
 	if(q) |wr| {
 		transfer_message(&msg, wr.receive_msg.?);
 		wake_task(wr, null, @truncate(main.mycpuid()));
-		irq_unlock(&dstport.?.lock, flags);
+		dstport.?.lock.unlock(flags);
+		start_task(wr, null, @truncate(main.mycpuid()));
 		return retvalue;
 	} else {
 		this.send_msg = &msg;
 		dstport.?.enqueueSender(this);
-		irq_unlock(&dstport.?.lock, flags);
+		dstport.?.lock.unlock(flags);
 		return retvalue;
 	}
 }

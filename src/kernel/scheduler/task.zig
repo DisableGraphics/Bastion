@@ -29,20 +29,13 @@ pub const TaskStatus = enum(u8) {
 	STARTING
 };
 
-pub const tls_registers_x86_64 = extern struct {
-	fs: u64 = 0,
-	gs: u64 = 0,
-
-	pub fn init(value1: u64, value2: u64) tls_registers_x86_64 {
-		return .{
-			.fs = value1,
-			.gs = value2
-		};
-	}
+pub const registers = switch (builtin.cpu.arch) {
+	.x86_64 => @import("../arch/x86_64/task/reg.zig").registers,
+	else => unreachable
 };
 
 pub const tls_registers = switch (builtin.cpu.arch) {
-	.x86_64 => tls_registers_x86_64,
+	.x86_64 => @import("../arch/x86_64/task/tls.zig").tls_registers,
 	else => unreachable
 };
 
@@ -55,6 +48,7 @@ pub const Task = extern struct {
 	stack: *anyopaque,
 	root_page_table: ?*page.page_table_type,
 	kernel_stack: *sa.KernelStack,
+	reg: registers,
 	// You can change from here onwards
 	ports: [N_PORTS]?*port.Port = [_]?*port.Port{null} ** N_PORTS,
 	port_chunks: [N_PORT_CHUNKS]?*portchunk.port_chunk = [_]?*portchunk.port_chunk{null} ** N_PORT_CHUNKS,
@@ -85,31 +79,31 @@ pub const Task = extern struct {
 	state: TaskStatus,
 
 	pub fn format(
-            self: @This(),
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            _ = fmt;
-            _ = options;
-            try writer.print("{}{{" ++ 
-				".stack = {x}, " ++
-				".root_page_table = {x}, " ++
-				".kernel_stack = {x}, " ++ 
-				".kernel_stack_top = {x}, " ++
-				".next = {x}, " ++ 
-				".prev = {x}, " ++ 
-				".state = {s} }}", .{
-				@This(),
-               	@intFromPtr(self.stack),
-               	@intFromPtr(self.root_page_table),
-				@intFromPtr(self.kernel_stack),
-				@intFromPtr(self.kernel_stack_top),
-				@intFromPtr(self.next),
-				@intFromPtr(self.prev),
-				@tagName(self.state)
-            });
-        }
+		self: @This(),
+		comptime fmt: []const u8,
+		options: std.fmt.FormatOptions,
+		writer: anytype,
+	) !void {
+		_ = fmt;
+		_ = options;
+		try writer.print("{}{{" ++ 
+			".stack = {x}, " ++
+			".root_page_table = {x}, " ++
+			".kernel_stack = {x}, " ++ 
+			".kernel_stack_top = {x}, " ++
+			".next = {x}, " ++ 
+			".prev = {x}, " ++ 
+			".state = {s} }}", .{
+			@This(),
+			@intFromPtr(self.stack),
+			@intFromPtr(self.root_page_table),
+			@intFromPtr(self.kernel_stack),
+			@intFromPtr(self.kernel_stack_top),
+			@intFromPtr(self.next),
+			@intFromPtr(self.prev),
+			@tagName(self.state)
+		});
+	}
 
 	pub fn init_kernel_task(
 		func: *const fn() void,
@@ -118,9 +112,12 @@ pub const Task = extern struct {
 	) Task {
 
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(kernel_stack) + @sizeOf(sa.KernelStack));
-		stack_p = stack_p - 10;
-		stack_p[7] = @intFromPtr(func);
-		stack_p[0] = 0x202;
+		//stack_p = stack_p - 10;
+		//stack_p[7] = @intFromPtr(func);
+		//stack_p[0] = 0x202;
+		stack_p = stack_p - 1;
+		stack_p[0] = @intFromPtr(func);
+		const reg = registers.init(0x202);
 		return .{
 			.stack = @ptrCast(stack_p),
 			.kernel_stack = @ptrCast(stack_p),
@@ -134,7 +131,7 @@ pub const Task = extern struct {
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
-			
+			.reg = reg
 		};
 	}
 
@@ -147,13 +144,14 @@ pub const Task = extern struct {
 			.stack = @ptrCast(kernel_stack),
 			.kernel_stack = @ptrCast(kernel_stack),
 			.root_page_table = null,
+			.reg = registers.init(0),
 			.next = null,
 			.prev = null,
 			.state = TaskStatus.READY,
 			.kernel_stack_top = @ptrCast(kernel_stack),
 			.deinitfn = deinit_kernel_task,
 			.current_queue = null,
-			.is_pinned = true,
+			.is_pinned = false,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
 			.addr_space = addr_space
@@ -163,14 +161,14 @@ pub const Task = extern struct {
 	pub fn start_user_task(self: *Task, ip: *anyopaque, sp: *anyopaque, tls: tls_registers) !void {
 		var stack_p: [*]usize = @ptrFromInt(@intFromPtr(self.kernel_stack) + @sizeOf(sa.KernelStack));
 		self.root_page_table = @ptrFromInt(try main.km.pm.get_physaddr(self.addr_space.?.cr3.?, @intFromPtr(self.addr_space.?.cr3)));
-		stack_p = stack_p - 11;
-		stack_p[7] = @intFromPtr(&jump_to_ring3);
-		stack_p[2] = @intFromPtr(sp);
-		stack_p[1] = @intFromPtr(ip);
-		stack_p[0] = 0x202;
+		stack_p = stack_p - 1;
+		stack_p[0] = @intFromPtr(&jump_to_ring3);
 		self.stack = @ptrCast(stack_p);
 		self.kernel_stack = @ptrCast(stack_p);
 		self.tls = tls;
+		self.reg = registers.init(0);
+		self.reg.r15 = @intFromPtr(ip);
+		self.reg.r14 = @intFromPtr(sp);
 	}
 
 	pub fn init_idle_task(
@@ -189,10 +187,11 @@ pub const Task = extern struct {
 			.current_queue = null,
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
-			.cpu_owner = @truncate(main.mycpuid())
+			.cpu_owner = @truncate(main.mycpuid()),
+			.reg = registers.init(0x202)
 		};
 	}
-
+	// Note that these aren't even scheduled so no reg values
 	pub fn init_ipc_interrupt_task() Task {
 		return .{
 			.stack = @ptrFromInt(16),
@@ -208,7 +207,8 @@ pub const Task = extern struct {
 			.iopb_bitmap = null,
 			.is_pinned = true,
 			.cpu_created_on = std.math.maxInt(u32),
-			.cpu_owner = std.math.maxInt(u32)
+			.cpu_owner = std.math.maxInt(u32),
+			.reg = registers.init(0)
 		};
 	}
 
@@ -245,7 +245,7 @@ pub const Task = extern struct {
 		if(self.iopb_bitmap != null and self.iopb_bitmap_created_on == mycpu) {
 			std.log.info("Destroying IO buffer for task task {}", .{self});
 			ioa.IOBufferAllocator.free(self.iopb_bitmap.?) catch |err| {
-				std.log.err("Could not free IO bitmap for kernel task: {}", .{self});
+				std.log.err("Could not free IO bitmap {*} for kernel task: {}", .{self.iopb_bitmap, self});
 				std.log.err("Error: {}", .{err});
 			};
 		} else if(self.iopb_bitmap != null) {
@@ -273,8 +273,9 @@ pub const Task = extern struct {
 				std.log.err("Could not free kernel stack for kernel task: {}", .{self});
 				std.log.err("Error: {}", .{err});
 			};
-			ta.TaskAllocator.free(self) catch |err| std.log.err("Error while freeing task: {}", .{err});
+			ta.TaskAllocator.free(self) catch |err| std.log.err("Error while freeing task: {} {}", .{err, self});
 		} else {
+			std.log.info("From CPU #{} to CPU #{}", .{self.cpu_created_on, mycpu});
 			ipi.IPIProtocolHandler.send_ipi(@truncate(self.cpu_created_on), ipi.IPIProtocolPayload.init_with_data(
 				ipi.IPIProtocolMessageType.FREE_TASK,
 				@intFromPtr(self),
@@ -324,7 +325,7 @@ pub const Task = extern struct {
 			for(0..self.port_chunks[n].?.len) |i| {
 				if(self.port_chunks[n].?[i] == null) {
 					self.port_chunks[n].?[i] = prt;
-					const res = self.ports.len + (n - 1) * self.port_chunks.len + i;
+					const res = self.ports.len + (n * self.port_chunks.len) + i;
 					return @intCast(@as(u16, @truncate(res)));
 				}
 			}
@@ -363,20 +364,10 @@ pub const Task = extern struct {
 	}
 
 	pub fn save_tls(self: *Task) void {
-		if(builtin.cpu.arch == .x86_64) {
-			const fsbase = 0xC0000100;
-			const gsbase = 0xC0000101;
-			self.tls.fs = assm.read_msr(fsbase);
-			self.tls.gs = assm.read_msr(gsbase);
-		}
+		self.tls.save();
 	}
 
 	pub fn load_tls(self: *Task) void {
-		if(builtin.cpu.arch == .x86_64) {
-			const fsbase = 0xC0000100;
-			const gsbase = 0xC0000101;
-			assm.write_msr(fsbase, self.tls.fs);
-			assm.write_msr(gsbase, self.tls.gs);
-		}
+		self.tls.load();
 	}
 };

@@ -34,9 +34,9 @@ pub fn build(b: *std.Build) void {
 	// set a preferred release mode, allowing the user to decide how to optimize.
 	const optimize = b.standardOptimizeOption(.{.preferred_optimize_mode = .ReleaseSafe});
 
-	// We will also create a module for our other entry point, 'main.zig'.
+	// We will also create a module for our other entry point, 'mmain.zig'.
 	const exe_mod = b.createModule(.{
-		.root_source_file = b.path("src/main.zig"),
+		.root_source_file = b.path("src/mmain.zig"),
 		.optimize = optimize,
 		.target = target
 	});
@@ -50,11 +50,17 @@ pub fn build(b: *std.Build) void {
 	exe_mod.linkSystemLibrary("debug", .{.preferred_link_mode = .static});
 
 	const test_mod = b.createModule(.{
-		.root_source_file = b.path("src/main.zig"),
+		.root_source_file = b.path("src/mmain.zig"),
 		.optimize = optimize,
 		.target = host_target
 	});
 	test_mod.addIncludePath(b.path("../../../libsyscall"));
+	test_mod.addIncludePath(b.path("../"));
+	test_mod.addLibraryPath(b.path("../../../libsyscall/zig-out/lib/"));
+	test_mod.linkSystemLibrary("syscall", .{.preferred_link_mode = .static});
+	test_mod.linkSystemLibrary("ipc", .{.preferred_link_mode = .static});
+	test_mod.linkSystemLibrary("syswrap", .{.preferred_link_mode = .static});
+	test_mod.linkSystemLibrary("debug", .{.preferred_link_mode = .static});
 
 	// This creates another `std.Build.Step.Compile`, but this one builds an executable
 	// rather than a static library.

@@ -6,6 +6,7 @@ const pp = @import("physicalpage.zig");
 const ipcfn = @import("../ipc/ipcfn.zig");
 const syc = @import("../syscalls/syscall_setup.zig");
 const ipi = @import("../interrupts/ipi_protocol.zig");
+const spin = @import("../sync/spinlock.zig");
 
 const N_LEVELS_FOR_ALLOC = 4;
 
@@ -14,13 +15,15 @@ pub const AddressSpace = struct{
 	refcount: std.atomic.Value(u32),
 	pageman: *page.PageManager,
 	mycpu: u32,
+	lock: spin.SpinLock,
 
 	pub fn init(pman: *page.PageManager) @This() {
 		return .{
 			.cr3 = null,
 			.refcount = std.atomic.Value(u32).init(0),
 			.pageman = pman,
-			.mycpu = @truncate(main.mycpuid())
+			.mycpu = @truncate(main.mycpuid()),
+			.lock = spin.SpinLock.init()
 		};
 	}
 
@@ -62,6 +65,8 @@ pub const AddressSpace = struct{
 		opt3: page.pml3_t,
 		opt4: page.pml4_t
 	) !void {
+		self.lock.lock();
+		defer self.lock.unlock();
 		if(self.cr3 == null) {
 			self.cr3 = pa.PageTableAllocator.alloc() orelse return error.NO_SPACE_LEFT;
 			@memcpy(self.cr3.?, self.pageman.root_table.?);
@@ -86,11 +91,15 @@ pub const AddressSpace = struct{
 	}
 
 	pub fn remove_mapping_4k(self: *AddressSpace, virtaddr: usize) !void {
+		self.lock.lock();
+		defer self.lock.unlock();
 		if(self.cr3 == null) return;
 		try self.pageman.unmap(self.cr3.?, virtaddr);
 	}
 
 	pub fn get_physaddr(self: *AddressSpace, virtaddr: usize) ?usize {
+		self.lock.lock();
+		defer self.lock.unlock();
 		if(!self.pageman.is_mapped(self.cr3, virtaddr)) return null;
 		return self.pageman.get_physaddr(virtaddr) catch null;
 	}

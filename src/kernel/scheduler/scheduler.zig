@@ -8,18 +8,24 @@ const lb = @import("loadbalancer.zig");
 const main = @import("../main.zig");
 const fpu = @import("fpu_buffer_alloc.zig");
 const ppt = @import("../memory/per_process_table.zig");
+const assm = @import("../arch/x86_64/asm.zig");
 
 pub const queue_len = 4;
 pub const LOAD_AVG_TICK_SIZE = 256.0;
 const CONTEXT_SWITCH_TICKS = 20; // 20 ms between task switches
 
+// Switches the task currently running into next_task. Updates current_task pointer to point to next_task.
+// If current task has been deleted (current_task_deleted != 0) it doesn't save registers.
+// Also updates the per-process data with the correct info.
+// Also platform-dependent and usually written in assembly.
+// NOTE: this function unblocks the scheduler. 
 extern fn switch_task(
 	current_task: **task.Task,
 	next_task: *task.Task,
 	tss: *ts.tss_t,
 	current_task_deleted: u64,
 	ppt_t: *ppt.PerProcessData,
-	) callconv(.C) void;
+) callconv(.C) void;
 
 pub const scheduler_queue = struct {
 	head: ?*task.Task,
@@ -27,23 +33,93 @@ pub const scheduler_queue = struct {
 	fn init() @This() {
 		return .{.head = null, .count = std.atomic.Value(u32).init(0)};
 	}
+
+	fn insert_at_end(self: *@This(), tsk: *task.Task) void {
+		// Two cases: there is a node and no node
+		if(self.head != null) {
+			// Add at the end the list
+			var head = self.head.?;
+			var last = head.prev.?;
+			var data = tsk;
+			data.next = head;
+			data.prev = last;
+			head.prev = data;
+			last.next = data;
+		} else {
+			// Basically:
+			// - add the node
+			// - make the node point to itself
+			self.head = tsk;
+			self.head.?.next = self.head;
+			self.head.?.prev = self.head;
+		}
+		_ = self.count.fetchAdd(1, .acq_rel);
+		tsk.current_queue = self;
+	}
+
+	fn insert_at_start(self: *@This(), tsk: *task.Task) void {
+		// Two cases: there is a node and no node
+		if(self.head != null) {
+			// Add at the front of the list
+			var head = self.head.?;
+			var last = head.prev.?;
+			var data = tsk;
+			data.next = head;
+			data.prev = last;
+			head.prev = data;
+			last.next = data;
+			head = data;
+		} else {
+			// Basically:
+			// - add the node
+			// - make the node point to itself
+			self.head = tsk;
+			self.head.?.next = self.head;
+			self.head.?.prev = self.head;
+		}
+		_ = self.count.fetchAdd(1, .acq_rel);
+		tsk.current_queue = self;
+	}
+
+	fn remove(self: *@This(), tsk: *task.Task) void {
+		if(self.head) |proc| {
+			if(tsk.next.? == tsk and tsk.prev.? == tsk) { // Only one element in the list
+				self.head = null;
+			} else { // More than one element in the list
+				if(tsk == proc) {
+					self.head = tsk.next;
+				}
+				if (tsk.prev) |prev| {
+					prev.next = tsk.next;
+				}
+				if (tsk.next) |next| {
+					next.prev = tsk.prev;
+				}
+			}
+			tsk.next = null;
+			tsk.prev = null;
+			tsk.current_queue = null;
+			_ = self.count.fetchSub(1, .acq_rel);
+		}
+	}
 };
 // NOTE: ONE SCHEDULER PER CPU CORE
 // Note2: To ask any other core for anything else, look at the IPI protocol.
 pub const Scheduler = struct {
-	queues: [queue_len]scheduler_queue,
-	current_process: ?*task.Task,
-	blocked_tasks: scheduler_queue,
-	sleeping_tasks: scheduler_queue,
-	finished_tasks: scheduler_queue,
-	idle_task: ?*task.Task,
-	cleanup_task: ?*task.Task,
-	priority_boost_task: ?*task.Task,
-	cpu_tss: *ts.tss_t,
-	ntick: u32,
+	queues: [queue_len]scheduler_queue, // Queues to keep the pending tasks
+	current_process: ?*task.Task, // Current task that's running right now
+	blocked_tasks: scheduler_queue, // List of blocked tasks
+	sleeping_tasks: scheduler_queue, // List of sleeping tasks
+	finished_tasks: scheduler_queue, // List of finished tasks with cleanup pending
+	idle_task: ?*task.Task, // Idle task (might or might not be executing)
+	cleanup_task: ?*task.Task, // Cleanup task
+	priority_boost_task: ?*task.Task, // Priority boost task (every n ticks, boost priority of all the tasks in the queues)
+	cpu_tss: *ts.tss_t, // Pointer to the TSS in the current CPU
+	ntick: u32, // Tick counter that wraps
 	timerman: tm.TimerManager,
-	tick: u64,
-	has_transferred_ok: std.atomic.Value(bool),
+	tick: u64, // Actual tick counter
+	has_transferred_ok: std.atomic.Value(bool), // If a requested task has transferred correctly
+	flags: u64 = 0, // Flags to implement interrupt locking
 
 	pub fn init(cpu_tss: *ts.tss_t) Scheduler {
 		return .{
@@ -72,17 +148,31 @@ pub const Scheduler = struct {
 		return ret;
 	}
 
-	pub fn lock(_: *Scheduler) void {
-		idt.disable_interrupts();
+	pub fn lock(self: *Scheduler) void {
+		if(self.flags != 0) {
+			std.debug.panic("Tried to lock an already locked scheduler from {x} {x}", .{@returnAddress(), self.flags});
+		}
+		//idt.disable_interrupts();
+		self.flags = assm.irqdisable();
 	}
-	pub fn unlock(_: *Scheduler) void {
-		idt.enable_interrupts();
+	pub fn unlock_without_enabling_int(self: *Scheduler) void {
+		self.flags = 0;
+	}
+	pub fn unlock(self: *Scheduler) void {
+		//idt.enable_interrupts();
+		const flags = self.flags;
+		self.flags = 0;
+		assm.irqrestore(flags);
 	}
 	// Adds a new task
 	pub fn add_task(self: *Scheduler, tas: *task.Task) void {
 		self.lock();
 		self.add_task_to_list(tas, &self.queues[0]);
 		self.unlock();
+	}
+	// Adds a new task without cheking for the lock
+	pub fn add_task_with_lock_held(self: *Scheduler, tas: *task.Task) void {
+		self.add_task_to_list(tas, &self.queues[0]);
 	}
 	// Adds a new blocked task
 	pub fn add_blocked_task(self: *Scheduler, tas: *task.Task) void {
@@ -206,14 +296,17 @@ pub const Scheduler = struct {
 	pub fn sleep(self: *Scheduler, ms: u64, tsk: *task.Task) void {
 		self.lock();
 		self.timerman.new_timer(ms, tsk);
-		self.unlock();
-		self.block(tsk, task.TaskStatus.SLEEPING);
+		self.block_with_lock_held(tsk, task.TaskStatus.SLEEPING);
+		// If the destination isn't the task currently running in this scheduler
+		// then I don't need to schedule myself because there can only be 1 task
+		// running.
+		const should_schedule = tsk == self.current_process.?;
+		if(should_schedule) self.schedule_with_lock_held(false) else self.unlock();
 	}
 
 	pub fn on_irq_tick(self: *Scheduler) void {
-		idt.disable_interrupts();
-		self.timerman.on_tick(self) catch {};
 		self.lock();
+		self.timerman.on_tick(self) catch {};
 		self.ntick = (self.ntick + 1) % CONTEXT_SWITCH_TICKS;
 		self.tick += 1;
 		const should_schedule = self.ntick == 0;
@@ -226,24 +319,28 @@ pub const Scheduler = struct {
 		if(self.current_process != null) {
 			const t = self.next_task();
 			if(on_interrupt) self.move_task_down(self.current_process.?);
-			if(self.current_process == t) {
-				self.unlock();
-				return;
-			}
-			self.copy_iobitmap(t);
-			if(self.current_process.?.has_used_vector) fpu.save_fpu_buffer(self.current_process.?);
-			self.current_process.?.save_tls();
-			const mytable = ppt.PerProcessTable.get_my_table();
-			switch_task(
-				&self.current_process.?,
-				t,
-				self.cpu_tss,
-				@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED),
-				mytable);
+			self.schedule_to(t);
 		} else {
 			// switch_task unlocks the scheduler at the end
 			self.unlock();
 		}
+	}
+
+	pub fn schedule_to(self: *Scheduler, t: *task.Task) void {
+		if(self.current_process == t) {
+			self.unlock();
+			return;
+		}
+		self.copy_iobitmap(t);
+		if(self.current_process.?.has_used_vector) fpu.save_fpu_buffer(self.current_process.?);
+		self.current_process.?.save_tls();
+		const mytable = ppt.PerProcessTable.get_my_table();
+		switch_task(
+			&self.current_process.?,
+			t,
+			self.cpu_tss,
+			@intFromBool(self.current_process.?.state == task.TaskStatus.FINISHED),
+			mytable);
 	}
 
 	pub fn schedule(self: *Scheduler, on_interrupt: bool) void {
@@ -251,8 +348,7 @@ pub const Scheduler = struct {
 		self.schedule_with_lock_held(on_interrupt);
 	}
 
-	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
-		self.lock();
+	fn block_with_lock_held(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
 		// If it was unlocked, we need to move it to the correct list.
 		tsk.state = reason;
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and tsk != self.priority_boost_task) {
@@ -264,26 +360,37 @@ pub const Scheduler = struct {
 			};
 			self.add_task_to_list(tsk, list);
 		}
+	}
+
+	pub fn block(self: *Scheduler, tsk: *task.Task, reason: task.TaskStatus) void {
+		self.lock();
+		self.block_with_lock_held(tsk, reason);
+		// If the destination isn't the task currently running in this scheduler
+		// then I don't need to schedule myself because there can only be 1 task
+		// running.
 		const should_schedule = tsk == self.current_process.?;
 		if(should_schedule) self.schedule_with_lock_held(false) else self.unlock();
 	}
 
 	pub fn unblock_without_scheduling(self: *Scheduler, tsk: *task.Task) void {
-		self.lock();
+		std.log.debug("unblock_without_scheduling: {x}", .{@returnAddress()});
 		// If it was locked, we need to move it to the correct list.
 		// If it wasn't locked, this would be a no-op.
 		const was_locked = tsk.state != task.TaskStatus.READY;
 		tsk.state = task.TaskStatus.READY;
 		if(tsk != self.idle_task.? and tsk != self.cleanup_task.? and tsk != self.priority_boost_task and was_locked) {
 			// Move the task from
-			self.remove_task_from_list(tsk, tsk.current_queue.?);
+			if (tsk.current_queue) |q| {
+				self.remove_task_from_list(tsk, q);
+			}
 			self.add_task_to_list(tsk, &self.queues[0]);
 		}
-		self.unlock();
 	}
+	
 	pub fn unblock(self: *Scheduler, tsk: *task.Task) void {
-		self.unblock_without_scheduling(tsk);
+		std.log.debug("unblock: {x}", .{@returnAddress()});
 		self.lock();
+		self.unblock_without_scheduling(tsk);
 		const schedule_next = self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null;
 		if(schedule_next) self.schedule_with_lock_held(false) else self.unlock();
 	}
@@ -293,7 +400,9 @@ pub const Scheduler = struct {
 			self.unblock(self.cleanup_task.?);
 		}
 		// Mark the task as finished
-		self.block(tsk, task.TaskStatus.FINISHED);
+		self.block_with_lock_held(tsk, task.TaskStatus.FINISHED);
+		const should_schedule = tsk == self.current_process.?;
+		if(should_schedule) self.schedule_with_lock_held(false) else self.unlock();
 	}
 
 	fn remove(self: *Scheduler, tsk: *task.Task) void {
@@ -306,74 +415,17 @@ pub const Scheduler = struct {
 
 	pub fn add_task_to_list(self: *Scheduler, tas: *task.Task, list: *scheduler_queue) void {
 		_ = self;
-		// Two cases: there is a node and no node
-		if(list.head != null) {
-			// Add at the end the list
-			var head = list.head.?;
-			var last = head.prev.?;
-			var data = tas;
-			data.next = head;
-			data.prev = last;
-			head.prev = data;
-			last.next = data;
-		} else {
-			// Basically:
-			// - add the node
-			// - make the node point to itself
-			list.head = tas;
-			list.head.?.next = list.head;
-			list.head.?.prev = list.head;
-		}
-		_ = list.count.fetchAdd(1, .acq_rel);
-		tas.current_queue = list;
+		list.insert_at_end(tas);
 	}
 
 	pub fn add_task_to_front(self: *Scheduler, tas: *task.Task, list: *scheduler_queue) void {
 		_ = self;
-		// Two cases: there is a node and no node
-		if(list.head != null) {
-			// Add at the front of the list
-			var head = list.head.?;
-			var last = head.prev.?;
-			var data = tas;
-			data.next = head;
-			data.prev = last;
-			head.prev = data;
-			last.next = data;
-			head = data;
-		} else {
-			// Basically:
-			// - add the node
-			// - make the node point to itself
-			list.head = tas;
-			list.head.?.next = list.head;
-			list.head.?.prev = list.head;
-		}
-		_ = list.count.fetchAdd(1, .acq_rel);
-		tas.current_queue = list;
+		list.insert_at_start(tas);
 	}
 
 	pub fn remove_task_from_list(self: *Scheduler, tsk: *task.Task, list: *scheduler_queue) void {
 		_ = self;
-		if(list.head) |proc| {
-			if(tsk.next.? == tsk and tsk.prev.? == tsk) { // Only one element in the list
-				list.head = null;
-			} else { // More than one element in the list
-				if(tsk == proc) {
-					list.head = tsk.next;
-				}
-				if (tsk.prev) |prev| {
-					prev.next = tsk.next;
-				}
-				if (tsk.next) |next| {
-					next.prev = tsk.prev;
-				}
-			}
-			tsk.next = null;
-			tsk.prev = null;
-			tsk.current_queue = null;
-			_ = list.count.fetchSub(1, .acq_rel);
-		}
+		list.remove(tsk);
 	}
 
 	pub fn get_priority(self:* Scheduler, tsk: *task.Task) i8 {
@@ -386,7 +438,6 @@ pub const Scheduler = struct {
 		if(tsk.iopb_bitmap) |bitmap| {
 			@memcpy(&self.cpu_tss.io_bitmap, bitmap);
 			self.cpu_tss.iopb = @offsetOf(@TypeOf(self.cpu_tss.*), "io_bitmap");
-			std.log.info("CPU TSS: {}", .{self.cpu_tss.iopb});
 		} else {
 			self.cpu_tss.iopb = 65535;
 		}
