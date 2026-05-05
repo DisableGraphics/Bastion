@@ -62,7 +62,7 @@ fn create_process(ptr: *ipcfn.ipc_msg.ipc_message_t) ret_t {
 			const kernel_stack = kstackalloc.KernelStackAllocator.alloc();
 			if(kernel_stack) |k| {
 				p.* = port.Port.init();
-				_ = meself.addr_space.?.refcount.fetchAdd(1, .acq_rel);
+				meself.addr_space.?.open();
 				// Try to initialize the task, and if it fails, free everything.
 				newtask.?.* = task.Task.init_user_task(
 					k,
@@ -389,7 +389,7 @@ fn bind_addr_space(ptr: *const ipcfn.ipc_msg.ipc_message_t) ret_t {
 			if(p.target) |a| {
 				const addrspacec: *as.AddressSpace = @ptrCast(@alignCast(a));
 				owner.?.root_page_table = @ptrFromInt(@intFromPtr(addrspacec.cr3.?) - main.km.hhdm_offset);
-				_ = addrspacec.refcount.fetchAdd(1, .acq_rel);
+				addrspacec.open();
 				owner.?.addr_space = addrspacec;
 				return ipcfn.ipc_msg.EOK;
 			} else {

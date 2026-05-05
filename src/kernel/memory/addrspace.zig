@@ -179,6 +179,10 @@ pub const AddressSpace = struct{
 		}
 	}
 
+	pub fn open(self: *AddressSpace) void {
+		_ = self.refcount.fetchAdd(1, .acq_rel);
+	}
+
 	pub fn close(self: *AddressSpace) !void {
 		const val = self.refcount.fetchSub(1, .acq_rel);
 		if(val == 1) {

@@ -1,5 +1,10 @@
 const std = @import("std");
 
+pub const RegFlags = enum {
+	WITH_INTERRUPTS,
+	WITHOUT_INTERRUPTS
+};
+
 pub const registers = extern struct {
 	r15: u64,
 	r14: u64,
@@ -26,7 +31,11 @@ pub const registers = extern struct {
 			self.rflags
 		});
 	}
-	pub fn init(rflags: u64) registers {
+	pub fn init(rflags: RegFlags) registers {
+		const flags: u64 = switch (rflags) {
+			.WITH_INTERRUPTS => 0x202,
+			.WITHOUT_INTERRUPTS => 0x2
+		};
 		return registers{
 			.r15 = 0,
 			.r14 = 0,
@@ -34,7 +43,7 @@ pub const registers = extern struct {
 			.r12 = 0,
 			.rbp = 0,
 			.rbx = 0,
-			.rflags = rflags
+			.rflags = flags
 		};
 	}
 };

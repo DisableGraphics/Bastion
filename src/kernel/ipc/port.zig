@@ -44,6 +44,14 @@ pub const Port = struct {
 		};
 	}
 
+	pub fn addRefCount(self: *Port) void {
+		_ = self.count.fetchAdd(1, .acq_rel);
+	}
+
+	pub fn subRefCount(self: *Port) void {
+		_ = self.count.fetchSub(1, .acq_rel);
+	}
+
 	pub fn enqueueSender(self: *Port, task: *tsk.Task) void {
 		task.next = null;
 		task.prev = self.send_tail;

@@ -68,3 +68,12 @@ pub fn load_tss() void {
 		: "ax"
 	);
 }
+
+pub fn io_bitmap_on_task_switch(io_bitmap_src: ?*io_bitmap_t, tss_dst: *tss_t) void {
+	if(io_bitmap_src) |bitmap| {
+		@memcpy(&tss_dst.io_bitmap, bitmap);
+		tss_dst.iopb = @offsetOf(@TypeOf(tss_dst.*), "io_bitmap");
+	} else {
+		tss_dst.iopb = 65535;
+	}
+}

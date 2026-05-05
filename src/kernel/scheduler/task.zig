@@ -39,6 +39,11 @@ pub const tls_registers = switch (builtin.cpu.arch) {
 	else => unreachable
 };
 
+pub const RegFlags = switch (builtin.cpu.arch) {
+	.x86_64 => @import("../arch/x86_64/task/reg.zig").RegFlags,
+	else => unreachable
+};
+
 pub const KERNEL_STACK_SIZE = 16*1024;
 const N_PORTS = 4;
 const N_PORT_CHUNKS = 8;
@@ -117,7 +122,7 @@ pub const Task = extern struct {
 		//stack_p[0] = 0x202;
 		stack_p = stack_p - 1;
 		stack_p[0] = @intFromPtr(func);
-		const reg = registers.init(0x202);
+		const reg = registers.init(RegFlags.WITH_INTERRUPTS);
 		return .{
 			.stack = @ptrCast(stack_p),
 			.kernel_stack = @ptrCast(stack_p),
@@ -144,7 +149,7 @@ pub const Task = extern struct {
 			.stack = @ptrCast(kernel_stack),
 			.kernel_stack = @ptrCast(kernel_stack),
 			.root_page_table = null,
-			.reg = registers.init(0),
+			.reg = registers.init(RegFlags.WITHOUT_INTERRUPTS),
 			.next = null,
 			.prev = null,
 			.state = TaskStatus.READY,
@@ -166,7 +171,7 @@ pub const Task = extern struct {
 		self.stack = @ptrCast(stack_p);
 		self.kernel_stack = @ptrCast(stack_p);
 		self.tls = tls;
-		self.reg = registers.init(0);
+		// Without interrupts to help with the user task setup
 		self.reg.r15 = @intFromPtr(ip);
 		self.reg.r14 = @intFromPtr(sp);
 	}
@@ -188,7 +193,7 @@ pub const Task = extern struct {
 			.is_pinned = true,
 			.cpu_created_on = @truncate(main.mycpuid()),
 			.cpu_owner = @truncate(main.mycpuid()),
-			.reg = registers.init(0x202)
+			.reg = registers.init(RegFlags.WITH_INTERRUPTS)
 		};
 	}
 	// Note that these aren't even scheduled so no reg values
@@ -208,7 +213,7 @@ pub const Task = extern struct {
 			.is_pinned = true,
 			.cpu_created_on = std.math.maxInt(u32),
 			.cpu_owner = std.math.maxInt(u32),
-			.reg = registers.init(0)
+			.reg = registers.init(RegFlags.WITHOUT_INTERRUPTS)
 		};
 	}
 
@@ -287,30 +292,39 @@ pub const Task = extern struct {
 
 	pub fn close_port(self: *Task, pn: i16) ?*port.Port {
 		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
-		if(pn < 0 or pn > (N_PORTS + len)) return null;
+		if(pn < 0 or pn >= (N_PORTS + len)) return null;
 		if(pn < N_PORTS) {
 			const pn2: usize = @intCast(pn);
-			var prt = self.ports[pn2];
-			if(prt == null) return null;
-			self.ports[pn2] = null;
-			_ = prt.?.count.fetchSub(1, .seq_cst);
-			return prt.?;
+			const prt = self.ports[pn2];
+			if(prt) |p| {
+				self.ports[pn2] = null;
+				p.subRefCount();
+				return p;
+			} else {
+				return null;
+			}
+			
 		}
 
 		const pnr = pn - N_PORTS;
 		const port_zone: usize = @intCast(@divTrunc(pnr, len));
 		const port_no: usize = @intCast(@rem(pnr, len));
-		if(self.port_chunks[port_zone] == null) return null;
-		
-		var ptr = self.port_chunks[port_zone].?[port_no];
-		if(ptr == null) return null;
-		self.port_chunks[port_zone].?[port_no] = null;
-		_ = ptr.?.count.fetchSub(1, .seq_cst);
-		return ptr.?;
+		if(self.port_chunks[port_zone]) |pz| {
+			const ptr = pz[port_no];
+			if(ptr) |p| {
+				self.port_chunks[port_zone].?[port_no] = null;
+				p.subRefCount();
+				return p;
+			} else {
+				return null;
+			}
+		} else {
+			return null;
+		}
 	}
 
 	pub fn add_port(self: *Task, prt: *port.Port) !i16 {
-		_ = prt.count.fetchAdd(1, .acq_rel);
+		prt.addRefCount();
 		for(0..self.ports.len) |i| {
 			if(self.ports[i] == null) {
 				self.ports[i] = prt;
@@ -335,7 +349,7 @@ pub const Task = extern struct {
 
 	pub fn get_port(self: *Task, pn: i16) ?*port.Port {
 		const len = N_PORT_CHUNKS*@typeInfo(portchunk.port_chunk).array.len;
-		if(pn < 0 or pn > (N_PORTS + len)) return null;
+		if(pn < 0 or pn >= (N_PORTS + len)) return null;
 		if(pn < N_PORTS) {
 			const pn2: usize = @intCast(pn);
 			return self.ports[pn2];

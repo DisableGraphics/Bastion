@@ -247,7 +247,7 @@ fn test1() noreturn {
 		}
 		const at_end = rdtsc();
 		std.log.info("Cycles per IPC: {}", .{(at_end - at_start)/N_ITERS});
-		hcf();
+		std.log.info("Finished sending", .{});
 		_ = sys.sys_kill_process(0);
 		std.log.err("Process did not exit", .{});
 		hcf();
@@ -267,7 +267,7 @@ fn test2() noreturn {
 		_ = ipc.ipc.sys_ipc_recv(&msg);
 		std.debug.assert(msg.value0 == i+1);
 	}
-	hcf();
+	std.log.info("Finished receiving", .{});
 	_ = sys.sys_kill_process(0);
 	std.log.err("Process did not exit", .{});
 	hcf();

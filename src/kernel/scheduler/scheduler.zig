@@ -9,6 +9,7 @@ const main = @import("../main.zig");
 const fpu = @import("fpu_buffer_alloc.zig");
 const ppt = @import("../memory/per_process_table.zig");
 const assm = @import("../arch/x86_64/asm.zig");
+const log = @import("../log.zig");
 
 pub const queue_len = 4;
 pub const LOAD_AVG_TICK_SIZE = 256.0;
@@ -150,7 +151,7 @@ pub const Scheduler = struct {
 
 	pub fn lock(self: *Scheduler) void {
 		if(self.flags != 0) {
-			std.debug.panic("Tried to lock an already locked scheduler from {x} {x}", .{@returnAddress(), self.flags});
+			std.debug.panic("Tried to lock an already locked scheduler from (addr: {x}) (flags: {x}) (cpuid: {})", .{@returnAddress(), self.flags, main.mycpuid()});
 		}
 		//idt.disable_interrupts();
 		self.flags = assm.irqdisable();
@@ -394,10 +395,12 @@ pub const Scheduler = struct {
 		const schedule_next = self.current_process.? == self.idle_task.? or self.first_task_with_higher_priority(self.get_priority(self.current_process.?)) != null;
 		if(schedule_next) self.schedule_with_lock_held(false) else self.unlock();
 	}
+
 	pub fn exit(self: *Scheduler, tsk: *task.Task) void {
+		self.lock();
 		// Unblock the cleanup task to free the deleted task's resources
 		if(self.cleanup_task != null) {
-			self.unblock(self.cleanup_task.?);
+			self.unblock_without_scheduling(self.cleanup_task.?);
 		}
 		// Mark the task as finished
 		self.block_with_lock_held(tsk, task.TaskStatus.FINISHED);
@@ -435,11 +438,6 @@ pub const Scheduler = struct {
 	}
 
 	pub fn copy_iobitmap(self: *Scheduler, tsk: *task.Task) void {
-		if(tsk.iopb_bitmap) |bitmap| {
-			@memcpy(&self.cpu_tss.io_bitmap, bitmap);
-			self.cpu_tss.iopb = @offsetOf(@TypeOf(self.cpu_tss.*), "io_bitmap");
-		} else {
-			self.cpu_tss.iopb = 65535;
-		}
+		ts.io_bitmap_on_task_switch(tsk.iopb_bitmap, self.cpu_tss);
 	}
 };
